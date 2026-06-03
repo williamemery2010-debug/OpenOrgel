@@ -110,8 +110,12 @@ void loop() {
     // Stop is active only if BOTH its switch and the master switch are ON
     bool currentState = masterState && !digitalRead(singleStops[i].pin);
     
+    // 1. Check for a change (!=)
     if (currentState != singleStops[i].lastState) {
-      singleStops[i].lastState = currentState;
+      
+      // 2. Update the memory bank (=)
+      singleStops[i].lastState = currentState; 
+      
       sendStopState(singleStops[i].name, currentState);
       delay(10); // Tiny debounce delay
     }

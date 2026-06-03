@@ -10,8 +10,12 @@ import wave
 import concurrent.futures
 import serial
 from serial.tools import list_ports
+import os
+import hashlib
 
 SAMPLE_RATE = 44100
+CACHE_DIR = "organ_audio_cache"
+os.makedirs(CACHE_DIR, exist_ok=True)
 
 # Organ Stops Definitions
 STOPS = {
@@ -219,9 +223,15 @@ current_midi_file = None
 is_rendering = False
 render_requested = False
 global_a4_freq = 440.0
+global_active_stops = []
 
 def request_re_render():
-    global is_rendering, render_requested
+    global is_rendering, render_requested, global_active_stops
+    
+    # 1. Safely capture the active stops on the Tkinter main thread! 
+    # (Doing this inside the background thread causes silent Tkinter crashes)
+    global_active_stops = [stop for stop, var in stop_vars.items() if var.get()]
+    
     if is_playing and current_midi_file:
         if not is_rendering:
             is_rendering = True
@@ -276,12 +286,15 @@ def midi_to_freq(note):
 
 
 def load_and_play_midi():
-    global current_midi_file
+    global current_midi_file, global_active_stops
     file_path = filedialog.askopenfilename(filetypes=[("MIDI files", "*.mid *.midi")])
     if not file_path:
         return
 
     current_midi_file = file_path
+    
+    # Safely capture stops on main thread before passing to background worker
+    global_active_stops = [stop for stop, var in stop_vars.items() if var.get()]
 
     # Update UI to show processing state and prevent multiple clicks
     load_btn.config(state=tk.DISABLED, text="Synthesizing... Please Wait")
@@ -295,6 +308,7 @@ def load_and_play_midi():
     threading.Thread(target=_process_and_play, args=(file_path,), daemon=True).start()
 
 def export_to_wav():
+    global global_active_stops
     file_path = filedialog.askopenfilename(filetypes=[("MIDI files", "*.mid *.midi")])
     if not file_path:
         return
@@ -302,6 +316,9 @@ def export_to_wav():
     save_path = filedialog.asksaveasfilename(defaultextension=".wav", filetypes=[("WAV files", "*.wav")])
     if not save_path:
         return
+
+    # Safely capture stops on main thread
+    global_active_stops = [stop for stop, var in stop_vars.items() if var.get()]
 
     load_btn.config(state=tk.DISABLED)
     try:
@@ -329,7 +346,7 @@ def _generate_audio_buffer(file_path):
     if not events:
         return None, []
 
-    active_stops = [stop for stop, var in stop_vars.items() if var.get()]
+    active_stops = global_active_stops
 
     # --- Optimize: Find max duration per pitch ---
     note_max_durations = {}
@@ -351,8 +368,23 @@ def _generate_audio_buffer(file_path):
     tone_cache = {}
     
     def fetch_tone(freq_dur):
-        f, d = freq_dur
-        return f, generate_raw_tone(f, d, active_stops)
+        f, exact_d = freq_dur
+        # Round up to the nearest whole second to maximize cache-hits across different songs
+        cache_d = math.ceil(exact_d)
+        
+        # Create a unique, safe filename hash for this specific tone configuration
+        stop_str = ",".join(sorted(active_stops))
+        cache_key = hashlib.md5(f"{f}_{cache_d}_{stop_str}".encode()).hexdigest()
+        cache_path = os.path.join(CACHE_DIR, f"{cache_key}.npy")
+        
+        if os.path.exists(cache_path):
+            # Load from disk if we've rendered this note/duration/stop combination before!
+            return f, np.load(cache_path)
+            
+        # Otherwise, render it from scratch and save it to the hard drive forever
+        wave_data = generate_raw_tone(f, cache_d, active_stops)
+        np.save(cache_path, wave_data)
+        return f, wave_data
         
     with concurrent.futures.ThreadPoolExecutor() as executor:
         for f, wave_data in executor.map(fetch_tone, note_max_durations.items()):
@@ -387,15 +419,11 @@ def _generate_audio_buffer(file_path):
             attack = min(int(0.12 * SAMPLE_RATE), total_samples // 2)
             release = min(int(release_sec * SAMPLE_RATE), total_samples // 2)
 
-            envelope = np.ones_like(wave)
+            # In-place envelope application saves massive memory allocation time
             if attack > 0:
-                # Smooth, rounded sine-based attack removes artificial sharp edges
-                envelope[:attack] = np.sin(np.linspace(0, np.pi / 2, attack))
+                wave[:attack] *= np.sin(np.linspace(0, np.pi / 2, attack))
             if release > 0:
-                # Smooth, rounded cosine-based release
-                envelope[-release:] = np.cos(np.linspace(0, np.pi / 2, release))
-            
-            wave *= envelope
+                wave[-release:] *= np.cos(np.linspace(0, np.pi / 2, release))
 
             start_idx = int(start * SAMPLE_RATE)
             end_idx = start_idx + len(wave)
@@ -412,8 +440,10 @@ def _generate_audio_buffer(file_path):
     # A wooden cabinet/facade absorbs high-frequency harshness, warming the overall tone.
     # We apply a light master low-pass filter (moving average) across the whole mix.
     facade_window = 6
-    padded_audio = np.concatenate((audio, np.zeros(facade_window - 1)))
-    cs_audio = np.cumsum(np.concatenate(([0], padded_audio)))
+    # Pre-allocate buffer to avoid multiple concatenate memory duplications
+    padded_audio = np.zeros(len(audio) + facade_window)
+    padded_audio[1:len(audio)+1] = audio
+    cs_audio = np.cumsum(padded_audio)
     audio = (cs_audio[facade_window:] - cs_audio[:-facade_window]) / facade_window
     
     # --- Enhanced Digital Reverb/Delay Unit ---
@@ -433,9 +463,10 @@ def _generate_audio_buffer(file_path):
             # Low-pass filter to separate bass/mids from treble
             window_size = int(d_time * 120) + 4
             
-            # Fast vectorized moving average
-            padded = np.concatenate((delayed_signal, np.zeros(window_size - 1)))
-            cs = np.cumsum(np.concatenate(([0], padded)))
+            # Fast vectorized moving average using pre-allocated memory
+            padded = np.zeros(len(delayed_signal) + window_size)
+            padded[1:len(delayed_signal)+1] = delayed_signal
+            cs = np.cumsum(padded)
             bass_signal = (cs[window_size:] - cs[:-window_size]) / window_size
             
             # The remainder of the signal is the higher frequencies
@@ -523,14 +554,14 @@ def resume_playback():
         is_paused = False
 
 def find_arduino_port():
-    """A helper function to find a port that looks like an Arduino."""
+    """A helper function to find a port that looks like an Arduino or Teensy."""
     ports = list_ports.comports()
     for port in ports:
-        # Common names for Arduino boards or their USB-to-Serial chips
-        if "Arduino" in port.description or "CH340" in port.description or "USB-SERIAL" in port.description:
-            print(f"Found Arduino-like device on {port.device}")
+        # Added "Teensy" to ensure the new board auto-detects cleanly
+        if "Arduino" in port.description or "CH340" in port.description or "USB-SERIAL" in port.description or "Teensy" in port.description:
+            print(f"Found device on {port.device}")
             return port.device
-    print("Could not auto-detect an Arduino. Please check the connection.")
+    print("Could not auto-detect an Arduino/Teensy. Please check the connection.")
     return None
 
 def listen_for_arduino(stop_name_order):
@@ -603,7 +634,7 @@ for footage in footage_order:
         tk.Label(col_frame, text=f"{footage} Stops", font=("TkDefaultFont", 10, "bold"), bg=PANEL_BG, fg=ACCENT).pack(anchor="w", pady=(0, 5))
         for stop_name in group_stops:
             var = tk.BooleanVar(value=(stop_name == "Diapason 8'"))
-            var.trace_add('write', lambda *args: request_re_render())
+            var.trace_add('write', lambda *args, name=stop_name: request_re_render())
             stop_vars[stop_name] = var
             ordered_stop_names.append(stop_name)
             tk.Checkbutton(col_frame, text=stop_name, variable=var, bg=PANEL_BG, fg=TEXT_FG, selectcolor=DARK_BG, activebackground=PANEL_BG, activeforeground=ACCENT).pack(anchor="w")
@@ -617,7 +648,7 @@ if remaining_stops:
     tk.Label(col_frame, text="Other Stops", font=("TkDefaultFont", 10, "bold"), bg=PANEL_BG, fg=ACCENT).pack(anchor="w", pady=(0, 5))
     for stop_name in remaining_stops:
         var = tk.BooleanVar(value=(stop_name == "Diapason 8'"))
-        var.trace_add('write', lambda *args: request_re_render())
+        var.trace_add('write', lambda *args, name=stop_name: request_re_render())
         stop_vars[stop_name] = var
         ordered_stop_names.append(stop_name)
         tk.Checkbutton(col_frame, text=stop_name, variable=var, bg=PANEL_BG, fg=TEXT_FG, selectcolor=DARK_BG, activebackground=PANEL_BG, activeforeground=ACCENT).pack(anchor="w")
