@@ -1,0 +1,13 @@
+# OpenOrgel Repository Summary
+
+## README.md
+This file contains the project's foundational documentation and vision. It outlines OpenOrgel as a 2026 open-source, portable pipe organ project constructed from wood and 3D-printed PLA. It details the mechanical design, including a custom electric centrifugal blower, a closed-loop wind system with sensors and dynamic RPM control, and the rationale behind combining physical pipes with digital synthesis for extreme ranges (C0-C8). It also explains the project's educational and cultural mission to make the complex and expensive pipe organ accessible for musical education worldwide.
+
+## newsynthesis.py
+This is the core Python application for the digital synthesis component of the organ. It features a Tkinter-based graphical user interface (GUI) and uses additive synthesis (via NumPy and SoundDevice) to generate highly realistic, physics-modeled organ tones (including inharmonicity, wind chiff, pitch drift, and cabinet resonance). It handles MIDI file loading and playback, caches generated tones for performance, and runs a background thread that listens to a connected Arduino over a Serial connection to map physical console switches to digital organ stops.
+
+## organconsole.ino
+This is the C++ firmware for the Arduino microcontroller that acts as the physical interface (switchboard) for the organ. It reads the state of physical toggle switches (representing individual organ stops, a master switch, and grouped switches) using internal pull-up resistors. It sends formatted state changes over Serial communication (e.g., `Oboe 8':1`) to the Python synthesis engine. Additionally, it controls the physical wind system by toggling an L293D motor driver connected to the organ's blower motor when the master switch is engaged.
+
+## newsynthesis.spec
+This is a PyInstaller specification file used to bundle the `newsynthesis.py` script and its dependencies into a standalone executable application. It dictates how the build system should compile the Python code, collect required libraries (like NumPy, SoundDevice, Tkinter, Mido, and PySerial), and package them into the `build` and `dist` directories so the application can be run without requiring a Python interpreter to be installed on the host machine.
