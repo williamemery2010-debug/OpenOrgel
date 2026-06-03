@@ -117,91 +117,96 @@ STOPS = {
     }
 }
 
+_BASE_TONE_CACHE = {}
+_STOP_HARM_CACHE = {}
+
+def _get_base_wave(freq, total_duration, num_samples, t):
+    key = (freq, total_duration)
+    if key in _BASE_TONE_CACHE:
+        return _BASE_TONE_CACHE[key]
+        
+    # Deterministic seed to prevent phase cancellation clicks during live re-renders
+    rng = np.random.default_rng(int(freq * 10000))
+    wave = np.zeros_like(t)
+    chiff_env = np.exp(-t * 15)
+    breath_noise = rng.normal(0, 1.0, num_samples)
+    wave += breath_noise * chiff_env * np.sin(freq * 2 * np.pi * t) * 0.05
+    wave += breath_noise * chiff_env * np.sin(freq * 2 * np.pi * t) * 0.08
+    
+    _BASE_TONE_CACHE[key] = wave
+    return wave
+
+def _get_stop_wave(freq, total_duration, num_samples, t, two_pi_t, stop_name):
+    key = (freq, total_duration, stop_name)
+    if key in _STOP_HARM_CACHE:
+        return _STOP_HARM_CACHE[key]
+        
+    rng = np.random.default_rng(int(freq * 10000) + sum(ord(c) for c in stop_name))
+    stop = STOPS[stop_name]
+    wave = np.zeros_like(t)
+    
+    dampening = 0.02 if ("2'" in stop_name or "4'" in stop_name) else 0.08
+
+    all_f = []
+    all_amp = []
+    
+    for amp, h in zip(stop["amplitudes"], stop["harmonics"]):
+        adj_amp = amp * np.exp(-dampening * max(0, h - 1.0))
+        f = freq * h * (1.0 + 0.00015 * (h ** 2))
+        
+        if f > 800:
+            treble_boost = min(2.5, 1.0 + ((f - 800) / 2500))
+            adj_amp *= treble_boost
+
+        all_f.extend([f, f * 1.0015, f * 0.9985])
+        all_amp.extend([adj_amp, adj_amp * 0.35, adj_amp * 0.35])
+
+    if all_f:
+        all_f = np.array(all_f)[:, None]
+        all_amp = np.array(all_amp)[:, None]
+        all_phase = rng.uniform(0, 2 * np.pi, size=(len(all_f), 1))
+        
+        chunk_size = 50
+        for i in range(0, len(all_f), chunk_size):
+            f_chunk = all_f[i:i+chunk_size]
+            amp_chunk = all_amp[i:i+chunk_size]
+            phase_chunk = all_phase[i:i+chunk_size]
+            
+            phases = f_chunk * two_pi_t + phase_chunk
+            np.sin(phases, out=phases)
+            phases *= amp_chunk
+            wave += np.sum(phases, axis=0)
+            
+    _STOP_HARM_CACHE[key] = wave
+    return wave
+
 def generate_raw_tone(freq, total_duration, active_stops):
     num_samples = int(SAMPLE_RATE * total_duration)
     if num_samples <= 0:
         return np.array([])
 
     t = np.linspace(0, total_duration, num_samples, False)
-    
-    # Organic Pitch Nuances
-    # 1. Pitch Scoop: Wind pressure build-up causes a slight flat-to-sharp swoop on attack
     pitch_scoop_phase = 0.001 * np.exp(-20.0 * t)
-    # 2. Organic Drift: Slow, natural pitch wandering
     drift_phase = 0.00004 * np.sin(2.1 * 2 * np.pi * t) + 0.00002 * np.sin(3.7 * 2 * np.pi * t)
-    
     base_phase_t = t + pitch_scoop_phase + drift_phase
     two_pi_t = 2 * np.pi * base_phase_t
-    
-    wave = np.zeros_like(t)
 
-    # Chiff / Breath Noise: Essential texture and airiness at the attack of flutes
-    chiff_env = np.exp(-t * 15)
-    breath_noise = np.random.normal(0, 1.0, num_samples)
-    wave += breath_noise * chiff_env * np.sin(freq * 2 * np.pi * t) * 0.05
-    wave += breath_noise * chiff_env * np.sin(freq * 2 * np.pi * t) * 0.08
+    # Fetch mathematically identical cached waves to vastly improve stop changing speed
+    wave = _get_base_wave(freq, total_duration, num_samples, t).copy()
+    rng = np.random.default_rng(int(freq * 10000))
 
     if not active_stops:
-        phase = np.random.uniform(0, 2 * np.pi)
+        phase = rng.uniform(0, 2 * np.pi)
         wave += np.sin(freq * two_pi_t + phase)
     else:
-        all_f = []
-        all_amp = []
-        
         for stop_name in active_stops:
-            stop = STOPS[stop_name]
-            
-            # Simulate material dampening based on pipe footage
-            if "2'" in stop_name or "4'" in stop_name:
-                # Metal pipes: reflect and retain higher frequencies (brighter tone)
-                dampening = 0.02
-            else:
-                # 8', 16', 32': wood/metal mix naturally absorbs higher harmonics (warmer tone)
-                dampening = 0.08
+            wave += _get_stop_wave(freq, total_duration, num_samples, t, two_pi_t, stop_name)
 
-            for amp, h in zip(stop["amplitudes"], stop["harmonics"]):
-                # Apply dampening to upper harmonics (h > 1.0)
-                adj_amp = amp * np.exp(-dampening * max(0, h - 1.0))
-                
-                # Inharmonicity: higher harmonics naturally drift sharp (less "digital")
-                f = freq * h * (1.0 + 0.00015 * (h ** 2))
-                
-                # High-mid and high-end EQ boost (adds brilliance and presence)
-                if f > 800:
-                    treble_boost = min(2.5, 1.0 + ((f - 800) / 2500))
-                    adj_amp *= treble_boost
-
-                all_f.extend([f, f * 1.0015, f * 0.9985])
-                all_amp.extend([adj_amp, adj_amp * 0.35, adj_amp * 0.35])
-
-        if all_f:
-            all_f = np.array(all_f)[:, None]
-            all_amp = np.array(all_amp)[:, None]
-            all_phase = np.random.uniform(0, 2 * np.pi, size=(len(all_f), 1))
-            
-            # Vectorized wave generation in chunks to massively reduce synthesis time
-            chunk_size = 50
-            for i in range(0, len(all_f), chunk_size):
-                f_chunk = all_f[i:i+chunk_size]
-                amp_chunk = all_amp[i:i+chunk_size]
-                phase_chunk = all_phase[i:i+chunk_size]
-                
-                phases = f_chunk * two_pi_t + phase_chunk
-                np.sin(phases, out=phases) # In-place sine evaluation
-                phases *= amp_chunk
-                wave += np.sum(phases, axis=0)
-
-    # Add airiness (constant background wind noise)
-    wave += np.random.normal(0, 0.002, num_samples)
-
-    # Extremely light tremulant (amplitude modulation at 5.5 Hz, 0.5% depth)
+    wave += rng.normal(0, 0.002, num_samples)
     tremulant = 1.0 + 0.005 * np.sin(5.5 * 2 * np.pi * t)
     wave *= tremulant
 
-    # Bass boost
-    if freq < 250:
-        wave *= (250 / freq) ** 0.5
-
+    if freq < 250: wave *= (250 / freq) ** 0.5
     wave /= np.max(np.abs(wave) + 1e-9)
 
     return wave
@@ -235,6 +240,17 @@ def _background_re_render():
         try:
             new_audio, _ = _generate_audio_buffer(current_midi_file)
             if new_audio is not None:
+                if current_audio is not None and is_playing:
+                    # Crossfade between old and new rendering over 50ms to prevent buffer-swap clicks
+                    idx = playback_idx
+                    fade_s = min(int(SAMPLE_RATE * 0.05), len(current_audio) - idx, len(new_audio) - idx)
+                    if fade_s > 0:
+                        fade_in = np.linspace(0, 1, fade_s, dtype=np.float32)
+                        fade_out = np.linspace(1, 0, fade_s, dtype=np.float32)
+                        
+                        new_audio[idx:idx+fade_s] = (new_audio[idx:idx+fade_s] * fade_in) + (current_audio[idx:idx+fade_s] * fade_out)
+                        
+                # Atomic pointer swap seamlessly transitions audio
                 current_audio = np.float32(new_audio)
         except Exception as e:
             print("Background render failed:", e)
@@ -282,6 +298,8 @@ def load_and_play_midi():
         return
 
     current_midi_file = file_path
+    _BASE_TONE_CACHE.clear()
+    _STOP_HARM_CACHE.clear()
 
     # Update UI to show processing state and prevent multiple clicks
     load_btn.config(state=tk.DISABLED, text="Synthesizing... Please Wait")
@@ -554,10 +572,7 @@ def listen_for_arduino(stop_name_order):
                     stop_identifier = parts[0]
                     try:
                         stop_state = bool(int(parts[1]))
-                        if stop_identifier == "ALL":
-                            for var in stop_vars.values():
-                                root.after(0, var.set, stop_state)
-                        elif stop_identifier in stop_vars:
+                        if stop_identifier in stop_vars:
                             root.after(0, stop_vars[stop_identifier].set, stop_state)
                         else:
                             # Fallback in case Arduino still sends an integer index

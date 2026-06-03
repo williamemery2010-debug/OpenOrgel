@@ -4,6 +4,9 @@
 
 // Master Switch
 const int pinMaster = A4;
+//This is the master stop switch- controls all stops. When this is off, no stops will be active, even if their individual switches are on. When this is on, the state of each stop will change to on regardless of their switch state.vb 
+const int masterSwitchPin = 11;
+int lastMasterState = -1;
 
 // L293D Blower Motor Pins
 const int speedPin = A3; // Enable pin (turns motor on/off)
@@ -54,6 +57,9 @@ void setup() {
   digitalWrite(speedPin, LOW);
   digitalWrite(dir1, LOW);
   digitalWrite(dir2, LOW);
+//master switch pin setup
+  pinMode(masterSwitchPin, INPUT_PULLUP);
+
 
   // Set up all input switches using internal pullups (wire switches to GND)
   pinMode(pinMaster, INPUT_PULLUP);
@@ -74,7 +80,18 @@ void sendStopState(const char* name, bool state) {
 void loop() {
   // Read Master Switch (LOW means closed/ON)
   bool masterState = !digitalRead(pinMaster); 
+  // Read the current state of the switch.
+  // We use !digitalRead because INPUT_PULLUP means the pin goes LOW when connected (ON).
+  int currentState = !digitalRead(masterSwitchPin);
   
+  // If the switch state has changed, send the command over Serial
+  if (currentState != lastMasterState) {
+    Serial.print("ALL:");
+    Serial.println(currentState);
+    
+    lastMasterState = currentState;
+    delay(50); // Small 50ms delay to debounce the mechanical switch
+  }
   // Control the L293D Blower Motor
   if (masterState) {
     // Spin motor forwards and turn speed to max
