@@ -8,8 +8,12 @@ import math
 import time
 import wave
 import concurrent.futures
-import serial
-from serial.tools import list_ports
+try:
+    import serial
+    from serial.tools import list_ports
+    SERIAL_AVAILABLE = True
+except ImportError:
+    SERIAL_AVAILABLE = False
 import os
 import hashlib
 
@@ -141,9 +145,8 @@ def generate_raw_tone(freq, total_duration, active_stops):
 
     # Chiff / Breath Noise: Essential texture and airiness at the attack of flutes
     chiff_env = np.exp(-t * 15)
-    breath_noise = np.random.normal(0, 1.0, num_samples)
-    wave += breath_noise * chiff_env * np.sin(freq * 2 * np.pi * t) * 0.05
-    wave += breath_noise * chiff_env * np.sin(freq * 2 * np.pi * t) * 0.08
+    breath_noise = np.random.normal(0, 0.13, num_samples)
+    wave += breath_noise * chiff_env * np.sin(freq * 2 * np.pi * t)
 
     if not active_stops:
         phase = np.random.uniform(0, 2 * np.pi)
@@ -206,8 +209,6 @@ def generate_raw_tone(freq, total_duration, active_stops):
     if freq < 250:
         wave *= (250 / freq) ** 0.5
 
-    wave /= np.max(np.abs(wave) + 1e-9)
-
     return wave
 
 
@@ -240,12 +241,13 @@ def request_re_render():
             render_requested = True
 
 def _background_re_render():
-    global is_rendering, render_requested, current_audio
+    global is_rendering, render_requested, current_audio, playback_notes
     while True:
         try:
-            new_audio, _ = _generate_audio_buffer(current_midi_file)
+            new_audio, new_notes = _generate_audio_buffer(current_midi_file)
             if new_audio is not None:
                 current_audio = np.float32(new_audio)
+                playback_notes = new_notes
         except Exception as e:
             print("Background render failed:", e)
         
@@ -260,9 +262,11 @@ def reset_ui_state():
     is_paused = False
 
 def audio_callback(outdata, frames, time_info, status):
-    global current_audio, playback_idx, is_playing, is_paused
+    global playback_idx, is_playing, is_paused
 
-    if not is_playing or current_audio is None:
+    audio_ref = current_audio
+
+    if not is_playing or audio_ref is None:
         outdata.fill(0)
         raise sd.CallbackStop()
 
@@ -270,9 +274,9 @@ def audio_callback(outdata, frames, time_info, status):
         outdata.fill(0)
         return
 
-    chunk_size = min(frames, len(current_audio) - playback_idx)
+    chunk_size = min(frames, len(audio_ref) - playback_idx)
     if chunk_size > 0:
-        outdata[:chunk_size, 0] = current_audio[playback_idx:playback_idx + chunk_size]
+        outdata[:chunk_size, 0] = audio_ref[playback_idx:playback_idx + chunk_size]
         playback_idx += chunk_size
         
     if chunk_size < frames:
@@ -355,9 +359,11 @@ def _generate_audio_buffer(file_path):
 
     for t, typ, note in events:
         if typ == 'on':
-            active_notes_pass1[note] = t
+            active_notes_pass1.setdefault(note, []).append(t)
         elif typ == 'off' and note in active_notes_pass1:
-            start = active_notes_pass1.pop(note)
+            start = active_notes_pass1[note].pop(0)
+            if not active_notes_pass1[note]:
+                del active_notes_pass1[note]
             duration = t - start
             total_dur = duration + release_sec
             freq = midi_to_freq(note)
@@ -367,28 +373,37 @@ def _generate_audio_buffer(file_path):
     # --- Pre-generate tone bank for massive speedup ---
     tone_cache = {}
     
-    def fetch_tone(freq_dur):
-        f, exact_d = freq_dur
-        # Round up to the nearest whole second to maximize cache-hits across different songs
-        cache_d = math.ceil(exact_d)
-        
-        # Create a unique, safe filename hash for this specific tone configuration
-        stop_str = ",".join(sorted(active_stops))
-        cache_key = hashlib.md5(f"{f}_{cache_d}_{stop_str}".encode()).hexdigest()
+    def fetch_stop_tone(args):
+        f, cache_d, stop_name = args
+        stop_key = stop_name if stop_name else "DefaultSine"
+        cache_key = hashlib.md5(f"{f}_{cache_d}_{stop_key}".encode()).hexdigest()
         cache_path = os.path.join(CACHE_DIR, f"{cache_key}.npy")
         
         if os.path.exists(cache_path):
-            # Load from disk if we've rendered this note/duration/stop combination before!
-            return f, np.load(cache_path)
+            return (f, stop_name), np.load(cache_path)
             
-        # Otherwise, render it from scratch and save it to the hard drive forever
-        wave_data = generate_raw_tone(f, cache_d, active_stops)
+        wave_data = generate_raw_tone(f, cache_d, [stop_name] if stop_name else [])
         np.save(cache_path, wave_data)
-        return f, wave_data
-        
+        return (f, stop_name), wave_data
+
+    tasks = []
+    if not active_stops:
+        for f, exact_d in note_max_durations.items():
+            tasks.append((f, math.ceil(exact_d), None))
+    else:
+        for f, exact_d in note_max_durations.items():
+            for stop_name in active_stops:
+                tasks.append((f, math.ceil(exact_d), stop_name))
+
+    stop_tones = {}
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        for f, wave_data in executor.map(fetch_tone, note_max_durations.items()):
-            tone_cache[f] = wave_data
+        for (f, stop_name), wave_data in executor.map(fetch_stop_tone, tasks):
+            if f not in stop_tones:
+                stop_tones[f] = []
+            stop_tones[f].append(wave_data)
+
+    for f, waves in stop_tones.items():
+        tone_cache[f] = np.sum(waves, axis=0)
 
     # build audio timeline
     total_time = max(t for t, _, _ in events) + 5  # Extended for longer bass reverb tail
@@ -399,9 +414,11 @@ def _generate_audio_buffer(file_path):
 
     for i, (t, typ, note) in enumerate(events):
         if typ == 'on':
-            active_notes[note] = t
-        elif typ == 'off' and note in active_notes:
-            start = active_notes.pop(note)
+            active_notes.setdefault(note, []).append(t)
+        elif typ == 'off' and active_notes.get(note):
+            start = active_notes[note].pop(0)
+            if not active_notes[note]:
+                del active_notes[note]
             duration = t - start
             total_dur = duration + release_sec
             num_samples = int(SAMPLE_RATE * total_dur)
@@ -566,14 +583,14 @@ def find_arduino_port():
 
 def listen_for_arduino(stop_name_order):
     """Listens for serial commands from an Arduino to toggle stops."""
-    port = find_arduino_port()
-    if not port:
-        return
-
     ser = None
     while True:
         try:
             if ser is None or not ser.is_open:
+                port = find_arduino_port()
+                if not port:
+                    time.sleep(3)
+                    continue
                 ser = serial.Serial(port, 9600, timeout=1)
                 print(f"Successfully connected to Arduino on {port}")
 
@@ -599,11 +616,16 @@ def listen_for_arduino(stop_name_order):
                         print(f"Ignored invalid Arduino data (Not an integer state): {line}")
         except serial.SerialException as e:
             print(f"Arduino connection lost ({e}). Will try to reconnect...")
-            if ser and ser.is_open: ser.close()
+            if ser and ser.is_open:
+                try:
+                    ser.close()
+                except Exception:
+                    pass
             ser = None
             time.sleep(3)
         except Exception as e:
             print(f"Unexpected Arduino listener error: {e}")
+            time.sleep(3)
 
 # GUI
 DARK_BG = "#0f111a"
@@ -653,11 +675,22 @@ if remaining_stops:
         ordered_stop_names.append(stop_name)
         tk.Checkbutton(col_frame, text=stop_name, variable=var, bg=PANEL_BG, fg=TEXT_FG, selectcolor=DARK_BG, activebackground=PANEL_BG, activeforeground=ACCENT).pack(anchor="w")
 
+def clear_cache():
+    try:
+        import shutil
+        if os.path.exists(CACHE_DIR):
+            shutil.rmtree(CACHE_DIR)
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        messagebox.showinfo("Success", "Audio cache cleared successfully!")
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to clear cache:\n{e}")
+
 # Stop Selection Controls
 stops_btn_frame = tk.Frame(root, bg=DARK_BG)
 stops_btn_frame.pack(pady=(0, 10))
 tk.Button(stops_btn_frame, text="Select All Stops", command=lambda: [var.set(True) for var in stop_vars.values()], bg=PANEL_BG, fg=TEXT_FG, font=("TkDefaultFont", 9, "bold"), relief="flat", activebackground=ACCENT, activeforeground="white").pack(side="left", padx=10)
 tk.Button(stops_btn_frame, text="Clear All Stops", command=lambda: [var.set(False) for var in stop_vars.values()], bg=PANEL_BG, fg=TEXT_FG, font=("TkDefaultFont", 9, "bold"), relief="flat", activebackground=ACCENT, activeforeground="white").pack(side="left", padx=10)
+tk.Button(stops_btn_frame, text="Clear Audio Cache", command=clear_cache, bg=PANEL_BG, fg=TEXT_FG, font=("TkDefaultFont", 9, "bold"), relief="flat", activebackground=ACCENT, activeforeground="white").pack(side="left", padx=10)
 
 # Tuning Settings
 settings_frame = tk.Frame(root, bg=DARK_BG)
@@ -759,6 +792,9 @@ stop_btn = tk.Button(playback_frame, text="Stop", command=stop_playback, height=
 stop_btn.pack(side="left", padx=5)
 
 # Start the Arduino listener in a background thread
-threading.Thread(target=listen_for_arduino, args=(ordered_stop_names,), daemon=True).start()
+if SERIAL_AVAILABLE:
+    threading.Thread(target=listen_for_arduino, args=(ordered_stop_names,), daemon=True).start()
+else:
+    print("pyserial is not installed. Arduino stop control is disabled.")
 
 root.mainloop()
