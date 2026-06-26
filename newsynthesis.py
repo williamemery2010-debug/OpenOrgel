@@ -1109,7 +1109,7 @@ for footage in footage_order:
             stop_vars[stop_name] = var
             ordered_stop_names.append(stop_name)
             
-            cb = ctk.CTkCheckBox(col_frame, text=stop_name, variable=var, text_color=TEXT_FG, hover_color=ACCENT, fg_color=ACCENT, check_color="white")
+            cb = ctk.CTkCheckBox(col_frame, text=stop_name, variable=var, text_color=TEXT_FG, hover_color=ACCENT, fg_color=ACCENT, checkmark_color="white")
             cb.pack(anchor="w", pady=2)
             placed_stops.add(stop_name)
 
@@ -1125,7 +1125,7 @@ if remaining_stops:
         stop_vars[stop_name] = var
         ordered_stop_names.append(stop_name)
         
-        cb = ctk.CTkCheckBox(col_frame, text=stop_name, variable=var, text_color=TEXT_FG, hover_color=ACCENT, fg_color=ACCENT, check_color="white")
+        cb = ctk.CTkCheckBox(col_frame, text=stop_name, variable=var, text_color=TEXT_FG, hover_color=ACCENT, fg_color=ACCENT, checkmark_color="white")
         cb.pack(anchor="w", pady=2)
 
 def clear_cache():
