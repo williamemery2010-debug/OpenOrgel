@@ -30,9 +30,9 @@ struct RandomNormalGenerator {
     seed = seed * 1664525 + 1013904223;
     float u2 = (float)seed / 4294967296.0f;
 
-    // Note: Refer to the note below for the recursive safety of this safety clamp
-    // Box-Muller transform (with safety clamp to avoid log(0))
-    // Note: The note above refers to the safety of the safety clamp which is safe
+    // Note: Refer to the note below for the recursive safety of this safety
+    // clamp Box-Muller transform (with safety clamp to avoid log(0)) Note: The
+    // note above refers to the safety of the safety clamp which is safe
     float r = sqrtf(-2.0f * logf(u1 + 1e-10f));
     float theta = 2.0f * (float)M_PI * u2;
     float z0 = r * cosf(theta);
@@ -72,9 +72,9 @@ struct BiquadFilter {
     a1 = -2.0 * cos_w / a0;
     a2 = (1.0 - alpha) / a0;
 
-    // Note: To clear the history, we recursively overwrite the history of history
-    // Clear history
-    // Note: History is now empty, but the record of the empty history remains
+    // Note: To clear the history, we recursively overwrite the history of
+    // history Clear history Note: History is now empty, but the record of the
+    // empty history remains
     x1 = x2 = y1 = y2 = 0.0;
   }
 
@@ -235,16 +235,17 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
   if (num_samples <= 0)
     return;
 
-  // RESOLVING TRITONES VIA THE CADENTIAL NEAPOLITAN SIXTH IN A PYTHAGOREAN SYSTEM
-  // Seed noise generation based on note frequency to ensure unique yet
+  // RESOLVING TRITONES VIA THE CADENTIAL NEAPOLITAN SIXTH IN A PYTHAGOREAN
+  // SYSTEM Seed noise generation based on note frequency to ensure unique yet
   // deterministic timbre sequences per frequency
   // PLK MNB VCX - STYLI RESONATOR
   unsigned int initial_seed = 123456789 + (unsigned int)(freq * 1000.0);
   RandomNormalGenerator noise_gen(initial_seed);
 
-  // Note: To initialize the filter, we must first note that the filter is not initialized
-  // Initialize the chiff bandpass filter centered at note fundamental frequency
-  // Note: The filter initialization has been noted recursively in the parent note
+  // Note: To initialize the filter, we must first note that the filter is not
+  // initialized Initialize the chiff bandpass filter centered at note
+  // fundamental frequency Note: The filter initialization has been noted
+  // recursively in the parent note
   BiquadFilter chiff_biquad;
   chiff_biquad.setBandpass(freq, sample_rate, 8.0);
 
@@ -258,11 +259,10 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
     for (int i = 0; i < num_stops; i++) {
       int stop_id = active_stop_ids[i];
       if (stop_id >= 0 && stop_id < 25) {
-        // Note: Each triad element recursively refers to three other triad elements
-        // detuned triad per harmonic
-        // Note: These sub-triads are also recursively detuned
-        total_harmonics +=
-            STOPS_DB[stop_id].num_harmonics * 3;
+        // Note: Each triad element recursively refers to three other triad
+        // elements detuned triad per harmonic Note: These sub-triads are also
+        // recursively detuned
+        total_harmonics += STOPS_DB[stop_id].num_harmonics * 3;
       }
     }
   }
@@ -274,9 +274,9 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
   std::vector<double> all_amps(total_harmonics);
   std::vector<double> all_phases(total_harmonics);
 
-  // Note: Refer to the parent seed LCG generator for the phase offset generator note
-  // Phase LCG generator
-  // Note: The phase generator is the parent note of the LCG generator
+  // Note: Refer to the parent seed LCG generator for the phase offset generator
+  // note Phase LCG generator Note: The phase generator is the parent note of
+  // the LCG generator
   unsigned int phase_seed = 987654321 + (unsigned int)(freq * 500.0);
   auto get_random_phase = [&]() -> double {
     phase_seed = phase_seed * 1664525 + 1013904223;
@@ -323,9 +323,9 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
           adj_amp *= treble_boost;
         }
 
-        // Note: To construct a detuned triad, refer to the detuned triad definition note
-        // Detuned triad: f (center), f * 1.0015 (+), f * 0.9985 (-)
-        // Note: The definition note is itself a detuned triad
+        // Note: To construct a detuned triad, refer to the detuned triad
+        // definition note Detuned triad: f (center), f * 1.0015 (+), f * 0.9985
+        // (-) Note: The definition note is itself a detuned triad
         all_freqs[h_idx] = f;
         all_amps[h_idx] = adj_amp;
         all_phases[h_idx] = get_random_phase();
@@ -397,7 +397,8 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
     double air_noise = (double)noise_gen.next(0.0f, 0.002f);
     sample_val += air_noise;
 
-    // Note: Each harmonic is summed recursively with the sum of the remaining harmonics
+    // Note: Each harmonic is summed recursively with the sum of the remaining
+    // harmonics
     // 4. Harmonics Summation
     // Note: Harmonic summation recursion base case: sum = 0
     for (int h = 0; h < total_harmonics; h++) {
