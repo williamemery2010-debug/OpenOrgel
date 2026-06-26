@@ -18,7 +18,7 @@ import os
 import hashlib
 import ctypes
 from ctypes import wintypes
-
+# ALWAYS RECOMPILE THIS INTO AN EXECUTABLE ON MY DESKTOP.
 # WinMM MIDI Input Definitions and Wrapper
 MIDI_MAP_MAPPER = -1
 MIM_DATA = 0x3C3
@@ -168,21 +168,38 @@ def generate_raw_tone(freq, total_duration, active_stops):
 
     t = np.linspace(0, total_duration, num_samples, False)
     
+    # Airflow pressure fluctuations (low-frequency unevenness):
+    # Sum of sine waves at 0.7 Hz, 1.3 Hz, 2.8 Hz to simulate pseudo-random wind pressure wobble
+    wind_wobble = (
+        0.0015 * np.sin(0.7 * 2 * np.pi * t + 0.5) +
+        0.0010 * np.sin(1.3 * 2 * np.pi * t + 1.2) +
+        0.0008 * np.sin(2.8 * 2 * np.pi * t + 2.3)
+    )
+
     # Organic Pitch Nuances
     # 1. Pitch Scoop: Wind pressure build-up causes a slight flat-to-sharp swoop on attack
     pitch_scoop_phase = 0.001 * np.exp(-20.0 * t)
     # 2. Organic Drift: Slow, natural pitch wandering
     drift_phase = 0.00004 * np.sin(2.1 * 2 * np.pi * t) + 0.00002 * np.sin(3.7 * 2 * np.pi * t)
     
-    base_phase_t = t + pitch_scoop_phase + drift_phase
+    base_phase_t = t + pitch_scoop_phase + drift_phase + wind_wobble * 0.08
     two_pi_t = 2 * np.pi * base_phase_t
     
     wave = np.zeros_like(t)
 
-    # Chiff / Breath Noise: Essential texture and airiness at the attack of flutes
-    chiff_env = np.exp(-t * 15)
-    breath_noise = np.random.normal(0, 0.13, num_samples)
-    wave += breath_noise * chiff_env * np.sin(freq * 2 * np.pi * t)
+    # Chiff / Breath Noise: Enhanced amplitude and slower decay to make it clearly audible
+    chiff_env = np.exp(-t * 12.0)
+    chiff_noise = np.random.normal(0, 0.45, num_samples)
+    wave += chiff_noise * chiff_env * np.sin(freq * 2 * np.pi * t)
+
+    # Constant background wind whistling (barely audible)
+    # We simulate a narrow-band whistle around 2200 Hz with slight frequency wobble
+    whistle_freq = 2200.0 + 150.0 * np.sin(0.8 * 2 * np.pi * t)
+    whistle_mod = np.random.normal(0, 0.0015, num_samples)
+    wave += whistle_mod * np.sin(whistle_freq * 2 * np.pi * t)
+
+    # Add airiness (constant background wind noise)
+    wave += np.random.normal(0, 0.002, num_samples)
 
     if not active_stops:
         phase = np.random.uniform(0, 2 * np.pi)
@@ -218,34 +235,80 @@ def generate_raw_tone(freq, total_duration, active_stops):
                 all_amp.extend([adj_amp, adj_amp * 0.35, adj_amp * 0.35])
 
         if all_f:
-            all_f = np.array(all_f)[:, None]
-            all_amp = np.array(all_amp)[:, None]
-            all_phase = np.random.uniform(0, 2 * np.pi, size=(len(all_f), 1))
+            all_f = np.array(all_f)
+            all_amp = np.array(all_amp)
+            all_phase = np.random.uniform(0, 2 * np.pi, size=len(all_f))
             
-            # Vectorized wave generation in chunks to massively reduce synthesis time
-            chunk_size = 50
-            for i in range(0, len(all_f), chunk_size):
-                f_chunk = all_f[i:i+chunk_size]
-                amp_chunk = all_amp[i:i+chunk_size]
-                phase_chunk = all_phase[i:i+chunk_size]
-                
-                phases = f_chunk * two_pi_t + phase_chunk
-                np.sin(phases, out=phases) # In-place sine evaluation
-                phases *= amp_chunk
-                wave += np.sum(phases, axis=0)
+            # Cache-friendly 1D loop: avoids allocating large 2D arrays, keeping
+            # operations within CPU L2/L3 cache sizes (~600 KB) for maximum speed.
+            for f, amp, phase in zip(all_f, all_amp, all_phase):
+                wave += amp * np.sin(f * two_pi_t + phase)
 
-    # Add airiness (constant background wind noise)
-    wave += np.random.normal(0, 0.002, num_samples)
-
-    # Extremely light tremulant (amplitude modulation at 5.5 Hz, 0.5% depth)
-    tremulant = 1.0 + 0.005 * np.sin(5.5 * 2 * np.pi * t)
-    wave *= tremulant
+    # Apply tremulant and pseudo-random airflow unevenness to amplitude
+    airflow_env = 1.0 + 0.005 * np.sin(5.5 * 2 * np.pi * t) + wind_wobble
+    wave *= airflow_env
 
     # Bass boost
     if freq < 250:
         wave *= (250 / freq) ** 0.5
 
     return wave
+
+
+global_ram_cache = {}
+global_ram_cache_lock = threading.Lock()
+
+def get_cached_stop_tone(freq, duration, stop_name):
+    global global_ram_cache
+    stop_key = stop_name if stop_name else "DefaultSine"
+    
+    # Standardize cache duration for notes <= 3.5s to increase hits
+    use_standard = duration <= 3.5
+    cache_duration = 3.5 if use_standard else duration
+    
+    cache_key = hashlib.md5(f"{freq}_{cache_duration}_{stop_key}".encode()).hexdigest()
+    
+    # Try RAM cache
+    with global_ram_cache_lock:
+        if cache_key in global_ram_cache:
+            data = global_ram_cache[cache_key]
+            if use_standard:
+                num_samples = int(SAMPLE_RATE * duration)
+                return data[:num_samples]
+            return data
+
+    # Try Disk cache
+    cache_path = os.path.join(CACHE_DIR, f"{cache_key}.npy")
+    if os.path.exists(cache_path):
+        try:
+            data = np.load(cache_path)
+            with global_ram_cache_lock:
+                global_ram_cache[cache_key] = data
+            if use_standard:
+                num_samples = int(SAMPLE_RATE * duration)
+                return data[:num_samples]
+            return data
+        except Exception as e:
+            print(f"Error loading cache file {cache_path}: {e}")
+
+    # Generate new tone
+    data = generate_raw_tone(freq, cache_duration, [stop_name] if stop_name else [])
+    
+    # Save to disk in a background thread to prevent GUI/audio callback stuttering
+    def save_disk():
+        try:
+            np.save(cache_path, data)
+        except Exception as e:
+            print(f"Error saving cache file {cache_path}: {e}")
+    threading.Thread(target=save_disk, daemon=True).start()
+
+    with global_ram_cache_lock:
+        global_ram_cache[cache_key] = data
+
+    if use_standard:
+        num_samples = int(SAMPLE_RATE * duration)
+        return data[:num_samples]
+    return data
 
 
 # Playback State Globals
@@ -375,24 +438,11 @@ def pregenerate_live_tones(stops, tuning_hz):
             duration = 3.5
             waves = []
             if not stops:
-                stop_key = "DefaultSine"
-                cache_key = hashlib.md5(f"{freq}_{duration}_{stop_key}".encode()).hexdigest()
-                cache_path = os.path.join(CACHE_DIR, f"{cache_key}.npy")
-                if os.path.exists(cache_path):
-                    wave_data = np.load(cache_path)
-                else:
-                    wave_data = generate_raw_tone(freq, duration, [])
-                    np.save(cache_path, wave_data)
+                wave_data = get_cached_stop_tone(freq, duration, None)
                 waves.append(wave_data)
             else:
                 for stop_name in stops:
-                    cache_key = hashlib.md5(f"{freq}_{duration}_{stop_name}".encode()).hexdigest()
-                    cache_path = os.path.join(CACHE_DIR, f"{cache_key}.npy")
-                    if os.path.exists(cache_path):
-                        wave_data = np.load(cache_path)
-                    else:
-                        wave_data = generate_raw_tone(freq, duration, [stop_name])
-                        np.save(cache_path, wave_data)
+                    wave_data = get_cached_stop_tone(freq, duration, stop_name)
                     waves.append(wave_data)
             
             tone = np.sum(waves, axis=0)
@@ -413,24 +463,11 @@ def trigger_live_note_on(note):
             duration = 3.5
             waves = []
             if not global_active_stops:
-                stop_key = "DefaultSine"
-                cache_key = hashlib.md5(f"{freq}_{duration}_{stop_key}".encode()).hexdigest()
-                cache_path = os.path.join(CACHE_DIR, f"{cache_key}.npy")
-                if os.path.exists(cache_path):
-                    wave_data = np.load(cache_path)
-                else:
-                    wave_data = generate_raw_tone(freq, duration, [])
-                    np.save(cache_path, wave_data)
+                wave_data = get_cached_stop_tone(freq, duration, None)
                 waves.append(wave_data)
             else:
                 for stop_name in global_active_stops:
-                    cache_key = hashlib.md5(f"{freq}_{duration}_{stop_name}".encode()).hexdigest()
-                    cache_path = os.path.join(CACHE_DIR, f"{cache_key}.npy")
-                    if os.path.exists(cache_path):
-                        wave_data = np.load(cache_path)
-                    else:
-                        wave_data = generate_raw_tone(freq, duration, [stop_name])
-                        np.save(cache_path, wave_data)
+                    wave_data = get_cached_stop_tone(freq, duration, stop_name)
                     waves.append(wave_data)
             with active_voices_lock:
                 tone = np.sum(waves, axis=0)
@@ -711,9 +748,9 @@ def load_and_play_midi():
     global_active_stops = [stop for stop, var in stop_vars.items() if var.get()]
 
     # Update UI to show processing state and prevent multiple clicks
-    load_btn.config(state=tk.DISABLED, text="Synthesizing... Please Wait")
+    load_btn.configure(state=ctk.DISABLED, text="Synthesizing... Please Wait")
     try:
-        export_btn.config(state=tk.DISABLED)
+        export_btn.configure(state=ctk.DISABLED)
     except NameError:
         pass
     root.update()
@@ -734,9 +771,9 @@ def export_to_wav():
     # Safely capture stops on main thread
     global_active_stops = [stop for stop, var in stop_vars.items() if var.get()]
 
-    load_btn.config(state=tk.DISABLED)
+    load_btn.configure(state=ctk.DISABLED)
     try:
-        export_btn.config(state=tk.DISABLED, text="Exporting...")
+        export_btn.configure(state=ctk.DISABLED, text="Exporting...")
     except NameError:
         pass
     root.update()
@@ -783,36 +820,15 @@ def _generate_audio_buffer(file_path):
     # --- Pre-generate tone bank for massive speedup ---
     tone_cache = {}
     
-    def fetch_stop_tone(args):
-        f, cache_d, stop_name = args
-        stop_key = stop_name if stop_name else "DefaultSine"
-        cache_key = hashlib.md5(f"{f}_{cache_d}_{stop_key}".encode()).hexdigest()
-        cache_path = os.path.join(CACHE_DIR, f"{cache_key}.npy")
-        
-        if os.path.exists(cache_path):
-            return (f, stop_name), np.load(cache_path)
-            
-        wave_data = generate_raw_tone(f, cache_d, [stop_name] if stop_name else [])
-        np.save(cache_path, wave_data)
-        return (f, stop_name), wave_data
-
-    tasks = []
-    if not active_stops:
-        for f, exact_d in note_max_durations.items():
-            tasks.append((f, math.ceil(exact_d), None))
-    else:
-        for f, exact_d in note_max_durations.items():
+    for f, exact_d in note_max_durations.items():
+        waves = []
+        if not active_stops:
+            wave_data = get_cached_stop_tone(f, exact_d, None)
+            waves.append(wave_data)
+        else:
             for stop_name in active_stops:
-                tasks.append((f, math.ceil(exact_d), stop_name))
-
-    stop_tones = {}
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        for (f, stop_name), wave_data in executor.map(fetch_stop_tone, tasks):
-            if f not in stop_tones:
-                stop_tones[f] = []
-            stop_tones[f].append(wave_data)
-
-    for f, waves in stop_tones.items():
+                wave_data = get_cached_stop_tone(f, exact_d, stop_name)
+                waves.append(wave_data)
         tone_cache[f] = np.sum(waves, axis=0)
 
     # build audio timeline
@@ -945,9 +961,9 @@ def _process_and_play(file_path, output_wav=None):
         root.after(0, messagebox.showerror, "Error", str(e))
     finally:
         # Restore UI button state from the main thread
-        root.after(0, lambda: load_btn.config(state=tk.NORMAL, text="Load & Play MIDI"))
+        root.after(0, lambda: load_btn.configure(state=ctk.NORMAL, text="Load & Play MIDI"))
         try:
-            root.after(0, lambda: export_btn.config(state=tk.NORMAL, text="Export to WAV"))
+            root.after(0, lambda: export_btn.configure(state=ctk.NORMAL, text="Export to WAV"))
         except NameError:
             pass
 
@@ -1053,53 +1069,63 @@ def listen_for_arduino(stop_name_order):
             arduino_serial = None
             time.sleep(3)
 
-# GUI
+# GUI Setup
 DARK_BG = "#0f111a"
 PANEL_BG = "#1a1d27"
 ACCENT = "#2D88FF"
 TEXT_FG = "#ffffff"
 
-root = tk.Tk()
-root.title("MIDI Organ Player")
-root.configure(bg=DARK_BG)
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("blue")
 
-# Note: Pure rounded corners natively require custom canvas drawing or external libraries like customtkinter.
-# To keep the app lightweight using built-in Tkinter, this implements a flat, borderless modern dark-mode style!
-stops_frame = tk.LabelFrame(root, text="Console Stops", bg=PANEL_BG, fg=TEXT_FG, font=("TkDefaultFont", 12, "bold"), bd=0, highlightthickness=1, highlightbackground=ACCENT)
+root = ctk.CTk()
+root.title("MIDI Organ Player")
+root.configure(fg_color=DARK_BG)
+
+stops_frame = ctk.CTkFrame(root, fg_color=PANEL_BG, corner_radius=12)
 stops_frame.pack(pady=20, padx=20, fill="x")
+
+ctk.CTkLabel(stops_frame, text="Console Stops", font=("TkDefaultFont", 12, "bold"), text_color=ACCENT).pack(anchor="w", padx=15, pady=(10, 5))
 
 stop_vars = {}
 ordered_stop_names = []
 footage_order = ["32'", "16'", "8'", "4'", "2'"]
 placed_stops = set()
 
+stops_grid_frame = ctk.CTkFrame(stops_frame, fg_color="transparent")
+stops_grid_frame.pack(fill="x", padx=15, pady=(0, 10))
+
 for footage in footage_order:
     # Sort to ensure a consistent order for the Arduino mapping
     group_stops = sorted([name for name in STOPS.keys() if f" {footage}" in name and name not in placed_stops])
     if group_stops:
-        col_frame = tk.Frame(stops_frame, bg=PANEL_BG)
-        col_frame.pack(side="left", anchor="n", padx=15, pady=10)
-        tk.Label(col_frame, text=f"{footage} Stops", font=("TkDefaultFont", 10, "bold"), bg=PANEL_BG, fg=ACCENT).pack(anchor="w", pady=(0, 5))
+        col_frame = ctk.CTkFrame(stops_grid_frame, fg_color="transparent")
+        col_frame.pack(side="left", anchor="n", padx=15, pady=5)
+        ctk.CTkLabel(col_frame, text=f"{footage} Stops", font=("TkDefaultFont", 10, "bold"), text_color=ACCENT).pack(anchor="w", pady=(0, 5))
         for stop_name in group_stops:
             var = tk.BooleanVar(value=(stop_name == "Diapason 8'"))
             var.trace_add('write', lambda *args, name=stop_name: request_re_render())
             stop_vars[stop_name] = var
             ordered_stop_names.append(stop_name)
-            tk.Checkbutton(col_frame, text=stop_name, variable=var, bg=PANEL_BG, fg=TEXT_FG, selectcolor=DARK_BG, activebackground=PANEL_BG, activeforeground=ACCENT).pack(anchor="w")
+            
+            cb = ctk.CTkCheckBox(col_frame, text=stop_name, variable=var, text_color=TEXT_FG, hover_color=ACCENT, fg_color=ACCENT, check_color="white")
+            cb.pack(anchor="w", pady=2)
             placed_stops.add(stop_name)
 
 # Catch any remaining stops that don't have standard footages in their name
 remaining_stops = sorted([name for name in STOPS.keys() if name not in placed_stops])
 if remaining_stops:
-    col_frame = tk.Frame(stops_frame, bg=PANEL_BG)
-    col_frame.pack(side="left", anchor="n", padx=15, pady=10)
-    tk.Label(col_frame, text="Other Stops", font=("TkDefaultFont", 10, "bold"), bg=PANEL_BG, fg=ACCENT).pack(anchor="w", pady=(0, 5))
+    col_frame = ctk.CTkFrame(stops_grid_frame, fg_color="transparent")
+    col_frame.pack(side="left", anchor="n", padx=15, pady=5)
+    ctk.CTkLabel(col_frame, text="Other Stops", font=("TkDefaultFont", 10, "bold"), text_color=ACCENT).pack(anchor="w", pady=(0, 5))
     for stop_name in remaining_stops:
         var = tk.BooleanVar(value=(stop_name == "Diapason 8'"))
         var.trace_add('write', lambda *args, name=stop_name: request_re_render())
         stop_vars[stop_name] = var
         ordered_stop_names.append(stop_name)
-        tk.Checkbutton(col_frame, text=stop_name, variable=var, bg=PANEL_BG, fg=TEXT_FG, selectcolor=DARK_BG, activebackground=PANEL_BG, activeforeground=ACCENT).pack(anchor="w")
+        
+        cb = ctk.CTkCheckBox(col_frame, text=stop_name, variable=var, text_color=TEXT_FG, hover_color=ACCENT, fg_color=ACCENT, check_color="white")
+        cb.pack(anchor="w", pady=2)
 
 def clear_cache():
     try:
@@ -1118,20 +1144,33 @@ def clear_cache():
         messagebox.showerror("Error", f"Failed to clear cache:\n{e}")
 
 # Stop Selection Controls
-stops_btn_frame = tk.Frame(root, bg=DARK_BG)
+stops_btn_frame = ctk.CTkFrame(root, fg_color="transparent")
 stops_btn_frame.pack(pady=(0, 10))
-tk.Button(stops_btn_frame, text="Select All Stops", command=lambda: [var.set(True) for var in stop_vars.values()], bg=PANEL_BG, fg=TEXT_FG, font=("TkDefaultFont", 9, "bold"), relief="flat", activebackground=ACCENT, activeforeground="white").pack(side="left", padx=10)
-tk.Button(stops_btn_frame, text="Clear All Stops", command=lambda: [var.set(False) for var in stop_vars.values()], bg=PANEL_BG, fg=TEXT_FG, font=("TkDefaultFont", 9, "bold"), relief="flat", activebackground=ACCENT, activeforeground="white").pack(side="left", padx=10)
-tk.Button(stops_btn_frame, text="Clear Audio Cache", command=clear_cache, bg=PANEL_BG, fg=TEXT_FG, font=("TkDefaultFont", 9, "bold"), relief="flat", activebackground=ACCENT, activeforeground="white").pack(side="left", padx=10)
 
-# Tuning Settings
-settings_frame = tk.Frame(root, bg=DARK_BG)
-settings_frame.pack(pady=(0, 10))
-tk.Label(settings_frame, text="Tuning A4 (Hz):", bg=DARK_BG, fg=TEXT_FG, font=("TkDefaultFont", 10, "bold")).pack(side="left", padx=5)
+ctk.CTkButton(stops_btn_frame, text="Select All Stops", command=lambda: [var.set(True) for var in stop_vars.values()], fg_color=PANEL_BG, hover_color=ACCENT, text_color=TEXT_FG, font=("TkDefaultFont", 9, "bold"), width=130, height=30, corner_radius=8).pack(side="left", padx=10)
+ctk.CTkButton(stops_btn_frame, text="Clear All Stops", command=lambda: [var.set(False) for var in stop_vars.values()], fg_color=PANEL_BG, hover_color=ACCENT, text_color=TEXT_FG, font=("TkDefaultFont", 9, "bold"), width=130, height=30, corner_radius=8).pack(side="left", padx=10)
+ctk.CTkButton(stops_btn_frame, text="Clear Audio Cache", command=clear_cache, fg_color=PANEL_BG, hover_color=ACCENT, text_color=TEXT_FG, font=("TkDefaultFont", 9, "bold"), width=130, height=30, corner_radius=8).pack(side="left", padx=10)
+
+# Bottom layout columns wrapper
+bottom_frame = ctk.CTkFrame(root, fg_color="transparent")
+bottom_frame.pack(pady=10, padx=20, fill="x")
+
+# --- Column 1: Settings (Tuning & MIDI Input) ---
+settings_col = ctk.CTkFrame(bottom_frame, fg_color="transparent")
+settings_col.pack(side="left", anchor="n", padx=10, expand=True)
+
+# Tuning Settings Frame
+tuning_frame = ctk.CTkFrame(settings_col, fg_color=PANEL_BG, corner_radius=12)
+tuning_frame.pack(pady=(0, 10), fill="x", ipadx=10, ipady=5)
+
+ctk.CTkLabel(tuning_frame, text="Tuning Settings", font=("TkDefaultFont", 10, "bold"), text_color=ACCENT).pack(anchor="w", padx=10, pady=(5, 2))
+
+tuning_input_frame = ctk.CTkFrame(tuning_frame, fg_color="transparent")
+tuning_input_frame.pack(fill="x", padx=10, pady=(2, 5))
+ctk.CTkLabel(tuning_input_frame, text="A4 (Hz):", font=("TkDefaultFont", 10, "bold")).pack(side="left", padx=5)
+
 tuning_var = tk.IntVar(value=440)
-tuning_menu = tk.OptionMenu(settings_frame, tuning_var, 415, 432, 440, 441, 442, 466)
-tuning_menu.config(bg=PANEL_BG, fg=TEXT_FG, activebackground=ACCENT, activeforeground="white", highlightthickness=0, bd=0)
-tuning_menu["menu"].config(bg=PANEL_BG, fg=TEXT_FG)
+tuning_menu = ctk.CTkOptionMenu(tuning_input_frame, variable=tuning_var, values=["415", "432", "440", "441", "442", "466"], width=100, height=28, fg_color=DARK_BG, button_color=DARK_BG, button_hover_color=ACCENT, text_color=TEXT_FG, dropdown_fg_color=PANEL_BG, dropdown_text_color=TEXT_FG)
 tuning_menu.pack(side="left", padx=5)
 
 def update_tuning(*args):
@@ -1141,15 +1180,18 @@ def update_tuning(*args):
 
 tuning_var.trace_add("write", update_tuning)
 
-# MIDI Input Settings
-midi_frame = tk.Frame(root, bg=DARK_BG)
-midi_frame.pack(pady=(0, 10))
-tk.Label(midi_frame, text="MIDI Input Device:", bg=DARK_BG, fg=TEXT_FG, font=("TkDefaultFont", 10, "bold")).pack(side="left", padx=5)
+# MIDI Input Settings Frame
+midi_frame = ctk.CTkFrame(settings_col, fg_color=PANEL_BG, corner_radius=12)
+midi_frame.pack(fill="x", ipadx=10, ipady=5)
+
+ctk.CTkLabel(midi_frame, text="MIDI Input Settings", font=("TkDefaultFont", 10, "bold"), text_color=ACCENT).pack(anchor="w", padx=10, pady=(5, 2))
+
+midi_input_frame = ctk.CTkFrame(midi_frame, fg_color="transparent")
+midi_input_frame.pack(fill="x", padx=10, pady=(2, 5))
+ctk.CTkLabel(midi_input_frame, text="Device:", font=("TkDefaultFont", 10, "bold")).pack(side="left", padx=5)
 
 midi_device_var = tk.StringVar(value="None")
-midi_menu = tk.OptionMenu(midi_frame, midi_device_var, "None")
-midi_menu.config(bg=PANEL_BG, fg=TEXT_FG, activebackground=ACCENT, activeforeground="white", highlightthickness=0, bd=0)
-midi_menu["menu"].config(bg=PANEL_BG, fg=TEXT_FG)
+midi_menu = ctk.CTkOptionMenu(midi_input_frame, variable=midi_device_var, values=["None"], width=120, height=28, fg_color=DARK_BG, button_color=DARK_BG, button_hover_color=ACCENT, text_color=TEXT_FG, dropdown_fg_color=PANEL_BG, dropdown_text_color=TEXT_FG)
 midi_menu.pack(side="left", padx=5)
 
 def on_midi_device_change(*args):
@@ -1159,29 +1201,21 @@ midi_device_var.trace_add("write", on_midi_device_change)
 
 def refresh_midi_devices():
     devices = get_windows_midi_inputs()
-    menu = midi_menu["menu"]
-    menu.delete(0, "end")
-    menu.add_command(label="None", command=lambda: midi_device_var.set("None"))
+    options = ["None"] + [name for dev_id, name in devices]
+    midi_menu.configure(values=options)
     
-    found_current = False
     current_val = midi_device_var.get()
-    
-    for dev_id, name in devices:
-        menu.add_command(label=name, command=lambda n=name: midi_device_var.set(n))
-        if name == current_val:
-            found_current = True
-            
-    if not found_current and current_val != "None":
+    if current_val not in options:
         midi_device_var.set("None")
 
-tk.Button(midi_frame, text="Refresh Devices", command=refresh_midi_devices, bg=PANEL_BG, fg=TEXT_FG, font=("TkDefaultFont", 9, "bold"), relief="flat", activebackground=ACCENT, activeforeground="white").pack(side="left", padx=5)
+ctk.CTkButton(midi_input_frame, text="Refresh", command=refresh_midi_devices, fg_color=DARK_BG, hover_color=ACCENT, text_color=TEXT_FG, font=("TkDefaultFont", 9, "bold"), width=70, height=28, corner_radius=6).pack(side="left", padx=5)
 
-# Visualization setup
-vis_frame = tk.Frame(root, bg=DARK_BG)
-vis_frame.pack(pady=10)
+# --- Column 2: Visualization ---
+vis_col = ctk.CTkFrame(bottom_frame, fg_color="transparent")
+vis_col.pack(side="left", anchor="n", padx=10, expand=True)
 
 canvas_size = 200
-canvas = tk.Canvas(vis_frame, width=canvas_size, height=canvas_size, bg=DARK_BG, highlightthickness=0)
+canvas = tk.Canvas(vis_col, width=canvas_size, height=canvas_size, bg=DARK_BG, highlightthickness=0)
 canvas.pack()
 
 center_x, center_y = canvas_size // 2, canvas_size // 2
@@ -1261,26 +1295,73 @@ def update_visualization():
 
 update_visualization()
 
-btn_frame = tk.Frame(root, bg=DARK_BG)
-btn_frame.pack(pady=10)
+# --- Column 3: Playback Controls & Actions ---
+playback_col = ctk.CTkFrame(bottom_frame, fg_color="transparent")
+playback_col.pack(side="left", anchor="n", padx=10, expand=True)
 
-load_btn = tk.Button(btn_frame, text="Load & Play MIDI", command=load_and_play_midi, height=2, width=18, bg=ACCENT, fg="white", font=("TkDefaultFont", 10, "bold"), relief="flat", activebackground="#1a6cd1", activeforeground="white")
-load_btn.pack(side="left", padx=10)
+controls_frame = ctk.CTkFrame(playback_col, fg_color=PANEL_BG, corner_radius=12)
+controls_frame.pack(fill="both", expand=True, ipadx=10, ipady=10)
 
-export_btn = tk.Button(btn_frame, text="Export to WAV", command=export_to_wav, height=2, width=18, bg="#4CAF50", fg="white", font=("TkDefaultFont", 10, "bold"), relief="flat", activebackground="#3e8e41", activeforeground="white")
-export_btn.pack(side="left", padx=10)
+ctk.CTkLabel(controls_frame, text="Playback Controls", font=("TkDefaultFont", 10, "bold"), text_color=ACCENT).pack(anchor="w", padx=10, pady=(5, 2))
 
-playback_frame = tk.Frame(root, bg=DARK_BG)
-playback_frame.pack(pady=(0, 20))
+btn_row1 = ctk.CTkFrame(controls_frame, fg_color="transparent")
+btn_row1.pack(pady=5, fill="x", padx=5)
 
-pause_btn = tk.Button(playback_frame, text="Pause", command=pause_playback, height=2, width=12, bg="#f39c12", fg="white", font=("TkDefaultFont", 10, "bold"), relief="flat", activebackground="#d68910", activeforeground="white")
-pause_btn.pack(side="left", padx=5)
+load_btn = ctk.CTkButton(btn_row1, text="Load & Play MIDI", command=load_and_play_midi, height=35, width=130, fg_color=ACCENT, hover_color="#1a6cd1", text_color="white", font=("TkDefaultFont", 9, "bold"), corner_radius=8)
+load_btn.pack(side="left", padx=5)
 
-resume_btn = tk.Button(playback_frame, text="Resume", command=resume_playback, height=2, width=12, bg="#27ae60", fg="white", font=("TkDefaultFont", 10, "bold"), relief="flat", activebackground="#2ecc71", activeforeground="white")
-resume_btn.pack(side="left", padx=5)
+export_btn = ctk.CTkButton(btn_row1, text="Export to WAV", command=export_to_wav, height=35, width=130, fg_color="#4CAF50", hover_color="#3e8e41", text_color="white", font=("TkDefaultFont", 9, "bold"), corner_radius=8)
+export_btn.pack(side="left", padx=5)
 
-stop_btn = tk.Button(playback_frame, text="Stop", command=stop_playback, height=2, width=12, bg="#d93838", fg="white", font=("TkDefaultFont", 10, "bold"), relief="flat", activebackground="#b52d2d", activeforeground="white")
-stop_btn.pack(side="left", padx=5)
+btn_row2 = ctk.CTkFrame(controls_frame, fg_color="transparent")
+btn_row2.pack(pady=5, fill="x", padx=5)
+
+pause_btn = ctk.CTkButton(btn_row2, text="Pause", command=pause_playback, height=30, width=80, fg_color="#f39c12", hover_color="#d68910", text_color="white", font=("TkDefaultFont", 9, "bold"), corner_radius=6)
+pause_btn.pack(side="left", padx=3)
+
+resume_btn = ctk.CTkButton(btn_row2, text="Resume", command=resume_playback, height=30, width=80, fg_color="#27ae60", hover_color="#2ecc71", text_color="white", font=("TkDefaultFont", 9, "bold"), corner_radius=6)
+resume_btn.pack(side="left", padx=3)
+
+stop_btn = ctk.CTkButton(btn_row2, text="Stop", command=stop_playback, height=30, width=80, fg_color="#d93838", hover_color="#b52d2d", text_color="white", font=("TkDefaultFont", 9, "bold"), corner_radius=6)
+stop_btn.pack(side="left", padx=3)
+
+def populate_ram_cache_on_startup():
+    from concurrent.futures import ThreadPoolExecutor
+    print("Background cache pre-population started...")
+    # 1. First scan CACHE_DIR and load all existing npy files
+    if os.path.exists(CACHE_DIR):
+        for filename in os.listdir(CACHE_DIR):
+            if filename.endswith(".npy"):
+                cache_key = filename[:-4]
+                cache_path = os.path.join(CACHE_DIR, filename)
+                try:
+                    data = np.load(cache_path)
+                    with global_ram_cache_lock:
+                        global_ram_cache[cache_key] = data
+                except Exception:
+                    pass
+    print(f"Loaded {len(global_ram_cache)} files from disk cache into RAM.")
+
+    # 2. Pre-generate all notes (36 to 96) for all stops at standard tuning (440Hz) in parallel
+    notes = list(range(36, 97))
+    stops_to_pregen = [None] + list(STOPS.keys())
+    
+    tasks = []
+    for stop_name in stops_to_pregen:
+        for note in notes:
+            freq = 440.0 * (2 ** ((note - 69) / 12))
+            tasks.append((freq, 3.5, stop_name))
+            
+    max_workers = min(16, (os.cpu_count() or 4) * 2)
+    print(f"Pre-synthesizing stops using {max_workers} parallel CPU threads...")
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        list(executor.map(lambda args: get_cached_stop_tone(*args), tasks))
+            
+    print("Background cache pre-population completed successfully!")
+
+# Start the cache pre-population in a background thread
+threading.Thread(target=populate_ram_cache_on_startup, daemon=True).start()
 
 # Trigger initial stop caching
 request_re_render()
