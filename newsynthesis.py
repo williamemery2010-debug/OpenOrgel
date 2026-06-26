@@ -9,6 +9,7 @@ import math
 import time
 import wave
 import concurrent.futures
+import bisect
 try:
     import serial
     from serial.tools import list_ports
@@ -162,7 +163,7 @@ STOPS = {
     }
 }
 
-def generate_raw_tone(freq, total_duration, active_stops):
+def generate_raw_tone_python(freq, total_duration, active_stops):
     num_samples = int(SAMPLE_RATE * total_duration)
     if num_samples <= 0:
         return np.array([])
@@ -190,7 +191,7 @@ def generate_raw_tone(freq, total_duration, active_stops):
 
     # Chiff / Breath Noise: Enhanced amplitude and slower decay to make it clearly audible
     chiff_env = np.exp(-t * 12.0)
-    chiff_noise = np.random.normal(0, 0.45, num_samples)
+    chiff_noise = np.random.normal(0, 0.22, num_samples)
     wave += chiff_noise * chiff_env * np.sin(freq * 2 * np.pi * t)
 
     # Constant background wind whistling (barely audible)
@@ -231,7 +232,7 @@ def generate_raw_tone(freq, total_duration, active_stops):
                 if f > 800:
                     treble_boost = min(2.5, 1.0 + ((f - 800) / 2500))
                     adj_amp *= treble_boost
-
+                
                 all_f.extend([f, f * 1.0015, f * 0.9985])
                 all_amp.extend([adj_amp, adj_amp * 0.35, adj_amp * 0.35])
 
@@ -256,8 +257,113 @@ def generate_raw_tone(freq, total_duration, active_stops):
     return wave
 
 
+# Map stop names to their C++ static database index IDs (0 to 24)
+STOP_NAME_TO_ID = {name: idx for idx, name in enumerate(STOPS.keys())}
+
+DLL_AVAILABLE = False
+synth_lib = None
+
+try:
+    import sys
+    # Resolve absolute path to the DLL, accounting for PyInstaller sys._MEIPASS extraction
+    if hasattr(sys, "_MEIPASS"):
+        dll_path = os.path.join(sys._MEIPASS, "openorgelsynth.dll")
+    else:
+        dll_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "openorgelsynth.dll")
+    
+    # On Windows (Python 3.8+), add DLL directory to search path to ensure resolve dependencies
+    dll_dir = os.path.dirname(os.path.abspath(dll_path))
+    if os.path.isdir(dll_dir) and hasattr(os, "add_dll_directory"):
+        try:
+            os.add_dll_directory(dll_dir)
+        except Exception:
+            pass
+        
+    if not os.path.exists(dll_path):
+        dll_path = "openorgelsynth.dll"
+        
+    if os.path.exists(dll_path) or not hasattr(sys, "_MEIPASS"):
+        synth_lib = ctypes.CDLL(dll_path)
+        synth_lib.generate_raw_tone_cpp.argtypes = [
+            ctypes.c_double,                   # freq
+            ctypes.c_double,                   # duration
+            ctypes.c_int,                      # sample_rate
+            ctypes.POINTER(ctypes.c_int),       # active_stop_ids
+            ctypes.c_int,                      # num_stops
+            ctypes.POINTER(ctypes.c_float)     # out_buffer
+        ]
+        synth_lib.generate_raw_tone_cpp.restype = None
+
+        # Reverb engine ctypes mappings
+        synth_lib.create_reverb_state.argtypes = [
+            ctypes.c_int,                      # sample_rate
+            ctypes.c_float                     # room_size
+        ]
+        synth_lib.create_reverb_state.restype = ctypes.c_void_p
+
+        synth_lib.destroy_reverb_state.argtypes = [
+            ctypes.c_void_p                    # state
+        ]
+        synth_lib.destroy_reverb_state.restype = None
+
+        synth_lib.process_reverb_cpp.argtypes = [
+            ctypes.c_void_p,                   # state
+            ctypes.POINTER(ctypes.c_float),    # in_out_buffer
+            ctypes.c_int,                      # num_samples
+            ctypes.c_float                     # wet_mix
+        ]
+        synth_lib.process_reverb_cpp.restype = None
+
+        DLL_AVAILABLE = True
+        print("Successfully loaded C++ synthesis and Reverb library: openorgelsynth.dll")
+except Exception as e:
+    print(f"C++ synthesis library not loaded yet or failed to load: {e}")
+
+
+# THE HOLY TIMBRE PORTAL SECTION
+# apple text go brrr
+def generate_raw_tone(freq, total_duration, active_stops):
+    if DLL_AVAILABLE:
+        try:
+            num_samples = int(SAMPLE_RATE * total_duration)
+            if num_samples <= 0:
+                return np.array([], dtype=np.float32)
+            
+            # Map active stop names to C++ index IDs
+            active_stop_ids = [STOP_NAME_TO_ID[name] for name in active_stops if name in STOP_NAME_TO_ID]
+            num_stops = len(active_stop_ids)
+            
+            # Allocate contiguous float32 array for output
+            out_buffer = np.zeros(num_samples, dtype=np.float32)
+            
+            # Create ctypes int array for stops
+            stop_ids_arr = (ctypes.c_int * num_stops)(*active_stop_ids)
+            
+            # Call the high-performance C++ engine
+            synth_lib.generate_raw_tone_cpp(
+                ctypes.c_double(freq),
+                ctypes.c_double(total_duration),
+                ctypes.c_int(SAMPLE_RATE),
+                stop_ids_arr,
+                ctypes.c_int(num_stops),
+                out_buffer.ctypes.data_as(ctypes.POINTER(ctypes.c_float))
+            )
+            return out_buffer
+        except Exception as e:
+            print(f"C++ synthesis failed, falling back to Python: {e}")
+            return generate_raw_tone_python(freq, total_duration, active_stops)
+    else:
+        return generate_raw_tone_python(freq, total_duration, active_stops)
+
+
+
 global_ram_cache = {}
 global_ram_cache_lock = threading.Lock()
+# Sequential background thread pool for writing cache files to disk, preventing thread explosions
+# menthol
+# t-BuLi
+# why code hard
+disk_write_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
 def get_cached_stop_tone(freq, duration, stop_name):
     global global_ram_cache
@@ -267,7 +373,7 @@ def get_cached_stop_tone(freq, duration, stop_name):
     use_standard = duration <= 3.5
     cache_duration = 3.5 if use_standard else duration
     
-    cache_key = hashlib.md5(f"{freq}_{cache_duration}_{stop_key}".encode()).hexdigest()
+    cache_key = hashlib.md5(f"cppv1_{freq}_{cache_duration}_{stop_key}".encode()).hexdigest()
     
     # Try RAM cache
     with global_ram_cache_lock:
@@ -295,13 +401,13 @@ def get_cached_stop_tone(freq, duration, stop_name):
     # Generate new tone
     data = generate_raw_tone(freq, cache_duration, [stop_name] if stop_name else [])
     
-    # Save to disk in a background thread to prevent GUI/audio callback stuttering
-    def save_disk():
+    # Save to disk sequentially in the background write queue to prevent thread explosion
+    def save_disk_file(path, wave_data):
         try:
-            np.save(cache_path, data)
+            np.save(path, wave_data)
         except Exception as e:
-            print(f"Error saving cache file {cache_path}: {e}")
-    threading.Thread(target=save_disk, daemon=True).start()
+            print(f"Error saving cache file {path}: {e}")
+    disk_write_executor.submit(save_disk_file, cache_path, data)
 
     with global_ram_cache_lock:
         global_ram_cache[cache_key] = data
@@ -319,6 +425,7 @@ is_playing = False
 is_paused = False
 audio_stream = None
 playback_notes = []
+playback_notes_starts = []
 visualizer_start_time = 0
 current_midi_file = None
 is_rendering = False
@@ -340,82 +447,30 @@ midi_listener_active = False
 live_pregenerator_stops = []
 live_pregenerator_tuning = 440.0
 
-# Live Reverb & Facade Effects State
-live_reverb_ring = np.zeros(200000, dtype=np.float32)
-live_reverb_write_idx = 0
-facade_history = np.zeros(5, dtype=np.float32)
+# Live Reverb State Pointer (C++)
+live_reverb_state_ptr = None
+if DLL_AVAILABLE:
+    try:
+        # Create a persistent reverb state in C++ (room size = 0.86)
+        live_reverb_state_ptr = synth_lib.create_reverb_state(SAMPLE_RATE, ctypes.c_float(0.86))
+        print("Successfully created C++ live reverb state")
+    except Exception as e:
+        print(f"Failed to create C++ live reverb state: {e}")
 
 def apply_live_effects(live_chunk):
-    global live_reverb_ring, live_reverb_write_idx, facade_history
-    
-    frames = len(live_chunk)
-    if frames == 0:
-        return live_chunk
-        
-    # 1. Facade Low-pass Filter (window = 6)
-    padded = np.zeros(len(live_chunk) + 7)
-    padded[1:6] = facade_history
-    padded[6:-1] = live_chunk
-    facade_history = live_chunk[-5:].copy()
-    cs = np.cumsum(padded)
-    filtered = (cs[7:] - cs[1:-6]) / 6.0
-    
-    # 2. Reverb / Multi-tap delay
-    out_chunk = np.copy(filtered)
-    
-    delay_times = [0.035, 0.081, 0.150, 0.275, 0.450, 0.700, 1.050, 1.500, 2.100, 2.800, 3.600]
-    bass_decays = [0.65, 0.55, 0.45, 0.35, 0.28, 0.22, 0.18, 0.14, 0.10, 0.07, 0.04]
-    treble_decays = [0.60, 0.40, 0.25, 0.15, 0.08, 0.04, 0.02, 0.01, 0.00, 0.00, 0.00]
-    
-    ring_len = len(live_reverb_ring)
-    start_idx = live_reverb_write_idx
-    end_idx = start_idx + frames
-    
-    if end_idx <= ring_len:
-        live_reverb_ring[start_idx:end_idx] = filtered
-    else:
-        chunk1 = ring_len - start_idx
-        live_reverb_ring[start_idx:] = filtered[:chunk1]
-        live_reverb_ring[:frames - chunk1] = filtered[chunk1:]
-        
-    for d_time, b_decay, t_decay in zip(delay_times, bass_decays, treble_decays):
-        shift = int(d_time * SAMPLE_RATE)
-        read_start = (start_idx - shift) % ring_len
-        
-        window_size = int(d_time * 120) + 4
-        
-        # Read from read_start - window_size to include history for the moving average
-        temp_read_start = (read_start - window_size) % ring_len
-        total_read_len = frames + window_size
-        
-        temp_read_end = temp_read_start + total_read_len
-        if temp_read_end <= ring_len:
-            temp_delayed = live_reverb_ring[temp_read_start:temp_read_end]
-        else:
-            chunk1 = ring_len - temp_read_start
-            temp_delayed = np.concatenate([live_reverb_ring[temp_read_start:], live_reverb_ring[:total_read_len - chunk1]])
-            
-        padded_del = np.zeros(len(temp_delayed) + 1)
-        padded_del[1:] = temp_delayed
-        cs_del = np.cumsum(padded_del)
-        bass_sig = (cs_del[window_size:] - cs_del[:-window_size]) / window_size
-        bass_sig = bass_sig[:frames]
-        
-        read_end = read_start + frames
-        if read_end <= ring_len:
-            delayed = live_reverb_ring[read_start:read_end]
-        else:
-            chunk1 = ring_len - read_start
-            delayed = np.concatenate([live_reverb_ring[read_start:], live_reverb_ring[:frames - chunk1]])
-            
-        treble_sig = delayed - bass_sig
-        
-        out_chunk += (bass_sig * b_decay) + (treble_sig * t_decay)
-        
-    live_reverb_write_idx = (start_idx + frames) % ring_len
-    
-    # Scale down by the gain factor of the 11 delay taps to prevent clipping distortion
-    return out_chunk / 3.5
+    if DLL_AVAILABLE and live_reverb_state_ptr is not None:
+        try:
+            out_chunk = np.ascontiguousarray(live_chunk, dtype=np.float32)
+            synth_lib.process_reverb_cpp(
+                ctypes.c_void_p(live_reverb_state_ptr),
+                out_chunk.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
+                ctypes.c_int(len(out_chunk)),
+                ctypes.c_float(0.40) # 40% wet reverb mix
+            )
+            return out_chunk
+        except Exception as e:
+            print(f"C++ live reverb processing failed: {e}")
+    return live_chunk
 
 def pregenerate_live_tones(stops, tuning_hz):
     """Background thread function to generate tones for MIDI notes 36-96."""
@@ -880,44 +935,31 @@ def _generate_audio_buffer(file_path):
 
             new_playback_notes.append((start_idx, end_idx, note))
 
-    # --- Wooden Facade Acoustic Dampening ---
-    # A wooden cabinet/facade absorbs high-frequency harshness, warming the overall tone.
-    # We apply a light master low-pass filter (moving average) across the whole mix.
-    facade_window = 6
-    # Pre-allocate buffer to avoid multiple concatenate memory duplications
-    padded_audio = np.zeros(len(audio) + facade_window)
-    padded_audio[1:len(audio)+1] = audio
-    cs_audio = np.cumsum(padded_audio)
-    audio = (cs_audio[facade_window:] - cs_audio[:-facade_window]) / facade_window
-    
-    # --- Enhanced Digital Reverb/Delay Unit ---
-    # Vectorized multi-tap delay to simulate acoustic spatial depth
-    delay_times = [0.035, 0.081, 0.150, 0.275, 0.450, 0.700, 1.050, 1.500, 2.100, 2.800, 3.600]
-    
-    # Independent decay paths to allow bass frequencies to ring out much longer
-    bass_decays = [0.65, 0.55, 0.45, 0.35, 0.28, 0.22, 0.18, 0.14, 0.10, 0.07, 0.04]
-    treble_decays = [0.60, 0.40, 0.25, 0.15, 0.08, 0.04, 0.02, 0.01, 0.00, 0.00, 0.00]
-    
-    reverb_buffer = np.copy(audio)
-    for d_time, b_decay, t_decay in zip(delay_times, bass_decays, treble_decays):
-        shift = int(d_time * SAMPLE_RATE)
-        if shift < len(audio):
-            delayed_signal = audio[:-shift]
-            
-            # Low-pass filter to separate bass/mids from treble
-            window_size = int(d_time * 120) + 4
-            
-            # Fast vectorized moving average using pre-allocated memory
-            padded = np.zeros(len(delayed_signal) + window_size)
-            padded[1:len(delayed_signal)+1] = delayed_signal
-            cs = np.cumsum(padded)
-            bass_signal = (cs[window_size:] - cs[:-window_size]) / window_size
-            
-            # The remainder of the signal is the higher frequencies
-            treble_signal = delayed_signal - bass_signal
-            
-            reverb_buffer[shift:] += (bass_signal * b_decay) + (treble_signal * t_decay)
-    audio = reverb_buffer
+    # Apply C++ Schroeder Reverb and Wooden Facade Lowpass Filter (with Python fallback)
+    if DLL_AVAILABLE:
+        try:
+            offline_reverb_state = synth_lib.create_reverb_state(SAMPLE_RATE, ctypes.c_float(0.86))
+            audio = np.ascontiguousarray(audio, dtype=np.float32)
+            synth_lib.process_reverb_cpp(
+                ctypes.c_void_p(offline_reverb_state),
+                audio.ctypes.data_as(ctypes.POINTER(ctypes.c_float)),
+                ctypes.c_int(len(audio)),
+                ctypes.c_float(0.40)
+            )
+            synth_lib.destroy_reverb_state(ctypes.c_void_p(offline_reverb_state))
+        except Exception as e:
+            print(f"C++ offline reverb failed, falling back: {e}")
+            facade_window = 6
+            padded_audio = np.zeros(len(audio) + facade_window)
+            padded_audio[1:len(audio)+1] = audio
+            cs_audio = np.cumsum(padded_audio)
+            audio = (cs_audio[facade_window:] - cs_audio[:-facade_window]) / facade_window
+    else:
+        facade_window = 6
+        padded_audio = np.zeros(len(audio) + facade_window)
+        padded_audio[1:len(audio)+1] = audio
+        cs_audio = np.cumsum(padded_audio)
+        audio = (cs_audio[facade_window:] - cs_audio[:-facade_window]) / facade_window
 
     # normalize
     audio /= np.max(np.abs(audio) + 1e-9)
@@ -925,10 +967,12 @@ def _generate_audio_buffer(file_path):
     return audio, new_playback_notes
 
 def _start_playback_stream(audio, notes):
-    global current_audio, playback_idx, is_playing, is_paused, visualizer_start_time, playback_notes
+    global current_audio, playback_idx, is_playing, is_paused, visualizer_start_time, playback_notes, playback_notes_starts
     
     current_audio = np.float32(audio)
-    playback_notes = notes
+    # Sort notes by start_idx to guarantee binary search correctness
+    playback_notes = sorted(notes, key=lambda x: x[0])
+    playback_notes_starts = [note[0] for note in playback_notes]
     playback_idx = 0
     is_playing = True
     is_paused = False
@@ -1181,6 +1225,12 @@ def update_tuning(*args):
 
 tuning_var.trace_add("write", update_tuning)
 
+# Visual status indicator for the high-performance C++ synthesis engine
+engine_status_text = "C++ Engine: Active" if DLL_AVAILABLE else "C++ Engine: Fallback (Python)"
+engine_status_color = "#2ecc71" if DLL_AVAILABLE else "#e74c3c"
+engine_status_label = ctk.CTkLabel(tuning_frame, text=engine_status_text, font=("TkDefaultFont", 10, "bold"), text_color=engine_status_color)
+engine_status_label.pack(anchor="w", padx=15, pady=(5, 5))
+
 # MIDI Input Settings Frame
 midi_frame = ctk.CTkFrame(settings_col, fg_color=PANEL_BG, corner_radius=12)
 midi_frame.pack(fill="x", ipadx=10, ipady=5)
@@ -1234,6 +1284,8 @@ for i in range(12):
     ty = center_y + (radius + 18) * math.sin(angle)
     canvas.create_text(tx, ty, text=pitch_names[i], fill="#888888", font=("TkDefaultFont", 9, "bold"))
 
+# THE SPECTRAL CIRCLE OF MYSTIC RESONANCE
+# god someone help me
 def update_visualization():
     global last_a4_state, SERIAL_AVAILABLE, arduino_serial
     canvas.delete("poly")
@@ -1248,8 +1300,14 @@ def update_visualization():
     active_pitches = set()
     a4_currently_active = False
     
-    if is_playing:
-        for start_idx, end_idx, note in playback_notes:
+    if is_playing and playback_notes and len(playback_notes_starts) > 0:
+        # Find index of first note starting after current_idx
+        limit = bisect.bisect_right(playback_notes_starts, current_idx)
+        # Search only notes starting in a 6-second window before current_idx
+        lower_bound = bisect.bisect_left(playback_notes_starts, current_idx - 6 * SAMPLE_RATE)
+        
+        for i in range(lower_bound, limit):
+            start_idx, end_idx, note = playback_notes[i]
             if start_idx <= current_idx <= end_idx:
                 active_pitches.add(note % 12)
                 if note == 69:
@@ -1376,6 +1434,11 @@ else:
 def on_closing():
     close_midi_input()
     stop_playback()
+    if DLL_AVAILABLE and live_reverb_state_ptr is not None:
+        try:
+            synth_lib.destroy_reverb_state(ctypes.c_void_p(live_reverb_state_ptr))
+        except Exception:
+            pass
     root.destroy()
 
 root.protocol("WM_DELETE_WINDOW", on_closing)

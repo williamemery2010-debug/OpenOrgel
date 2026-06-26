@@ -1,0 +1,12 @@
+# Organ Player Cache
+organ_audio_cache/
+
+# Python compiled bytecode
+__pycache__/
+*.pyc
+
+# Native binaries and packaging build output
+openorgelsynth.dll
+openorgelsynth.exe
+build/
+dist/
