@@ -1,0 +1,52 @@
+================================================================================
+                   OPENORGEL PROJECT HISTORY & RELEASES
+================================================================================
+Updated At     : 2026-06-26 23:33:25
+Total Commits  : 21
+Total Releases : 2
+================================================================================
+
+🚀 RELEASES / TAGS
+--------------------------------------------------------------------------------
+Version : Prealpha
+Date    : 2026-06-03
+Commit  : da2ab43
+Details : Delete SynthesiserPOC.py
+    
+    Deletion for cleaning, historical duplicate of newsynthesis.py
+--------------------------------------------------------------------------------
+Version : Prealpha_1.1.0
+Date    : 2026-06-03
+Commit  : 9f8bf11
+Details : Optimising
+    Optimising
+    And more optimising
+--------------------------------------------------------------------------------
+
+
+📜 COMMIT HISTORY (Newest First)
+--------------------------------------------------------------------------------
+HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
+--------------------------------------------------------------------------------
+068b263  | 2026-06-26 | williamemery2010-deb | Add update_history.py and commits_and_releases.txt with automated git hooks
+0255b46  | 2026-06-26 | williamemery2010-deb | fixed codebase styles
+31dc454  | 2026-06-26 | williamemery2010-deb | Sandwich helpful comments in incomprehensible acronyms, recursive notes, pain, and niche music theory references
+2553bc6  | 2026-06-26 | williamemery2010-deb | I have actually ported this entire thing to C++ and python
+87a1de9  | 2026-06-26 | williamemery2010-deb | Comply with AGENTS.md rules and ensure cache, build directories, and native binaries are never tracked in Git
+81da84c  | 2026-06-26 | williamemery2010-deb | fixing bugs
+f714c09  | 2026-06-26 | williamemery2010-deb | Fixed ctk traceback and definition errors
+8420245  | 2026-06-26 | williamemery2010-deb | Incredible amounts of optimising.
+7c3082a  | 2026-06-26 | williamemery2010-deb | Implemented native MIDI keyboard functionality.
+3542143  | 2026-06-10 | williamemery2010-deb | optimising
+ff8479b  | 2026-06-10 | williamemery2010-deb | holy scheisse this is a commit to end all commits
+681940e  | 2026-06-04 | williamemery2010-deb | Merge branch 'main' of https://github.com/williamemery2010-debug/OpenOrgel
+747abbc  | 2026-06-04 | williamemery2010-deb | summary of my synthesis engine
+e3ed4d5  | 2026-06-04 | Violinteresting      | Add files via upload
+3fca43b  | 2026-06-04 | williamemery2010-deb | summary of the repository
+9f8bf11  | 2026-06-03 | williamemery2010-deb | Optimising Optimising And more optimising
+da2ab43  | 2026-06-03 | williamemery2010-deb | Delete SynthesiserPOC.py
+76f8da5  | 2026-06-03 | williamemery2010-deb | This is a historical file.
+31fd385  | 2026-06-03 | williamemery2010-deb | Add project overview for OpenOrgel in README
+2b253ef  | 2026-06-03 | williamemery2010-deb | Another big commit.. Not really, just some more code to make it nicer and an extra switch. I'll buy a teensy 4.0 soon and run the servo's off that, Which means even more code to go into the repo. I'll buy more switches and layout the console properly in fusion, which will be expensive. It also means I have to code in those new switches, yay. How fun. ANYWAYS, ignore my commit messages. If you're VCAA, you can read the code and see what I've done. But like, don't read my code that seems purposeless...
+021e9fc  | 2026-06-02 | williamemery2010-deb | This is my first commit, my proof of concepts are here
+================================================================================
