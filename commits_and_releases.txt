@@ -1,12 +1,17 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-06-26 23:33:25
-Total Commits  : 21
-Total Releases : 2
+Updated At     : 2026-06-26 23:45:44
+Total Commits  : 22
+Total Releases : 3
 ================================================================================
 
 🚀 RELEASES / TAGS
+--------------------------------------------------------------------------------
+Version : Prealpha_v1.2.0
+Date    : 2026-06-26
+Commit  : c579a99
+Details : Add update_history.py and commits_and_releases.txt with automated git hooks
 --------------------------------------------------------------------------------
 Version : Prealpha
 Date    : 2026-06-03
@@ -28,7 +33,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-068b263  | 2026-06-26 | williamemery2010-deb | Add update_history.py and commits_and_releases.txt with automated git hooks
+6c3ed2d  | 2026-06-26 | williamemery2010-deb | Add GitHub Actions workflow for automated history updates
+c579a99  | 2026-06-26 | williamemery2010-deb | Add update_history.py and commits_and_releases.txt with automated git hooks
 0255b46  | 2026-06-26 | williamemery2010-deb | fixed codebase styles
 31dc454  | 2026-06-26 | williamemery2010-deb | Sandwich helpful comments in incomprehensible acronyms, recursive notes, pain, and niche music theory references
 2553bc6  | 2026-06-26 | williamemery2010-deb | I have actually ported this entire thing to C++ and python
