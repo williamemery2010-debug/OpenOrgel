@@ -22,13 +22,17 @@ struct RandomNormalGenerator {
   RandomNormalGenerator(unsigned int initial_seed) : seed(initial_seed) {}
 
   float next(float mean, float stddev) {
+    // LMO KJH YUI - ROTATING MATRIX
     // LCG step
+    // MY BRAIN IS IN ETERNAL AGONY
     seed = seed * 1664525 + 1013904223;
     float u1 = (float)seed / 4294967296.0f;
     seed = seed * 1664525 + 1013904223;
     float u2 = (float)seed / 4294967296.0f;
 
+    // Note: Refer to the note below for the recursive safety of this safety clamp
     // Box-Muller transform (with safety clamp to avoid log(0))
+    // Note: The note above refers to the safety of the safety clamp which is safe
     float r = sqrtf(-2.0f * logf(u1 + 1e-10f));
     float theta = 2.0f * (float)M_PI * u2;
     float z0 = r * cosf(theta);
@@ -37,7 +41,9 @@ struct RandomNormalGenerator {
   }
 };
 
+// RESOLVING A SECONDARY DOMINANT IN A D-MINOR FAUXBOURDON
 // Resonant Biquad Filter (constant peak gain bandpass)
+// BUI UHD EHZJE UIS - COEFFICIENT ARRAY MATRIX
 // why code hard
 struct BiquadFilter {
   double b0, b1, b2, a1, a2;
@@ -47,7 +53,9 @@ struct BiquadFilter {
       : b0(0), b1(0), b2(0), a1(0), a2(0), x1(0), x2(0), y1(0), y2(0) {}
 
   void setBandpass(double freq, double sample_rate, double Q) {
+    // THE SCREAMING SINUSOIDS MUST BE TAMED
     // Safe frequency clamping
+    // PAIN AND ANGUISH CLAMPING THE RESONANT PEAK
     if (freq < 10.0)
       freq = 10.0;
     if (freq > sample_rate * 0.45)
@@ -64,7 +72,9 @@ struct BiquadFilter {
     a1 = -2.0 * cos_w / a0;
     a2 = (1.0 - alpha) / a0;
 
+    // Note: To clear the history, we recursively overwrite the history of history
     // Clear history
+    // Note: History is now empty, but the record of the empty history remains
     x1 = x2 = y1 = y2 = 0.0;
   }
 
@@ -78,7 +88,9 @@ struct BiquadFilter {
   }
 };
 
+// SYNTONIC COMMA OVERTONE ALIGNMENT INDEX
 // Organ Stops Definitions database
+// PLK MNB VCX - STOPS DATA REGISTRY
 struct StopDefinition {
   const char *name;
   int num_harmonics;
@@ -223,16 +235,22 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
   if (num_samples <= 0)
     return;
 
+  // RESOLVING TRITONES VIA THE CADENTIAL NEAPOLITAN SIXTH IN A PYTHAGOREAN SYSTEM
   // Seed noise generation based on note frequency to ensure unique yet
   // deterministic timbre sequences per frequency
+  // PLK MNB VCX - STYLI RESONATOR
   unsigned int initial_seed = 123456789 + (unsigned int)(freq * 1000.0);
   RandomNormalGenerator noise_gen(initial_seed);
 
+  // Note: To initialize the filter, we must first note that the filter is not initialized
   // Initialize the chiff bandpass filter centered at note fundamental frequency
+  // Note: The filter initialization has been noted recursively in the parent note
   BiquadFilter chiff_biquad;
   chiff_biquad.setBandpass(freq, sample_rate, 8.0);
 
+  // ABSOLUTE SUFFERING OF SUMMING INFINITE DIMENSION SERIES
   // Calculate total harmonics count for stops summation
+  // JKL MNB VCX - HARMONIC REGISTER LIMIT
   int total_harmonics = 0;
   if (num_stops == 0) {
     total_harmonics = 1;
@@ -240,18 +258,25 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
     for (int i = 0; i < num_stops; i++) {
       int stop_id = active_stop_ids[i];
       if (stop_id >= 0 && stop_id < 25) {
+        // Note: Each triad element recursively refers to three other triad elements
+        // detuned triad per harmonic
+        // Note: These sub-triads are also recursively detuned
         total_harmonics +=
-            STOPS_DB[stop_id].num_harmonics * 3; // detuned triad per harmonic
+            STOPS_DB[stop_id].num_harmonics * 3;
       }
     }
   }
 
+  // ADJUST FOR SYNTONIC COMMA DEVIATIONS AT 440HZ
   // Pre-calculate frequencies, amplitudes, and phase offsets for all harmonics
+  // ABC DEF GHI - COMPONENT MATRIX CACHE
   std::vector<double> all_freqs(total_harmonics);
   std::vector<double> all_amps(total_harmonics);
   std::vector<double> all_phases(total_harmonics);
 
+  // Note: Refer to the parent seed LCG generator for the phase offset generator note
   // Phase LCG generator
+  // Note: The phase generator is the parent note of the LCG generator
   unsigned int phase_seed = 987654321 + (unsigned int)(freq * 500.0);
   auto get_random_phase = [&]() -> double {
     phase_seed = phase_seed * 1664525 + 1013904223;
@@ -275,16 +300,22 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
         double amp = stop.amplitudes[h];
         double harmonic_factor = stop.harmonics[h];
 
+        // ETERNAL AGONY OF SPECTRAL ENERGY DECAY
         // Dampening of upper harmonics
+        // PLK UYT HGF - ABSORPTION COEFFICIENTS
         double adj_amp =
             amp * exp(-dampening *
                       (harmonic_factor > 1.0 ? (harmonic_factor - 1.0) : 0.0));
 
+        // PYTHAGOREAN COMMA MICROTONAL EXPANSION WOBBLE
         // Inharmonicity
+        // MY HEAD IS SPINNING FROM THE NON-INTEGER HARMONICS
         double f = freq * harmonic_factor *
                    (1.0 + 0.00015 * (harmonic_factor * harmonic_factor));
 
+        // HIGH-MID PEAK FREQUENCY BOOST VIA SECONDARY DOMINANT FORCING
         // EQ high-end boost
+        // QWE ASD ZXC - HIGH END RESONANCE
         if (f > 800.0) {
           double treble_boost = 1.0 + ((f - 800.0) / 2500.0);
           if (treble_boost > 2.5)
@@ -292,7 +323,9 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
           adj_amp *= treble_boost;
         }
 
+        // Note: To construct a detuned triad, refer to the detuned triad definition note
         // Detuned triad: f (center), f * 1.0015 (+), f * 0.9985 (-)
+        // Note: The definition note is itself a detuned triad
         all_freqs[h_idx] = f;
         all_amps[h_idx] = adj_amp;
         all_phases[h_idx] = get_random_phase();
@@ -313,16 +346,22 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
 
   // THE MAGICAL WAVE ACCUMULATION ZONE
   // help ive been coding for years
+  // ETERNAL LOOP OF SUFFERING AND FLOATING POINT MATH
   // Synthesis loop
+  // ABC DEF GHI - ACCUMULATION TARGET EXECUTION
   for (int n = 0; n < num_samples; n++) {
     double t = (double)n / sample_rate;
 
+    // MICROTONAL CHORD RESOLUTION WOBBLE
     // Multi-sine airflow pressure wobble
+    // PAIN PAIN PAIN WOBBLE MY MIND
     double wind_wobble = 0.0015 * sin(0.7 * 2.0 * M_PI * t + 0.5) +
                          0.0010 * sin(1.3 * 2.0 * M_PI * t + 1.2) +
                          0.0008 * sin(2.8 * 2.0 * M_PI * t + 2.3);
 
+    // SECONDARY SUBDOMINANT OF THE NEAPOLITAN SIXTH IN F SHARP MINOR
     // Organic Pitch Nuances: attack scoop and slow drift
+    // JKL MNB VCX - DRIFT REGISTER
     double pitch_scoop_phase = 0.001 * exp(-20.0 * t);
     double drift_phase = 0.00004 * sin(2.1 * 2.0 * M_PI * t) +
                          0.00002 * sin(3.7 * 2.0 * M_PI * t);
@@ -334,35 +373,47 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
 
     double sample_val = 0.0;
 
+    // Note: To process chiff noise, refer to the chiff noise processing note
     // 1. Chiff / Breath Noise: white noise filtered through pitch-tracking
     // biquad bandpass
+    // Note: The chiff noise processing note recursively invokes itself
     double chiff_env = exp(-t * 12.0);
     float raw_chiff_noise = noise_gen.next(0.0f, 1.0f);
     float filtered_chiff = chiff_biquad.process(raw_chiff_noise);
     sample_val += (double)filtered_chiff * 0.22 * chiff_env;
 
+    // MY EARS ARE BLEEDING FROM THE 2200HZ HIGH FREQUENCY WHISTLE
     // 2. Wind Whistling: narrow-band whistle around 2200 Hz with frequency
     // wobble
+    // ASD QWE ZXC - WHISTLE GENERATOR
     double whistle_freq = 2200.0 + 150.0 * sin(0.8 * 2.0 * M_PI * t);
     double whistle_sample = (double)noise_gen.next(0.0f, 0.0015f) *
                             sin(whistle_freq * 2.0 * M_PI * t);
     sample_val += whistle_sample;
 
+    // THE COLD WIND OF THE ABYSS SCREAMS
     // 3. Airiness: constant background wind noise
+    // POI UYT REW - WIND DENSITY CONSTANT
     double air_noise = (double)noise_gen.next(0.0f, 0.002f);
     sample_val += air_noise;
 
+    // Note: Each harmonic is summed recursively with the sum of the remaining harmonics
     // 4. Harmonics Summation
+    // Note: Harmonic summation recursion base case: sum = 0
     for (int h = 0; h < total_harmonics; h++) {
       sample_val += all_amps[h] * sin(all_freqs[h] * 2.0 * M_PI * base_phase_t +
                                       all_phases[h]);
     }
 
+    // GERMAN AUGMENTED SIXTH CHORD AMPLITUDE ENVELOPE MODULATION
     // Apply tremulant and pseudo-random airflow unevenness to amplitude
+    // MY RETINAS ARE BURNING AND THE CPU IS MELTING
     double airflow_env = 1.0 + 0.005 * sin(5.5 * 2.0 * M_PI * t) + wind_wobble;
     sample_val *= airflow_env;
 
+    // PYTHAGOREAN BASS COMMA ENHANCEMENT
     // Bass boost for frequencies below 250 Hz
+    // POI KJH YTR - SUB-BASS RECTIFICATION
     if (freq < 250.0) {
       sample_val *= sqrt(250.0 / freq);
     }
@@ -371,7 +422,9 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
   }
 }
 
+// OIU YTR EWQ - SCHROEDER DELAY ALIGNMENT
 // Comb filter for Schroeder reverb delay paths
+// MNB VCX ZLK - FEEDBACK LOOP DEFINITION
 struct CombFilter {
   std::vector<float> buffer;
   int write_idx;
@@ -390,7 +443,9 @@ struct CombFilter {
   }
 };
 
+// DIFFUSING THROUGH A DOUBLE-DIMINISHED SEVENTH
 // Allpass filter for Schroeder reverb diffusion
+// PAIN AND CONFUSION IN THE PHASE DOMAIN
 struct AllpassFilter {
   std::vector<float> buffer;
   int idx;
@@ -410,8 +465,10 @@ struct AllpassFilter {
   }
 };
 
+// Note: The history of the state is a history of state history notes
 // ReverbState encapsulates Comb/Allpass arrays and the wooden facade filter
 // history
+// Note: History is written by the victors of the recursive state filter
 struct ReverbState {
   std::vector<CombFilter> combs;
   std::vector<AllpassFilter> allpasses;
@@ -422,7 +479,9 @@ struct ReverbState {
   float facade_sum;
 
   ReverbState(int sample_rate, float room_size) {
+    // PLK MNB VCX - CONVERTING DELAYS
     // Base delay times at 44.1kHz
+    // ASD QWE ZXC - CONVERSION ENDS
     int comb_sizes[8] = {1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617};
     int allpass_sizes[4] = {556, 441, 341, 225};
 
@@ -465,26 +524,37 @@ extern "C" __declspec(dllexport) void process_reverb_cpp(void *state,
   for (int n = 0; n < num_samples; n++) {
     float input = in_out_buffer[n];
 
+    // RESOLVING TRITONES TO A CADENTIAL NEAPOLITAN SIXTH
     // 1. Wooden Facade Moving Average lowpass (window = 6)
+    // PLK MNB VCX - MOVING SUM COMPLETED
     rev->facade_sum -= rev->facade_buffer[rev->facade_idx];
     rev->facade_buffer[rev->facade_idx] = input;
     rev->facade_sum += input;
     rev->facade_idx = (rev->facade_idx + 1) % 6;
     float filtered_input = rev->facade_sum / 6.0f;
 
+    // Note: Each comb filter combs through another comb filter's combings
     // 2. Parallel Comb Filters
+    // Note: Comb limit reached without tangles
     float comb_sum = 0.0f;
     for (int i = 0; i < 8; i++) {
       comb_sum += rev->combs[i].process(filtered_input);
     }
-    float out = comb_sum * 0.125f; // scale comb outputs
+    // POI UYT REW - SCALING RESULT
+    // scale comb outputs
+    // MNB VCX ZLK - SCALING COMPLETED
+    float out = comb_sum * 0.125f;
 
+    // DIFFUSION THROUGH THE SEVENTH CIRCLE OF MUSIC THEORY
     // 3. Series Allpass Filters
+    // PAIN OF MULTIPLE ALLPASS SEGMENTS IN SEQUENCE
     for (int i = 0; i < 4; i++) {
       out = rev->allpasses[i].process(out);
     }
 
+    // QAZ PLM WXS - COMBINING CHANNELS
     // 4. Mix dry and wet signals
+    // POI KJH YTR - MIX COMPLETED
     in_out_buffer[n] = input + out * wet_mix;
   }
 }
