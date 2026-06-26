@@ -16,6 +16,42 @@ except ImportError:
     SERIAL_AVAILABLE = False
 import os
 import hashlib
+import ctypes
+from ctypes import wintypes
+
+# WinMM MIDI Input Definitions and Wrapper
+MIDI_MAP_MAPPER = -1
+MIM_DATA = 0x3C3
+MIM_OPEN = 0x3C1
+MIM_CLOSE = 0x3C2
+CALLBACK_FUNCTION = 0x00030000
+
+class MIDIINCAPSW(ctypes.Structure):
+    _fields_ = [
+        ('wMid', wintypes.WORD),
+        ('wPid', wintypes.WORD),
+        ('vDriverVersion', wintypes.DWORD),
+        ('szPname', wintypes.WCHAR * 32),
+        ('dwSupport', wintypes.DWORD)
+    ]
+
+MIDIINPROC = ctypes.WINFUNCTYPE(None, wintypes.HANDLE, wintypes.UINT, ctypes.c_size_t, ctypes.c_size_t, ctypes.c_size_t)
+
+try:
+    winmm = ctypes.windll.winmm
+except Exception:
+    winmm = None
+
+def get_windows_midi_inputs():
+    if not winmm:
+        return []
+    num_devs = winmm.midiInGetNumDevs()
+    ports = []
+    for i in range(num_devs):
+        caps = MIDIINCAPSW()
+        if winmm.midiInGetDevCapsW(i, ctypes.byref(caps), ctypes.sizeof(caps)) == 0:
+            ports.append((i, caps.szPname))
+    return ports
 
 SAMPLE_RATE = 44100
 CACHE_DIR = "organ_audio_cache"
@@ -225,13 +261,302 @@ is_rendering = False
 render_requested = False
 global_a4_freq = 440.0
 global_active_stops = []
+global_volume = 1.0
+arduino_serial = None
+last_a4_state = False
+
+# Live MIDI State Globals
+active_voices_lock = threading.Lock()
+active_voices = {}  # MIDI note -> voice state dict
+global_tone_cache = {}
+live_midi_active = False
+current_midi_in = None
+winmm_callback_ref = None
+midi_listener_active = False
+live_pregenerator_stops = []
+live_pregenerator_tuning = 440.0
+
+# Live Reverb & Facade Effects State
+live_reverb_ring = np.zeros(200000, dtype=np.float32)
+live_reverb_write_idx = 0
+facade_history = np.zeros(5, dtype=np.float32)
+
+def apply_live_effects(live_chunk):
+    global live_reverb_ring, live_reverb_write_idx, facade_history
+    
+    frames = len(live_chunk)
+    if frames == 0:
+        return live_chunk
+        
+    # 1. Facade Low-pass Filter (window = 6)
+    padded = np.zeros(len(live_chunk) + 7)
+    padded[1:6] = facade_history
+    padded[6:-1] = live_chunk
+    facade_history = live_chunk[-5:].copy()
+    cs = np.cumsum(padded)
+    filtered = (cs[7:] - cs[1:-6]) / 6.0
+    
+    # 2. Reverb / Multi-tap delay
+    out_chunk = np.copy(filtered)
+    
+    delay_times = [0.035, 0.081, 0.150, 0.275, 0.450, 0.700, 1.050, 1.500, 2.100, 2.800, 3.600]
+    bass_decays = [0.65, 0.55, 0.45, 0.35, 0.28, 0.22, 0.18, 0.14, 0.10, 0.07, 0.04]
+    treble_decays = [0.60, 0.40, 0.25, 0.15, 0.08, 0.04, 0.02, 0.01, 0.00, 0.00, 0.00]
+    
+    ring_len = len(live_reverb_ring)
+    start_idx = live_reverb_write_idx
+    end_idx = start_idx + frames
+    
+    if end_idx <= ring_len:
+        live_reverb_ring[start_idx:end_idx] = filtered
+    else:
+        chunk1 = ring_len - start_idx
+        live_reverb_ring[start_idx:] = filtered[:chunk1]
+        live_reverb_ring[:frames - chunk1] = filtered[chunk1:]
+        
+    for d_time, b_decay, t_decay in zip(delay_times, bass_decays, treble_decays):
+        shift = int(d_time * SAMPLE_RATE)
+        read_start = (start_idx - shift) % ring_len
+        
+        window_size = int(d_time * 120) + 4
+        
+        # Read from read_start - window_size to include history for the moving average
+        temp_read_start = (read_start - window_size) % ring_len
+        total_read_len = frames + window_size
+        
+        temp_read_end = temp_read_start + total_read_len
+        if temp_read_end <= ring_len:
+            temp_delayed = live_reverb_ring[temp_read_start:temp_read_end]
+        else:
+            chunk1 = ring_len - temp_read_start
+            temp_delayed = np.concatenate([live_reverb_ring[temp_read_start:], live_reverb_ring[:total_read_len - chunk1]])
+            
+        padded_del = np.zeros(len(temp_delayed) + 1)
+        padded_del[1:] = temp_delayed
+        cs_del = np.cumsum(padded_del)
+        bass_sig = (cs_del[window_size:] - cs_del[:-window_size]) / window_size
+        bass_sig = bass_sig[:frames]
+        
+        read_end = read_start + frames
+        if read_end <= ring_len:
+            delayed = live_reverb_ring[read_start:read_end]
+        else:
+            chunk1 = ring_len - read_start
+            delayed = np.concatenate([live_reverb_ring[read_start:], live_reverb_ring[:frames - chunk1]])
+            
+        treble_sig = delayed - bass_sig
+        
+        out_chunk += (bass_sig * b_decay) + (treble_sig * t_decay)
+        
+    live_reverb_write_idx = (start_idx + frames) % ring_len
+    
+    # Scale down by the gain factor of the 11 delay taps to prevent clipping distortion
+    return out_chunk / 3.5
+
+def pregenerate_live_tones(stops, tuning_hz):
+    """Background thread function to generate tones for MIDI notes 36-96."""
+    global global_tone_cache, live_pregenerator_stops, live_pregenerator_tuning
+    
+    live_pregenerator_stops = list(stops)
+    live_pregenerator_tuning = tuning_hz
+    
+    notes_to_gen = list(range(36, 97))
+    
+    for note in notes_to_gen:
+        if live_pregenerator_stops != stops or live_pregenerator_tuning != tuning_hz:
+            return
+            
+        freq = tuning_hz * (2 ** ((note - 69) / 12))
+        
+        if freq in global_tone_cache:
+            continue
+            
+        try:
+            duration = 3.5
+            waves = []
+            if not stops:
+                stop_key = "DefaultSine"
+                cache_key = hashlib.md5(f"{freq}_{duration}_{stop_key}".encode()).hexdigest()
+                cache_path = os.path.join(CACHE_DIR, f"{cache_key}.npy")
+                if os.path.exists(cache_path):
+                    wave_data = np.load(cache_path)
+                else:
+                    wave_data = generate_raw_tone(freq, duration, [])
+                    np.save(cache_path, wave_data)
+                waves.append(wave_data)
+            else:
+                for stop_name in stops:
+                    cache_key = hashlib.md5(f"{freq}_{duration}_{stop_name}".encode()).hexdigest()
+                    cache_path = os.path.join(CACHE_DIR, f"{cache_key}.npy")
+                    if os.path.exists(cache_path):
+                        wave_data = np.load(cache_path)
+                    else:
+                        wave_data = generate_raw_tone(freq, duration, [stop_name])
+                        np.save(cache_path, wave_data)
+                    waves.append(wave_data)
+            
+            tone = np.sum(waves, axis=0)
+            # Prevent clipping by scaling down based on active stops count
+            num_stops = len(stops) if stops else 1
+            tone /= num_stops
+            with active_voices_lock:
+                global_tone_cache[freq] = tone
+        except Exception as e:
+            print(f"Pregenerator error for note {note}: {e}")
+
+def trigger_live_note_on(note):
+    global global_tone_cache, global_active_stops
+    freq = midi_to_freq(note)
+    
+    if freq not in global_tone_cache:
+        try:
+            duration = 3.5
+            waves = []
+            if not global_active_stops:
+                stop_key = "DefaultSine"
+                cache_key = hashlib.md5(f"{freq}_{duration}_{stop_key}".encode()).hexdigest()
+                cache_path = os.path.join(CACHE_DIR, f"{cache_key}.npy")
+                if os.path.exists(cache_path):
+                    wave_data = np.load(cache_path)
+                else:
+                    wave_data = generate_raw_tone(freq, duration, [])
+                    np.save(cache_path, wave_data)
+                waves.append(wave_data)
+            else:
+                for stop_name in global_active_stops:
+                    cache_key = hashlib.md5(f"{freq}_{duration}_{stop_name}".encode()).hexdigest()
+                    cache_path = os.path.join(CACHE_DIR, f"{cache_key}.npy")
+                    if os.path.exists(cache_path):
+                        wave_data = np.load(cache_path)
+                    else:
+                        wave_data = generate_raw_tone(freq, duration, [stop_name])
+                        np.save(cache_path, wave_data)
+                    waves.append(wave_data)
+            with active_voices_lock:
+                tone = np.sum(waves, axis=0)
+                num_stops = len(global_active_stops) if global_active_stops else 1
+                tone /= num_stops
+                global_tone_cache[freq] = tone
+        except Exception as e:
+            print(f"On-the-fly generation error for note {note}: {e}")
+            return
+            
+    with active_voices_lock:
+        active_voices[note] = {
+            'freq': freq,
+            'phase': 0,
+            'released': False,
+            'release_start_phase': 0
+        }
+
+def trigger_live_note_off(note):
+    with active_voices_lock:
+        if note in active_voices:
+            voice = active_voices[note]
+            if not voice['released']:
+                voice['released'] = True
+                voice['release_start_phase'] = voice['phase']
+
+def winmm_midi_callback(hMidiIn, wMsg, dwInstance, dwParam1, dwParam2):
+    if wMsg == MIM_DATA:
+        status = dwParam1 & 0xFF
+        note = (dwParam1 >> 8) & 0xFF
+        velocity = (dwParam1 >> 16) & 0xFF
+        
+        msg_type = status & 0xF0
+        if msg_type == 0x90 and velocity > 0:
+            trigger_live_note_on(note)
+        elif msg_type == 0x80 or (msg_type == 0x90 and velocity == 0):
+            trigger_live_note_off(note)
+
+def open_midi_input(device_name):
+    global current_midi_in, winmm_callback_ref, midi_listener_active, live_midi_active
+    
+    close_midi_input()
+    
+    if device_name == "None":
+        return
+        
+    devices = get_windows_midi_inputs()
+    device_id = None
+    for dev_id, name in devices:
+        if name == device_name:
+            device_id = dev_id
+            break
+            
+    if device_id is None:
+        print(f"Device not found: {device_name}")
+        return
+        
+    handle = wintypes.HANDLE()
+    winmm_callback_ref = MIDIINPROC(winmm_midi_callback)
+    
+    res = winmm.midiInOpen(ctypes.byref(handle), device_id, winmm_callback_ref, 0, CALLBACK_FUNCTION)
+    if res != 0:
+        messagebox.showerror("MIDI Error", f"Failed to open MIDI input device (Error code {res})")
+        return
+        
+    current_midi_in = handle
+    
+    res = winmm.midiInStart(current_midi_in)
+    if res != 0:
+        messagebox.showerror("MIDI Error", f"Failed to start MIDI input device (Error code {res})")
+        winmm.midiInClose(current_midi_in)
+        current_midi_in = None
+        return
+        
+    midi_listener_active = True
+    live_midi_active = True
+    ensure_audio_stream_running()
+
+def close_midi_input():
+    global current_midi_in, midi_listener_active, live_midi_active
+    if current_midi_in:
+        try:
+            winmm.midiInStop(current_midi_in)
+            winmm.midiInClose(current_midi_in)
+        except Exception:
+            pass
+        current_midi_in = None
+    midi_listener_active = False
+    live_midi_active = False
+    
+    with active_voices_lock:
+        active_voices.clear()
+
+def ensure_audio_stream_running():
+    global audio_stream
+    if audio_stream is not None:
+        try:
+            if audio_stream.active:
+                return
+        except Exception:
+            pass
+            
+    try:
+        if audio_stream is not None:
+            audio_stream.stop()
+            audio_stream.close()
+    except Exception:
+        pass
+        
+    try:
+        audio_stream = sd.OutputStream(samplerate=SAMPLE_RATE, channels=1, callback=audio_callback, dtype='float32')
+        audio_stream.start()
+    except Exception as e:
+        messagebox.showerror("Audio Error", f"Failed to start audio stream:\n{e}")
 
 def request_re_render():
-    global is_rendering, render_requested, global_active_stops
+    global is_rendering, render_requested, global_active_stops, global_tone_cache
     
     # 1. Safely capture the active stops on the Tkinter main thread! 
     # (Doing this inside the background thread causes silent Tkinter crashes)
     global_active_stops = [stop for stop, var in stop_vars.items() if var.get()]
+    
+    with active_voices_lock:
+        global_tone_cache.clear()
+        
+    threading.Thread(target=pregenerate_live_tones, args=(global_active_stops, global_a4_freq), daemon=True).start()
     
     if is_playing and current_midi_file:
         if not is_rendering:
@@ -262,28 +587,113 @@ def reset_ui_state():
     is_paused = False
 
 def audio_callback(outdata, frames, time_info, status):
-    global playback_idx, is_playing, is_paused
+    global playback_idx, is_playing, is_paused, global_volume, live_midi_active
 
-    audio_ref = current_audio
-
-    if not is_playing or audio_ref is None:
+    if not is_playing and not live_midi_active:
         outdata.fill(0)
         raise sd.CallbackStop()
 
-    if is_paused:
-        outdata.fill(0)
-        return
+    outdata.fill(0)
 
-    chunk_size = min(frames, len(audio_ref) - playback_idx)
-    if chunk_size > 0:
-        outdata[:chunk_size, 0] = audio_ref[playback_idx:playback_idx + chunk_size]
-        playback_idx += chunk_size
-        
-    if chunk_size < frames:
-        outdata[chunk_size:].fill(0)
-        is_playing = False
-        root.after(0, reset_ui_state)
-        raise sd.CallbackStop()
+    if is_playing and current_audio is not None and not is_paused:
+        chunk_size = min(frames, len(current_audio) - playback_idx)
+        if chunk_size > 0:
+            outdata[:chunk_size, 0] = current_audio[playback_idx:playback_idx + chunk_size] * global_volume
+            playback_idx += chunk_size
+            
+        if chunk_size < frames:
+            is_playing = False
+            root.after(0, reset_ui_state)
+            if not live_midi_active:
+                raise sd.CallbackStop()
+
+    # Process live voices into a separate buffer
+    release_sec = 0.1
+    release_samples = int(SAMPLE_RATE * release_sec)
+    voices_to_delete = []
+    
+    live_chunk = np.zeros(frames, dtype=np.float32)
+    
+    with active_voices_lock:
+        for note, voice in active_voices.items():
+            freq = voice['freq']
+            if freq not in global_tone_cache:
+                continue
+                
+            wave = global_tone_cache[freq]
+            phase = voice['phase']
+            released = voice['released']
+            rel_start = voice['release_start_phase']
+            
+            if not released:
+                end_phase = phase + frames
+                sustain_end = len(wave) - release_samples
+                sustain_loop_start = int(2.0 * SAMPLE_RATE)
+                
+                if sustain_loop_start >= sustain_end:
+                    sustain_loop_start = 0
+                    
+                # Read raw wave slice
+                if end_phase <= sustain_end:
+                    slice_wave = wave[phase:end_phase].copy()
+                    voice['phase'] = end_phase
+                else:
+                    chunk1_len = sustain_end - phase
+                    slice_wave = np.zeros(frames, dtype=np.float32)
+                    if chunk1_len > 0:
+                        slice_wave[:chunk1_len] = wave[phase:sustain_end]
+                    remaining = frames - chunk1_len
+                    
+                    sustain_len = sustain_end - sustain_loop_start
+                    if sustain_len > 0:
+                        new_phase = sustain_loop_start + (remaining % sustain_len)
+                        slice_wave[chunk1_len:] = wave[sustain_loop_start:sustain_loop_start + remaining]
+                        voice['phase'] = new_phase
+                    else:
+                        voice['phase'] = 0
+                        
+                # Apply smooth sinusoidal attack envelope if note just started
+                attack_samples = int(0.12 * SAMPLE_RATE)
+                if phase < attack_samples:
+                    chunk_len = len(slice_wave)
+                    t_idx = np.arange(phase, phase + chunk_len)
+                    env = np.ones(chunk_len, dtype=np.float32)
+                    mask = t_idx < attack_samples
+                    env[mask] = np.sin(t_idx[mask] * (np.pi / 2) / attack_samples)
+                    slice_wave *= env
+                    
+                live_chunk += slice_wave
+            else:
+                rel_idx_start = phase - rel_start
+                if rel_idx_start >= release_samples:
+                    voices_to_delete.append(note)
+                else:
+                    chunk_len = min(frames, release_samples - rel_idx_start)
+                    # Apply smooth cosine release envelope matching the offline renderer
+                    rel_factors = np.cos(np.arange(rel_idx_start, rel_idx_start + chunk_len) * (np.pi / 2) / release_samples)
+                    
+                    read_end = phase + chunk_len
+                    if read_end > len(wave):
+                        chunk_len = len(wave) - phase
+                        rel_factors = rel_factors[:chunk_len]
+                        
+                    if chunk_len > 0:
+                        live_chunk[:chunk_len] += wave[phase:phase + chunk_len] * rel_factors
+                        voice['phase'] += chunk_len
+                        
+                    if rel_idx_start + chunk_len >= release_samples or phase + chunk_len >= len(wave):
+                        voices_to_delete.append(note)
+                        
+        for note in voices_to_delete:
+            del active_voices[note]
+
+    # Apply live effects (wooden facade and digital reverb)
+    processed_live = apply_live_effects(live_chunk)
+    # Scale down to prevent saturation distortion in np.tanh
+    processed_live *= 0.35
+    # Apply soft limiting to prevent polyphonic summing distortion/clipping
+    processed_live = np.tanh(processed_live)
+    outdata[:, 0] += processed_live * global_volume
 
 def midi_to_freq(note):
     return global_a4_freq * (2 ** ((note - 69) / 12))
@@ -498,12 +908,8 @@ def _generate_audio_buffer(file_path):
     return audio, new_playback_notes
 
 def _start_playback_stream(audio, notes):
-    global current_audio, playback_idx, is_playing, is_paused, audio_stream, visualizer_start_time, playback_notes
+    global current_audio, playback_idx, is_playing, is_paused, visualizer_start_time, playback_notes
     
-    if audio_stream is not None:
-        audio_stream.stop()
-        audio_stream.close() # Cleanly release old thread resources
-        
     current_audio = np.float32(audio)
     playback_notes = notes
     playback_idx = 0
@@ -512,11 +918,7 @@ def _start_playback_stream(audio, notes):
     reset_ui_state()
     
     visualizer_start_time = time.time()
-    try:
-        audio_stream = sd.OutputStream(samplerate=SAMPLE_RATE, channels=1, callback=audio_callback, dtype='float32')
-        audio_stream.start()
-    except Exception as e:
-        messagebox.showerror("Audio Playback Error", f"Failed to start audio stream:\n{e}")
+    ensure_audio_stream_running()
 
 def _process_and_play(file_path, output_wav=None):
     try:
@@ -550,15 +952,28 @@ def _process_and_play(file_path, output_wav=None):
             pass
 
 def stop_playback():
-    global is_playing, is_paused, playback_idx, audio_stream, current_midi_file
+    global is_playing, is_paused, playback_idx, audio_stream, current_midi_file, last_a4_state, live_midi_active
     is_playing = False
     is_paused = False
     playback_idx = 0
     current_midi_file = None
-    if audio_stream is not None:
-        audio_stream.stop()
-        audio_stream.close()
+    if not live_midi_active and audio_stream is not None:
+        try:
+            audio_stream.stop()
+            audio_stream.close()
+            audio_stream = None
+        except Exception:
+            pass
     reset_ui_state()
+    
+    # Reset A4 servo on stop
+    if last_a4_state:
+        last_a4_state = False
+        if SERIAL_AVAILABLE and arduino_serial and arduino_serial.is_open:
+            try:
+                arduino_serial.write(b"A4_0\n")
+            except Exception as e:
+                print("Failed to write to Arduino on stop:", e)
 
 def pause_playback():
     global is_paused, is_playing, audio_stream
@@ -583,6 +998,7 @@ def find_arduino_port():
 
 def listen_for_arduino(stop_name_order):
     """Listens for serial commands from an Arduino to toggle stops."""
+    global arduino_serial, global_volume
     ser = None
     while True:
         try:
@@ -591,7 +1007,8 @@ def listen_for_arduino(stop_name_order):
                 if not port:
                     time.sleep(3)
                     continue
-                ser = serial.Serial(port, 9600, timeout=1)
+                ser = serial.Serial(port, 115200, timeout=1)
+                arduino_serial = ser
                 print(f"Successfully connected to Arduino on {port}")
 
             # Ignore decoding errors to prevent crashes on garbled serial data
@@ -601,21 +1018,29 @@ def listen_for_arduino(stop_name_order):
                 if len(parts) == 2:
                     stop_identifier = parts[0]
                     try:
-                        stop_state = bool(int(parts[1]))
-                        if stop_identifier == "ALL":
-                            for var in stop_vars.values():
-                                root.after(0, var.set, stop_state)
-                        elif stop_identifier in stop_vars:
-                            root.after(0, stop_vars[stop_identifier].set, stop_state)
+                        if stop_identifier == "VOL":
+                            try:
+                                vol_val = int(parts[1])
+                                global_volume = vol_val / 100.0
+                            except ValueError:
+                                pass
                         else:
-                            # Fallback in case Arduino still sends an integer index
-                            if stop_identifier.isdigit() and 0 <= int(stop_identifier) < len(stop_name_order):
-                                stop_name = stop_name_order[int(stop_identifier)]
-                                root.after(0, stop_vars[stop_name].set, stop_state)
+                            stop_state = bool(int(parts[1]))
+                            if stop_identifier == "ALL":
+                                for var in stop_vars.values():
+                                    root.after(0, var.set, stop_state)
+                            elif stop_identifier in stop_vars:
+                                root.after(0, stop_vars[stop_identifier].set, stop_state)
+                            else:
+                                # Fallback in case Arduino still sends an integer index
+                                if stop_identifier.isdigit() and 0 <= int(stop_identifier) < len(stop_name_order):
+                                    stop_name = stop_name_order[int(stop_identifier)]
+                                    root.after(0, stop_vars[stop_name].set, stop_state)
                     except ValueError:
                         print(f"Ignored invalid Arduino data (Not an integer state): {line}")
         except serial.SerialException as e:
             print(f"Arduino connection lost ({e}). Will try to reconnect...")
+            arduino_serial = None
             if ser and ser.is_open:
                 try:
                     ser.close()
@@ -625,6 +1050,7 @@ def listen_for_arduino(stop_name_order):
             time.sleep(3)
         except Exception as e:
             print(f"Unexpected Arduino listener error: {e}")
+            arduino_serial = None
             time.sleep(3)
 
 # GUI
@@ -677,10 +1103,16 @@ if remaining_stops:
 
 def clear_cache():
     try:
-        import shutil
         if os.path.exists(CACHE_DIR):
-            shutil.rmtree(CACHE_DIR)
-        os.makedirs(CACHE_DIR, exist_ok=True)
+            for filename in os.listdir(CACHE_DIR):
+                file_path = os.path.join(CACHE_DIR, filename)
+                try:
+                    if os.path.isfile(file_path):
+                        os.remove(file_path)
+                except PermissionError:
+                    pass # Ignore locked files currently being written/read by the sound engine
+                except Exception:
+                    pass
         messagebox.showinfo("Success", "Audio cache cleared successfully!")
     except Exception as e:
         messagebox.showerror("Error", f"Failed to clear cache:\n{e}")
@@ -705,8 +1137,44 @@ tuning_menu.pack(side="left", padx=5)
 def update_tuning(*args):
     global global_a4_freq
     global_a4_freq = float(tuning_var.get())
+    request_re_render()
 
 tuning_var.trace_add("write", update_tuning)
+
+# MIDI Input Settings
+midi_frame = tk.Frame(root, bg=DARK_BG)
+midi_frame.pack(pady=(0, 10))
+tk.Label(midi_frame, text="MIDI Input Device:", bg=DARK_BG, fg=TEXT_FG, font=("TkDefaultFont", 10, "bold")).pack(side="left", padx=5)
+
+midi_device_var = tk.StringVar(value="None")
+midi_menu = tk.OptionMenu(midi_frame, midi_device_var, "None")
+midi_menu.config(bg=PANEL_BG, fg=TEXT_FG, activebackground=ACCENT, activeforeground="white", highlightthickness=0, bd=0)
+midi_menu["menu"].config(bg=PANEL_BG, fg=TEXT_FG)
+midi_menu.pack(side="left", padx=5)
+
+def on_midi_device_change(*args):
+    open_midi_input(midi_device_var.get())
+
+midi_device_var.trace_add("write", on_midi_device_change)
+
+def refresh_midi_devices():
+    devices = get_windows_midi_inputs()
+    menu = midi_menu["menu"]
+    menu.delete(0, "end")
+    menu.add_command(label="None", command=lambda: midi_device_var.set("None"))
+    
+    found_current = False
+    current_val = midi_device_var.get()
+    
+    for dev_id, name in devices:
+        menu.add_command(label=name, command=lambda n=name: midi_device_var.set(n))
+        if name == current_val:
+            found_current = True
+            
+    if not found_current and current_val != "None":
+        midi_device_var.set("None")
+
+tk.Button(midi_frame, text="Refresh Devices", command=refresh_midi_devices, bg=PANEL_BG, fg=TEXT_FG, font=("TkDefaultFont", 9, "bold"), relief="flat", activebackground=ACCENT, activeforeground="white").pack(side="left", padx=5)
 
 # Visualization setup
 vis_frame = tk.Frame(root, bg=DARK_BG)
@@ -732,6 +1200,7 @@ for i in range(12):
     canvas.create_text(tx, ty, text=pitch_names[i], fill="#888888", font=("TkDefaultFont", 9, "bold"))
 
 def update_visualization():
+    global last_a4_state, SERIAL_AVAILABLE, arduino_serial
     canvas.delete("poly")
     canvas.delete("active_dot")
     
@@ -742,9 +1211,31 @@ def update_visualization():
         current_idx = int((time.time() - visualizer_start_time) * SAMPLE_RATE) if visualizer_start_time else -1
 
     active_pitches = set()
-    for start_idx, end_idx, note in playback_notes:
-        if start_idx <= current_idx <= end_idx:
+    a4_currently_active = False
+    
+    if is_playing:
+        for start_idx, end_idx, note in playback_notes:
+            if start_idx <= current_idx <= end_idx:
+                active_pitches.add(note % 12)
+                if note == 69:
+                    a4_currently_active = True
+                    
+    with active_voices_lock:
+        for note in active_voices:
             active_pitches.add(note % 12)
+            if note == 69:
+                a4_currently_active = True
+
+    # Check if A4 note state changed, and update Arduino servo if so
+    effective_a4_active = a4_currently_active if is_playing else False
+    if effective_a4_active != last_a4_state:
+        last_a4_state = effective_a4_active
+        if SERIAL_AVAILABLE and arduino_serial and arduino_serial.is_open:
+            try:
+                cmd = "A4_1\n" if effective_a4_active else "A4_0\n"
+                arduino_serial.write(cmd.encode('utf-8'))
+            except Exception as e:
+                print("Failed to write to Arduino:", e)
 
     if active_pitches:
         points = []
@@ -791,10 +1282,23 @@ resume_btn.pack(side="left", padx=5)
 stop_btn = tk.Button(playback_frame, text="Stop", command=stop_playback, height=2, width=12, bg="#d93838", fg="white", font=("TkDefaultFont", 10, "bold"), relief="flat", activebackground="#b52d2d", activeforeground="white")
 stop_btn.pack(side="left", padx=5)
 
+# Trigger initial stop caching
+request_re_render()
+
 # Start the Arduino listener in a background thread
 if SERIAL_AVAILABLE:
     threading.Thread(target=listen_for_arduino, args=(ordered_stop_names,), daemon=True).start()
 else:
     print("pyserial is not installed. Arduino stop control is disabled.")
+
+def on_closing():
+    close_midi_input()
+    stop_playback()
+    root.destroy()
+
+root.protocol("WM_DELETE_WINDOW", on_closing)
+
+# Populate MIDI devices on startup
+refresh_midi_devices()
 
 root.mainloop()
