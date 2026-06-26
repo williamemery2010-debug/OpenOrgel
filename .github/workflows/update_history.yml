@@ -1,0 +1,41 @@
+name: Update Commits and Releases History
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - '*'
+  release:
+    types: [published, created]
+
+permissions:
+  contents: write
+
+jobs:
+  update-history:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Fetch all history so git log and tags are fully available
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Run history generator
+        run: python update_history.py
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add commits_and_releases.txt
+          # Only commit and push if the history file has changed
+          if ! git diff --cached --quiet; then
+            git commit -m "Auto-update commits_and_releases.txt [skip ci]"
+            git push origin HEAD:main
+          fi
