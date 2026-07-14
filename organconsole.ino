@@ -45,8 +45,7 @@ const char *stops4and2[] = {"Flute 4'",
                             "Clarinet 4'",
                             "Viol 4'",
                             "Crystal Flute 4' (Glassy)",
-                            "Gedeckt 4' (Hollow)",
-                            "Recorder 4'",
+                            "Hollow Gedeckt 4' (Airy)",
                             "Ottavino 2'",
                             "Piccolo 2'"};
 const int num4and2Stops = sizeof(stops4and2) / sizeof(stops4and2[0]);
