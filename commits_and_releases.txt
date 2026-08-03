@@ -1,10 +1,8 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-07-15 09:34:16
-Total Commits  : 23
-Updated At     : 2026-06-26 13:46:15
-Total Commits  : 22
+Updated At     : 2026-08-03 23:24:16
+Total Commits  : 27
 Total Releases : 3
 ================================================================================
 
@@ -35,8 +33,11 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-d92ae28  | 2026-07-15 | williamemery2010-deb | Restructure organ stops: replace Gedeckts with Hollow Gedeckts, combine Cornets, remove Recorders, and merge Echo/Crystal Flutes
+5453152  | 2026-08-04 | Violinteresting      | Merge pull request #1 from williamemery2010-debug/review/stops-restructure
+6be611f  | 2026-08-04 | Violinteresting      | Merge branch 'main' into review/stops-restructure
+4dd4342  | 2026-07-15 | williamemery2010-deb | Restructure organ stops: replace Gedeckts with Hollow Gedeckts, combine Cornets, remove Recorders, and merge Echo/Crystal Flutes
 a296506  | 2026-06-26 | williamemery2010-deb | Add GitHub Actions workflow for automated history updates
+b975f73  | 2026-06-26 | github-actions[bot]  | Auto-update commits_and_releases.txt [skip ci]
 4c35d9a  | 2026-06-26 | williamemery2010-deb | Add GitHub Actions workflow for automated history updates
 c579a99  | 2026-06-26 | williamemery2010-deb | Add update_history.py and commits_and_releases.txt with automated git hooks
 0255b46  | 2026-06-26 | williamemery2010-deb | fixed codebase styles
