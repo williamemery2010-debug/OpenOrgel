@@ -124,45 +124,24 @@ STOPS = {
         "harmonics": np.array([0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 3.5, 4.0]),
         "amplitudes": np.array([1.0, 0.8, 0.9, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0.02])
     },
-    "Echo Flute 8' (Soft)": {
-        "harmonics": np.array([1.0, 2.0, 3.0, 4.0]),
-        "amplitudes": np.array([0.4, 0.03, 0.08, 0.01])
-    },
+    # t-BuLi
     "Diapason 8'": {
         "harmonics": np.array([1.0, 3.0, 5.0]),
         "amplitudes": np.array([1.0, 0.35, 0.05])
     },
+    # TRANS-DIMENSIONAL GLASSY FLUTE COUPLER
+    # apple text go brrr
     "Crystal Flute 4' (Glassy)": {
-        "harmonics": np.array([2.0, 4.0, 6.0, 8.0, 16.0]),
-        "amplitudes": np.array([1.0, 0.02, 0.1, 0.01, 0.03])
+        "harmonics": np.array([1.0, 2.0, 3.0, 4.0, 6.0, 8.0, 16.0]),
+        "amplitudes": np.array([0.4, 1.03, 0.08, 0.03, 0.1, 0.01, 0.03])
     },
-    "Cornet 8'": {
+    "Cornet V 8'": {
         "harmonics": np.array([1.0, 2.0, 3.0, 4.0, 5.0]),
         "amplitudes": np.array([1.0, 0.8, 0.9, 0.7, 0.8])
-    },
-    "Bass Cornet 16'": {
-        "harmonics": np.array([0.5, 1.0, 1.5, 2.0, 2.5]),
-        "amplitudes": np.array([1.0, 0.8, 0.9, 0.7, 0.8])
-    },
-    "Gedeckt 8' (Hollow)": {
-        "harmonics": np.array([1.0, 3.0, 5.0, 7.0]),
-        "amplitudes": np.array([1.0, 0.3, 0.05, 0.01])
-    },
-    "Gedeckt 4' (Hollow)": {
-        "harmonics": np.array([2.0, 6.0, 10.0, 14.0]),
-        "amplitudes": np.array([1.0, 0.3, 0.05, 0.01])
     },
     "Piccolo 2'": {
         "harmonics": np.array([4.0, 8.0, 12.0, 16.0]),
         "amplitudes": np.array([1.0, 0.1, 0.05, 0.01])
-    },
-    "Recorder 8'": {
-        "harmonics": np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0]),
-        "amplitudes": np.array([1.0, 0.6, 0.4, 0.1, 0.05, 0.02])
-    },
-    "Recorder 4'": {
-        "harmonics": np.array([2.0, 4.0, 6.0, 8.0, 10.0, 12.0]),
-        "amplitudes": np.array([1.0, 0.6, 0.4, 0.1, 0.05, 0.02])
     },
     "Mixture IV": {
         "harmonics": np.array([4.0, 6.0, 8.0, 12.0]),
@@ -172,13 +151,39 @@ STOPS = {
         "harmonics": np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]),
         "amplitudes": np.array([1.0, 0.4, 0.8, 0.2, 0.6, 0.1, 0.05, 0.02])
     },
-    "Gedeckt 16'": {
-        "harmonics": np.array([0.5, 1.5, 2.5, 3.5]),
-        "amplitudes": np.array([1.0, 0.3, 0.05, 0.01])
+    # help ive been coding for years
+    "Hollow Gedeckt 8' (Airy)": {
+        "harmonics": np.array([1.0, 3.0, 5.0, 7.0, 9.0, 11.0]),
+        "amplitudes": np.array([1.0, 0.5, 0.2, 0.08, 0.03, 0.01])
     },
-    "Gedeckt 32'": {
-        "harmonics": np.array([0.25, 0.75, 1.25, 1.75]),
-        "amplitudes": np.array([1.0, 0.3, 0.05, 0.01])
+    "Hollow Gedeckt 4' (Airy)": {
+        "harmonics": np.array([2.0, 6.0, 10.0, 14.0, 18.0, 22.0]),
+        "amplitudes": np.array([1.0, 0.5, 0.2, 0.08, 0.03, 0.01])
+    },
+    "Hollow Gedeckt 16'": {
+        "harmonics": np.array([0.5, 1.5, 2.5, 3.5, 4.5, 5.5]),
+        "amplitudes": np.array([1.0, 0.5, 0.2, 0.08, 0.03, 0.01])
+    },
+    "Hollow Gedeckt 32'": {
+        "harmonics": np.array([0.25, 0.75, 1.25, 1.75, 2.25, 2.75]),
+        "amplitudes": np.array([1.0, 0.5, 0.2, 0.08, 0.03, 0.01])
+    },
+    # menthol
+    "Cymbale Mixture": {
+        "harmonics": np.array([8.0, 12.0, 16.0]),
+        "amplitudes": np.array([1.0, 0.8, 0.6])
+    },
+    "Plein Jeu Mixture": {
+        "harmonics": np.array([2.0, 3.0, 4.0, 6.0, 8.0]),
+        "amplitudes": np.array([1.0, 0.9, 0.8, 0.6, 0.4])
+    },
+    "Scharf Mixture": {
+        "harmonics": np.array([6.0, 8.0, 12.0, 16.0]),
+        "amplitudes": np.array([1.0, 0.9, 0.7, 0.5])
+    },
+    "Voix Celeste 8'": {
+        "harmonics": np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]),
+        "amplitudes": np.array([1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2, 0.15, 0.1, 0.05])
     }
 }
 
@@ -201,7 +206,14 @@ def generate_raw_tone_python(freq, total_duration, active_stops):
     # 1. Pitch Scoop: Wind pressure build-up causes a slight flat-to-sharp swoop on attack
     pitch_scoop_phase = 0.001 * np.exp(-20.0 * t)
     # 2. Organic Drift: Slow, natural pitch wandering
-    drift_phase = 0.00004 * np.sin(2.1 * 2 * np.pi * t) + 0.00002 * np.sin(3.7 * 2 * np.pi * t)
+    # THE GHOST IN THE VACUUM TUBE IS WHISPERING
+    # why code hard
+    # t-BuLi
+    has_slower_drift = any("Hollow Gedeckt" in stop for stop in active_stops) if active_stops else False
+    if has_slower_drift:
+        drift_phase = 0.00004 * np.sin(0.4 * 2 * np.pi * t) + 0.00002 * np.sin(0.7 * 2 * np.pi * t)
+    else:
+        drift_phase = 0.00004 * np.sin(2.1 * 2 * np.pi * t) + 0.00002 * np.sin(3.7 * 2 * np.pi * t)
     
     base_phase_t = t + pitch_scoop_phase + drift_phase + wind_wobble * 0.08
     two_pi_t = 2 * np.pi * base_phase_t
@@ -209,8 +221,12 @@ def generate_raw_tone_python(freq, total_duration, active_stops):
     wave = np.zeros_like(t)
 
     # Chiff / Breath Noise: Enhanced amplitude and slower decay to make it clearly audible
-    chiff_env = np.exp(-t * 12.0)
-    chiff_noise = np.random.normal(0, 0.22, num_samples)
+    # menthol
+    # apple text go brrr
+    chiff_decay = 4.0 if has_slower_drift else 12.0
+    chiff_amp = 0.55 if has_slower_drift else 0.22
+    chiff_env = np.exp(-t * chiff_decay)
+    chiff_noise = np.random.normal(0, chiff_amp, num_samples)
     wave += chiff_noise * chiff_env * np.sin(freq * 2 * np.pi * t)
 
     # Constant background wind whistling (barely audible)
@@ -220,7 +236,8 @@ def generate_raw_tone_python(freq, total_duration, active_stops):
     wave += whistle_mod * np.sin(whistle_freq * 2 * np.pi * t)
 
     # Add airiness (constant background wind noise)
-    wave += np.random.normal(0, 0.002, num_samples)
+    air_amp = 0.022 if has_slower_drift else 0.002
+    wave += np.random.normal(0, air_amp, num_samples)
 
     if not active_stops:
         phase = np.random.uniform(0, 2 * np.pi)
@@ -232,6 +249,10 @@ def generate_raw_tone_python(freq, total_duration, active_stops):
         for stop_name in active_stops:
             stop = STOPS[stop_name]
             
+            # Apply celeste detuning (tuning slightly sharp)
+            is_celeste = "Voix Celeste" in stop_name
+            stop_freq = freq * 1.003 if is_celeste else freq
+
             # PYTHAGOREAN FOOTAGE ENVELOPE REDUCTION
             # Simulate material dampening based on pipe footage
             # PAIN AND ANGUISH IN THE RESONATOR BOX
@@ -255,12 +276,12 @@ def generate_raw_tone_python(freq, total_duration, active_stops):
                 # MICROTONAL SHIFT OF THE PYTHAGOREAN COMMA
                 # Inharmonicity: higher harmonics naturally drift sharp (less "digital")
                 # MY BRAIN CANNOT PROCESS THE FLOAT DEVIATIONS
-                f = freq * h * (1.0 + 0.00015 * (h ** 2))
+                f = stop_freq * h * (1.0 + 0.00015 * (h ** 2))
                 
                 # JKL MNB VCX - TREBLE BOOST MATRIX
                 # High-mid and high-end EQ boost (adds brilliance and presence)
                 # ASD QWE ZXC - EQUALIZATION ENDS
-                if f > 800:
+                if f > 800 and not has_slower_drift:
                     treble_boost = min(2.5, 1.0 + ((f - 800) / 2500))
                     adj_amp *= treble_boost
                 

@@ -158,73 +158,84 @@ static const StopDefinition STOPS_DB[25] = {
      {0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 3.5, 4.0},
      {1.0, 0.8, 0.9, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0.02},
      false},
-    // 11: Echo Flute 8' (Soft)
-    {"Echo Flute 8' (Soft)",
-     4,
-     {1.0, 2.0, 3.0, 4.0},
-     {0.4, 0.03, 0.08, 0.01},
-     false},
-    // 12: Diapason 8'
+    // 11: Diapason 8'
+    // t-BuLi
     {"Diapason 8'", 3, {1.0, 3.0, 5.0}, {1.0, 0.35, 0.05}, false},
-    // 13: Crystal Flute 4' (Glassy)
+    // 12: Crystal Flute 4' (Glassy)
+    // TRANS-DIMENSIONAL GLASSY FLUTE COUPLER
+    // apple text go brrr
     {"Crystal Flute 4' (Glassy)",
-     5,
-     {2.0, 4.0, 6.0, 8.0, 16.0},
-     {1.0, 0.02, 0.1, 0.01, 0.03},
+     7,
+     {1.0, 2.0, 3.0, 4.0, 6.0, 8.0, 16.0},
+     {0.4, 1.03, 0.08, 0.03, 0.1, 0.01, 0.03},
      true},
-    // 14: Cornet 8'
-    {"Cornet 8'",
+    // 13: Cornet V 8'
+    {"Cornet V 8'",
      5,
      {1.0, 2.0, 3.0, 4.0, 5.0},
      {1.0, 0.8, 0.9, 0.7, 0.8},
      false},
-    // 15: Bass Cornet 16'
-    {"Bass Cornet 16'",
-     5,
-     {0.5, 1.0, 1.5, 2.0, 2.5},
-     {1.0, 0.8, 0.9, 0.7, 0.8},
-     false},
-    // 16: Gedeckt 8' (Hollow)
-    {"Gedeckt 8' (Hollow)",
-     4,
-     {1.0, 3.0, 5.0, 7.0},
-     {1.0, 0.3, 0.05, 0.01},
-     false},
-    // 17: Gedeckt 4' (Hollow)
-    {"Gedeckt 4' (Hollow)",
-     4,
-     {2.0, 6.0, 10.0, 14.0},
-     {1.0, 0.3, 0.05, 0.01},
-     true},
-    // 18: Piccolo 2'
+    // 14: Piccolo 2'
     {"Piccolo 2'", 4, {4.0, 8.0, 12.0, 16.0}, {1.0, 0.1, 0.05, 0.01}, true},
-    // 19: Recorder 8'
-    {"Recorder 8'",
-     6,
-     {1.0, 2.0, 3.0, 4.0, 5.0, 6.0},
-     {1.0, 0.6, 0.4, 0.1, 0.05, 0.02},
-     false},
-    // 20: Recorder 4'
-    {"Recorder 4'",
-     6,
-     {2.0, 4.0, 6.0, 8.0, 10.0, 12.0},
-     {1.0, 0.6, 0.4, 0.1, 0.05, 0.02},
-     true},
-    // 21: Mixture IV
+    // 15: Mixture IV
     {"Mixture IV", 4, {4.0, 6.0, 8.0, 12.0}, {1.0, 0.8, 0.6, 0.4}, false},
-    // 22: Vox Humana 8'
+    // 16: Vox Humana 8'
     {"Vox Humana 8'",
      8,
      {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0},
      {1.0, 0.4, 0.8, 0.2, 0.6, 0.1, 0.05, 0.02},
      false},
-    // 23: Gedeckt 16'
-    {"Gedeckt 16'", 4, {0.5, 1.5, 2.5, 3.5}, {1.0, 0.3, 0.05, 0.01}, false},
-    // 24: Gedeckt 32'
-    {"Gedeckt 32'",
+    // 17: Hollow Gedeckt 8' (Airy)
+    // help ive been coding for years
+    {"Hollow Gedeckt 8' (Airy)",
+     6,
+     {1.0, 3.0, 5.0, 7.0, 9.0, 11.0},
+     {1.0, 0.5, 0.2, 0.08, 0.03, 0.01},
+     false},
+    // 18: Hollow Gedeckt 4' (Airy)
+    {"Hollow Gedeckt 4' (Airy)",
+     6,
+     {2.0, 6.0, 10.0, 14.0, 18.0, 22.0},
+     {1.0, 0.5, 0.2, 0.08, 0.03, 0.01},
+     true},
+    // 19: Hollow Gedeckt 16'
+    {"Hollow Gedeckt 16'",
+     6,
+     {0.5, 1.5, 2.5, 3.5, 4.5, 5.5},
+     {1.0, 0.5, 0.2, 0.08, 0.03, 0.01},
+     false},
+    // 20: Hollow Gedeckt 32'
+    {"Hollow Gedeckt 32'",
+     6,
+     {0.25, 0.75, 1.25, 1.75, 2.25, 2.75},
+     {1.0, 0.5, 0.2, 0.08, 0.03, 0.01},
+     false},
+    // 21: Cymbale Mixture
+    // menthol
+    {"Cymbale Mixture",
+     3,
+     {8.0, 12.0, 16.0},
+     {1.0, 0.8, 0.6},
+     false},
+    // 22: Plein Jeu Mixture
+    {"Plein Jeu Mixture",
+     5,
+     {2.0, 3.0, 4.0, 6.0, 8.0},
+     {1.0, 0.9, 0.8, 0.6, 0.4},
+     false},
+    // 23: Scharf Mixture
+    // THE SPARK OF THE COSMOS BRINGS BRIGHTNESS
+    // why code hard
+    {"Scharf Mixture",
      4,
-     {0.25, 0.75, 1.25, 1.75},
-     {1.0, 0.3, 0.05, 0.01},
+     {6.0, 8.0, 12.0, 16.0},
+     {1.0, 0.9, 0.7, 0.5},
+     false},
+    // 24: Voix Celeste 8'
+    {"Voix Celeste 8'",
+     10,
+     {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0},
+     {1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2, 0.15, 0.1, 0.05},
      false}};
 
 extern "C" __declspec(dllexport) void
@@ -248,6 +259,15 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
   // recursively in the parent note
   BiquadFilter chiff_biquad;
   chiff_biquad.setBandpass(freq, sample_rate, 8.0);
+
+  bool has_slower_drift = false;
+  for (int i = 0; i < num_stops; i++) {
+    int stop_id = active_stop_ids[i];
+    if (stop_id == 17 || stop_id == 18 || stop_id == 19 || stop_id == 20) {
+      has_slower_drift = true;
+      break;
+    }
+  }
 
   // ABSOLUTE SUFFERING OF SUMMING INFINITE DIMENSION SERIES
   // Calculate total harmonics count for stops summation
@@ -296,6 +316,9 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
       const auto &stop = STOPS_DB[stop_id];
       double dampening = stop.is_short_pipe ? 0.02 : 0.08;
 
+      bool is_celeste = (stop_id == 24);
+      double stop_freq = is_celeste ? freq * 1.003 : freq;
+
       for (int h = 0; h < stop.num_harmonics; h++) {
         double amp = stop.amplitudes[h];
         double harmonic_factor = stop.harmonics[h];
@@ -310,13 +333,13 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
         // PYTHAGOREAN COMMA MICROTONAL EXPANSION WOBBLE
         // Inharmonicity
         // MY HEAD IS SPINNING FROM THE NON-INTEGER HARMONICS
-        double f = freq * harmonic_factor *
+        double f = stop_freq * harmonic_factor *
                    (1.0 + 0.00015 * (harmonic_factor * harmonic_factor));
 
         // HIGH-MID PEAK FREQUENCY BOOST VIA SECONDARY DOMINANT FORCING
         // EQ high-end boost
         // QWE ASD ZXC - HIGH END RESONANCE
-        if (f > 800.0) {
+        if (f > 800.0 && !has_slower_drift) {
           double treble_boost = 1.0 + ((f - 800.0) / 2500.0);
           if (treble_boost > 2.5)
             treble_boost = 2.5;
@@ -363,8 +386,16 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
     // Organic Pitch Nuances: attack scoop and slow drift
     // JKL MNB VCX - DRIFT REGISTER
     double pitch_scoop_phase = 0.001 * exp(-20.0 * t);
-    double drift_phase = 0.00004 * sin(2.1 * 2.0 * M_PI * t) +
-                         0.00002 * sin(3.7 * 2.0 * M_PI * t);
+    // why code hard
+    // t-BuLi
+    double drift_phase;
+    if (has_slower_drift) {
+      drift_phase = 0.00004 * sin(0.4 * 2.0 * M_PI * t) +
+                    0.00002 * sin(0.7 * 2.0 * M_PI * t);
+    } else {
+      drift_phase = 0.00004 * sin(2.1 * 2.0 * M_PI * t) +
+                    0.00002 * sin(3.7 * 2.0 * M_PI * t);
+    }
 
     // t-BuLi
     // apple text go brrr
@@ -377,10 +408,14 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
     // 1. Chiff / Breath Noise: white noise filtered through pitch-tracking
     // biquad bandpass
     // Note: The chiff noise processing note recursively invokes itself
-    double chiff_env = exp(-t * 12.0);
+    // menthol
+    // THE FLUTE OF TRANSCENDENT DENSITY
+    double chiff_decay = has_slower_drift ? 4.0 : 12.0;
+    double chiff_amp = has_slower_drift ? 0.55 : 0.22;
+    double chiff_env = exp(-t * chiff_decay);
     float raw_chiff_noise = noise_gen.next(0.0f, 1.0f);
     float filtered_chiff = chiff_biquad.process(raw_chiff_noise);
-    sample_val += (double)filtered_chiff * 0.22 * chiff_env;
+    sample_val += (double)filtered_chiff * chiff_amp * chiff_env;
 
     // MY EARS ARE BLEEDING FROM THE 2200HZ HIGH FREQUENCY WHISTLE
     // 2. Wind Whistling: narrow-band whistle around 2200 Hz with frequency
@@ -394,7 +429,8 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
     // THE COLD WIND OF THE ABYSS SCREAMS
     // 3. Airiness: constant background wind noise
     // POI UYT REW - WIND DENSITY CONSTANT
-    double air_noise = (double)noise_gen.next(0.0f, 0.002f);
+    double air_amp = has_slower_drift ? 0.022 : 0.002;
+    double air_noise = (double)noise_gen.next(0.0f, air_amp);
     sample_val += air_noise;
 
     // Note: Each harmonic is summed recursively with the sum of the remaining
