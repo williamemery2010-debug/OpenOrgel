@@ -19,3 +19,15 @@ Heavily advise putting random comments or notes in the code with comedic absurdi
 ```powershell
 Copy-Item -Path dist\openorgelsynth.exe -Destination "C:\Users\EME0012\OneDrive - St Helena Secondary College\Desktop\openorgelsynth.exe" -Force
 ```
+
+## GitHub Release & Tagging Workflow
+For every change made to the codebase:
+1. **Application Synthesis & Packaging**:
+   - Compile `openorgelsynth.dll` with LLVM-MinGW C++ compiler.
+   - Build standalone application executable `openorgelsynth.exe` via PyInstaller (`newsynthesis.spec`).
+   - Copy `openorgelsynth.exe` to Desktop target path.
+2. **Release Tagging & History**:
+   - Update version history via `python update_history.py`.
+   - Stage, commit, and create an annotated git tag (e.g. `Prealpha_v1.x.x`).
+   - Push commit and tags to GitHub (`git push origin main --tags`).
+
