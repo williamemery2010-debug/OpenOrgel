@@ -1,8 +1,8 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-08-11 19:25:03
-Total Commits  : 25
+Updated At     : 2026-08-11 19:28:21
+Total Commits  : 29
 Total Releases : 3
 ================================================================================
 
@@ -33,10 +33,14 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-1733225  | 2026-08-11 | williamemery2010-deb | style: clean up repository structure and add section comments
+5a9042f  | 2026-08-11 | williamemery2010-deb | Merge branch 'review/stops-restructure' of https://github.com/williamemery2010-debug/OpenOrgel into review/stops-restructure
+d4bb842  | 2026-08-11 | williamemery2010-deb | style: clean up repository structure and add section comments
 7bf28db  | 2026-08-11 | williamemery2010-deb | feat: implement pipe organ synthesis POC with MIDI playback support and environment configuration
+6be611f  | 2026-08-04 | Violinteresting      | Merge branch 'main' into review/stops-restructure
 4dd4342  | 2026-07-15 | williamemery2010-deb | Restructure organ stops: replace Gedeckts with Hollow Gedeckts, combine Cornets, remove Recorders, and merge Echo/Crystal Flutes
 a296506  | 2026-06-26 | williamemery2010-deb | Add GitHub Actions workflow for automated history updates
+b975f73  | 2026-06-26 | github-actions[bot]  | Auto-update commits_and_releases.txt [skip ci]
+4c35d9a  | 2026-06-26 | williamemery2010-deb | Add GitHub Actions workflow for automated history updates
 c579a99  | 2026-06-26 | williamemery2010-deb | Add update_history.py and commits_and_releases.txt with automated git hooks
 0255b46  | 2026-06-26 | williamemery2010-deb | fixed codebase styles
 31dc454  | 2026-06-26 | williamemery2010-deb | Sandwich helpful comments in incomprehensible acronyms, recursive notes, pain, and niche music theory references
