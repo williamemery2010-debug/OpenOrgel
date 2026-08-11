@@ -1,0 +1,81 @@
+================================================================================
+                    OPENORGEL PROJECT TIMELINE & HISTORY
+================================================================================
+Updated At : 2026-08-11
+Project    : OpenOrgel Portable Pipe Organ & Hybrid Synthesis System
+Repository : https://github.com/williamemery2010-debug/OpenOrgel
+================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 1: INCEPTION & INITIAL PROOF OF CONCEPTS (June 2 - June 4, 2026)
+--------------------------------------------------------------------------------
+* June 2, 2026 [Commit 021e9fc]:
+  - Initial repository creation by William Emery.
+  - Added initial Python proof-of-concept synthesis script (SynthesiserPOC.py)
+    and Arduino console firmware (organconsole.ino).
+
+* June 3, 2026 [Commits 2b253ef, 31fd385, 76f8da5, da2ab43, 9f8bf11]:
+  - Authored foundational README overview detailing the OpenOrgel mission:
+    A 2026 open-source, portable pipe organ constructed from wood and 3D-printed
+    PLA plastic.
+  - Defined mechanical design: closed-loop wind system with electric centrifugal
+    blower, reservoir pressure sensors, dynamic RPM regulation, and C0-C8 8-octave
+    chromatic range (low pedal range C0-F#3 synthesised).
+  - Added initial physical console switchboard integration in organconsole.ino.
+  - Cleaned duplicate historical POC files.
+
+* June 4, 2026 [Commits 3fca43b, 747abbc, e3ed4d5, 681940e]:
+  - Created repository overview documentation (repository_summary.txt) and
+    newsynthesis_architecture.md outlining digital additive synthesis.
+
+--------------------------------------------------------------------------------
+PHASE 2: SYNTHESIS OPTIMIZATION & C++ CORE PORT (June 10 - June 26, 2026)
+--------------------------------------------------------------------------------
+* June 10, 2026 [Commits ff8479b, 3542143]:
+  - Implemented advanced acoustic pipe modeling: pitch scoop (wind pressure
+    build-up), organic drift, wind chiff/breath noise, and footage dampening.
+
+* June 26, 2026 [Commits 7c3082a, 8420245, f714c09, 81da84c, 87a1de9, 2553bc6]:
+  - Implemented native real-time MIDI keyboard input integration.
+  - Integrated CustomTkinter (CTk) dark-mode GUI for stop toggles, master volume,
+    A4 tuning calibration (415 Hz - 466 Hz), and MIDI export to WAV.
+  - MAJOR ARCHITECTURAL MILESTONE: Ported core additive synthesis engine and
+    Schroeder multi-tap reverb to native C++ (openorgelsynth.cpp), compiled as a
+    shared library (openorgelsynth.dll) using LLVM-MinGW.
+  - Added dr_mp3.h for native high-performance MP3 sample loading.
+  - Connected Python frontend to C++ DLL via ctypes with automatic Python fallback.
+
+* June 26, 2026 [Commits 31dc454, 0255b46, c579a99, 4c35d9a, b975f73, a296506]:
+  - Enforced project code style guidelines (humorous absurd notes, music theory references).
+  - Introduced automated history tracking script (update_history.py) and
+    commits_and_releases.txt.
+  - Released version tag: Prealpha_v1.2.0.
+
+--------------------------------------------------------------------------------
+PHASE 3: STOP RESTRUCTURING & REFINEMENT (July 15 - August 4, 2026)
+--------------------------------------------------------------------------------
+* July 15 - August 4, 2026 [Commits 4dd4342, 6be611f, 5453152, b101420, ccc6d99]:
+  - Restructured organ stop definitions: introduced Hollow Gedeckts (Airy 8', 4',
+    16', 32'), merged Cornet V, Crystal Flute (Glassy), and refined mixture ranks
+    (Mixture IV, Cymbale Mixture, Plein Jeu Mixture, Scharf Mixture).
+
+--------------------------------------------------------------------------------
+PHASE 4: AUTOMATED BUILD PIPELINE & PACKAGING (August 11, 2026)
+--------------------------------------------------------------------------------
+* August 11, 2026 [Commits 7bf28db, d4bb842, e57f100, 80e6ea3, 4f4225a, 4f91c46]:
+  - Standardized repository structure and updated project guidelines (.agents/AGENTS.md).
+  - Formally mandated executable recompilation (PyInstaller newsynthesis.spec),
+    Desktop output sync, and GitHub release tagging for every codebase change.
+  - Released version tag: Prealpha_v1.3.0.
+
+--------------------------------------------------------------------------------
+PHASE 5: SAMPLE-BASED REPLACEMENT & TIMELINE INTEGRATION (August 11, 2026)
+--------------------------------------------------------------------------------
+* August 11, 2026 [Prealpha_v1.4.0]:
+  - Replaced Clarinet 8' and all Clarinet footages (16', 8', 4', 2') with
+    high-quality sample-based resampling powered by clarion.mp3.
+  - Replaced Gedeckt stops with Acoustic Flue 16', 8', 4', and 2' stops powered
+    by stoppedflue.mp3 sample-based resampling.
+  - Authored comprehensive project_timeline.txt and updated repository_summary.txt.
+  - Recompiled binaries and published release tag: Prealpha_v1.4.0.
+================================================================================

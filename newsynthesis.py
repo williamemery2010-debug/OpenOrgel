@@ -91,9 +91,30 @@ STOPS = {
         "harmonics": np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
         "amplitudes": np.array([0.5, 0.3, 1.0, 0.7, 0.4, 0.3, 0.2, 0.15, 0.1, 0.05])
     },
+    # SCHRODINGER CLARION REED SAMPLE MATRIX - menthol - apple text go brrr
     "Clarinet 8'": {
-        "harmonics": np.array([1, 2, 3, 4, 5, 6, 7, 8, 9]),
-        "amplitudes": np.array([1.0, 0.05, 0.5, 0.02, 0.2, 0.01, 0.1, 0.01, 0.05])
+        "harmonics": np.array([1.0]),
+        "amplitudes": np.array([1.0]),
+        "is_sample": True,
+        "sample_type": "clarion"
+    },
+    "Clarinet 4'": {
+        "harmonics": np.array([2.0]),
+        "amplitudes": np.array([1.0]),
+        "is_sample": True,
+        "sample_type": "clarion"
+    },
+    "Clarinet 16'": {
+        "harmonics": np.array([0.5]),
+        "amplitudes": np.array([1.0]),
+        "is_sample": True,
+        "sample_type": "clarion"
+    },
+    "Clarinet 2'": {
+        "harmonics": np.array([4.0]),
+        "amplitudes": np.array([1.0]),
+        "is_sample": True,
+        "sample_type": "clarion"
     },
     "Bassoon 16'": {
         "harmonics": np.array([0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0]),
@@ -118,10 +139,6 @@ STOPS = {
     "Flute 4'": {
         "harmonics": np.array([2.0, 4.0, 6.0]),
         "amplitudes": np.array([1.0, 0.15, 0.05])
-    },
-    "Clarinet 4'": {
-        "harmonics": np.array([2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0]),
-        "amplitudes": np.array([1.0, 0.05, 0.5, 0.02, 0.2, 0.01, 0.1, 0.01, 0.05])
     },
     "Viol 4'": {
         "harmonics": np.array([2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0]),
@@ -159,22 +176,26 @@ STOPS = {
         "harmonics": np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]),
         "amplitudes": np.array([1.0, 0.4, 0.8, 0.2, 0.6, 0.1, 0.05, 0.02])
     },
-    # help ive been coding for years
-    "Hollow Gedeckt 8' (Airy)": {
-        "harmonics": np.array([1.0, 3.0, 5.0, 7.0, 9.0, 11.0]),
-        "amplitudes": np.array([1.0, 0.5, 0.2, 0.08, 0.03, 0.01])
+    # help ive been coding for years - ACOUSTIC FLUE FOOTAGES MATRIX
+    "Acoustic Flue 8'": {
+        "harmonics": np.array([1.0]),
+        "amplitudes": np.array([1.0]),
+        "is_sample": True
     },
-    "Hollow Gedeckt 4' (Airy)": {
-        "harmonics": np.array([2.0, 6.0, 10.0, 14.0, 18.0, 22.0]),
-        "amplitudes": np.array([1.0, 0.5, 0.2, 0.08, 0.03, 0.01])
+    "Acoustic Flue 4'": {
+        "harmonics": np.array([2.0]),
+        "amplitudes": np.array([1.0]),
+        "is_sample": True
     },
-    "Hollow Gedeckt 16'": {
-        "harmonics": np.array([0.5, 1.5, 2.5, 3.5, 4.5, 5.5]),
-        "amplitudes": np.array([1.0, 0.5, 0.2, 0.08, 0.03, 0.01])
+    "Acoustic Flue 16'": {
+        "harmonics": np.array([0.5]),
+        "amplitudes": np.array([1.0]),
+        "is_sample": True
     },
-    "Hollow Gedeckt 32'": {
-        "harmonics": np.array([0.25, 0.75, 1.25, 1.75, 2.25, 2.75]),
-        "amplitudes": np.array([1.0, 0.5, 0.2, 0.08, 0.03, 0.01])
+    "Acoustic Flue 2'": {
+        "harmonics": np.array([4.0]),
+        "amplitudes": np.array([1.0]),
+        "is_sample": True
     },
     # menthol - MULTI-RANK ACOUSTIC FLUE SAMPLE MIXTURES
     # why code hard
@@ -197,15 +218,6 @@ STOPS = {
     "Voix Celeste 8'": {
         "harmonics": np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]),
         "amplitudes": np.array([1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2, 0.15, 0.1, 0.05])
-    },
-    # QUANTUM ACOUSTIC FLUE COUPLER MATRIX
-    # menthol
-    # t-BuLi
-    # why code hard
-    "Acoustic Flue 8'": {
-        "harmonics": np.array([1.0]),
-        "amplitudes": np.array([1.0]),
-        "is_sample": True
     }
 }
 

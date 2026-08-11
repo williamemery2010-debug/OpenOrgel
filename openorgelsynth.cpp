@@ -29,6 +29,10 @@ static std::vector<float> g_acoustic_flue_sample;
 static int g_acoustic_flue_sample_rate = 44100;
 static bool g_acoustic_flue_loaded = false;
 
+static std::vector<float> g_clarion_sample;
+static int g_clarion_sample_rate = 44100;
+static bool g_clarion_loaded = false;
+
 // THE FERMI PARADOX OF ACOUSTIC FLUE SAMPLE LOADER
 static void ensure_acoustic_flue_loaded() {
   if (g_acoustic_flue_loaded) return;
@@ -75,6 +79,54 @@ static void ensure_acoustic_flue_loaded() {
     drmp3_uninit(&mp3);
   }
   g_acoustic_flue_loaded = true;
+}
+
+// THE SCHRODINGER CLARION REED SAMPLE LOADER - menthol - apple text go brrr
+static void ensure_clarion_loaded() {
+  if (g_clarion_loaded) return;
+  drmp3 mp3;
+  bool opened = drmp3_init_file(&mp3, "clarion.mp3", NULL);
+  if (!opened) {
+    HMODULE hModule = NULL;
+    if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)&ensure_clarion_loaded, &hModule)) {
+      char dllPath[MAX_PATH];
+      if (GetModuleFileNameA(hModule, dllPath, MAX_PATH)) {
+        char *lastSlash = strrchr(dllPath, '\\');
+        if (!lastSlash) lastSlash = strrchr(dllPath, '/');
+        if (lastSlash) {
+          *(lastSlash + 1) = '\0';
+          std::string samplePath = std::string(dllPath) + "clarion.mp3";
+          opened = drmp3_init_file(&mp3, samplePath.c_str(), NULL);
+        }
+      }
+    }
+  }
+  if (!opened) {
+    opened = drmp3_init_file(&mp3, "c:/Users/EME0012/OpenOrgel/clarion.mp3", NULL);
+  }
+  if (opened) {
+    drmp3_uint64 totalFrames = 0;
+    drmp3_get_mp3_and_pcm_frame_count(&mp3, NULL, &totalFrames);
+    if (totalFrames > 0) {
+      std::vector<float> rawPcm(totalFrames * mp3.channels);
+      drmp3_read_pcm_frames_f32(&mp3, totalFrames, rawPcm.data());
+      g_clarion_sample_rate = mp3.sampleRate;
+      g_clarion_sample.resize(totalFrames);
+      if (mp3.channels == 1) {
+        for (size_t i = 0; i < totalFrames; i++) g_clarion_sample[i] = rawPcm[i];
+      } else {
+        for (size_t i = 0; i < totalFrames; i++) {
+          float sum = 0.0f;
+          for (unsigned int c = 0; c < mp3.channels; c++) {
+            sum += rawPcm[i * mp3.channels + c];
+          }
+          g_clarion_sample[i] = sum / mp3.channels;
+        }
+      }
+    }
+    drmp3_uninit(&mp3);
+  }
+  g_clarion_loaded = true;
 }
 
 extern "C" __declspec(dllexport) void set_acoustic_flue_sample_cpp(const float *buffer, int num_samples, int sample_rate) {
@@ -162,86 +214,87 @@ struct BiquadFilter {
 // SYNTONIC COMMA OVERTONE ALIGNMENT INDEX
 // Organ Stops Definitions database
 // PLK MNB VCX - STOPS DATA REGISTRY
+// t-BuLi - SAMPLE RESAMPLING MATRIX (0 = synthetic, 1 = acoustic flue, 2 = clarion)
 struct StopDefinition {
   const char *name;
   int num_harmonics;
   double harmonics[12];
   double amplitudes[12];
   bool is_short_pipe;
-  bool is_sample_based;
+  int sample_type;
 };
 
-static const StopDefinition STOPS_DB[26] = {
+static const StopDefinition STOPS_DB[27] = {
     // 0: Oboe 8'
     {"Oboe 8'",
      10,
      {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0},
      {0.5, 0.3, 1.0, 0.7, 0.4, 0.3, 0.2, 0.15, 0.1, 0.05},
      false,
-     false},
-    // 1: Clarinet 8'
+     0},
+    // 1: Clarinet 8' - clarion.mp3 sample based
     {"Clarinet 8'",
-     9,
-     {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0},
-     {1.0, 0.05, 0.5, 0.02, 0.2, 0.01, 0.1, 0.01, 0.05},
+     1,
+     {1.0},
+     {1.0},
      false,
-     false},
+     2},
     // 2: Bassoon 16'
     {"Bassoon 16'",
      12,
      {0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0},
      {1.0, 0.6, 0.4, 0.3, 0.2, 0.15, 0.12, 0.1, 0.08, 0.06, 0.05, 0.04},
      false,
-     false},
+     0},
     // 3: Bombarde 16'
     {"Bombarde 16'",
      8,
      {0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0},
      {1.0, 0.8, 0.5, 0.3, 0.15, 0.08, 0.03, 0.01},
      false,
-     false},
+     0},
     // 4: Ophicleide 16'
     {"Ophicleide 16'",
      10,
      {0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0},
      {1.0, 0.7, 0.8, 0.5, 0.4, 0.25, 0.15, 0.1, 0.05, 0.02},
      false,
-     false},
+     0},
     // 5: Ottavino 2'
-    {"Ottavino 2'", 3, {4.0, 8.0, 12.0}, {1.0, 0.15, 0.05}, true, false},
+    {"Ottavino 2'", 3, {4.0, 8.0, 12.0}, {1.0, 0.15, 0.05}, true, 0},
     // 6: Cor Anglais 8'
     {"Cor Anglais 8'",
      7,
      {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0},
      {1.0, 0.3, 0.8, 0.2, 0.5, 0.1, 0.2},
      false,
-     false},
+     0},
     // 7: Flute 4'
-    {"Flute 4'", 3, {2.0, 4.0, 6.0}, {1.0, 0.15, 0.05}, true, false},
-    // 8: Clarinet 4'
+    {"Flute 4'", 3, {2.0, 4.0, 6.0}, {1.0, 0.15, 0.05}, true, 0},
+    // 8: Clarinet 4' - clarion.mp3 sample based
     {"Clarinet 4'",
-     9,
-     {2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0, 18.0},
-     {1.0, 0.05, 0.5, 0.02, 0.2, 0.01, 0.1, 0.01, 0.05},
+     1,
+     {2.0},
+     {1.0},
      true,
-     false},
+     2},
     // 9: Viol 4'
     {"Viol 4'",
      8,
      {2.0, 4.0, 6.0, 8.0, 10.0, 12.0, 14.0, 16.0},
      {1.0, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1},
      true,
-     false},
+     0},
     // 10: Contrabassoon 32'
     {"Contrabassoon 32'",
      12,
      {0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 3.5, 4.0},
      {1.0, 0.8, 0.9, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0.02},
      false,
-     false},
+     0},
     // 11: Diapason 8'
     // t-BuLi
-    {"Diapason 8'", 3, {1.0, 3.0, 5.0}, {1.0, 0.35, 0.05}, false, false},
+    {"Diapason 8'", 3, {1.0, 3.0, 5.0}, {1.0, 0.35, 0.05}, false, 0},
     // 12: Crystal Flute 4' (Glassy)
     // TRANS-DIMENSIONAL GLASSY FLUTE COUPLER
     // apple text go brrr
@@ -250,55 +303,55 @@ static const StopDefinition STOPS_DB[26] = {
      {1.0, 2.0, 3.0, 4.0, 6.0, 8.0, 16.0},
      {0.4, 1.03, 0.08, 0.03, 0.1, 0.01, 0.03},
      true,
-     false},
+     0},
     // 13: Cornet V 8'
     {"Cornet V 8'",
      5,
      {1.0, 2.0, 3.0, 4.0, 5.0},
      {1.0, 0.8, 0.9, 0.7, 0.8},
      false,
-     false},
+     0},
     // 14: Piccolo 2'
-    {"Piccolo 2'", 4, {4.0, 8.0, 12.0, 16.0}, {1.0, 0.1, 0.05, 0.01}, true, false},
+    {"Piccolo 2'", 4, {4.0, 8.0, 12.0, 16.0}, {1.0, 0.1, 0.05, 0.01}, true, 0},
     // 15: Mixture IV
     // menthol - MULTI-RANK ACOUSTIC FLUE RESAMPLING MATRIX
-    {"Mixture IV", 4, {4.0, 6.0, 8.0, 12.0}, {1.0, 0.8, 0.6, 0.4}, false, true},
+    {"Mixture IV", 4, {4.0, 6.0, 8.0, 12.0}, {1.0, 0.8, 0.6, 0.4}, false, 1},
     // 16: Vox Humana 8'
     {"Vox Humana 8'",
      8,
      {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0},
      {1.0, 0.4, 0.8, 0.2, 0.6, 0.1, 0.05, 0.02},
      false,
-     false},
-    // 17: Hollow Gedeckt 8' (Airy)
+     0},
+    // 17: Acoustic Flue 8' (replaces Hollow Gedeckt 8')
     // help ive been coding for years
-    {"Hollow Gedeckt 8' (Airy)",
-     6,
-     {1.0, 3.0, 5.0, 7.0, 9.0, 11.0},
-     {1.0, 0.5, 0.2, 0.08, 0.03, 0.01},
+    {"Acoustic Flue 8'",
+     1,
+     {1.0},
+     {1.0},
      false,
-     false},
-    // 18: Hollow Gedeckt 4' (Airy)
-    {"Hollow Gedeckt 4' (Airy)",
-     6,
-     {2.0, 6.0, 10.0, 14.0, 18.0, 22.0},
-     {1.0, 0.5, 0.2, 0.08, 0.03, 0.01},
+     1},
+    // 18: Acoustic Flue 4' (replaces Hollow Gedeckt 4')
+    {"Acoustic Flue 4'",
+     1,
+     {2.0},
+     {1.0},
      true,
-     false},
-    // 19: Hollow Gedeckt 16'
-    {"Hollow Gedeckt 16'",
-     6,
-     {0.5, 1.5, 2.5, 3.5, 4.5, 5.5},
-     {1.0, 0.5, 0.2, 0.08, 0.03, 0.01},
+     1},
+    // 19: Acoustic Flue 16' (replaces Hollow Gedeckt 16')
+    {"Acoustic Flue 16'",
+     1,
+     {0.5},
+     {1.0},
      false,
-     false},
-    // 20: Hollow Gedeckt 32'
-    {"Hollow Gedeckt 32'",
-     6,
-     {0.25, 0.75, 1.25, 1.75, 2.25, 2.75},
-     {1.0, 0.5, 0.2, 0.08, 0.03, 0.01},
-     false,
-     false},
+     1},
+    // 20: Acoustic Flue 2' (replaces Hollow Gedeckt 32')
+    {"Acoustic Flue 2'",
+     1,
+     {4.0},
+     {1.0},
+     true,
+     1},
     // 21: Cymbale Mixture
     // menthol - CYMBALE SAMPLE FLUE RESAMPLING
     {"Cymbale Mixture",
@@ -306,7 +359,7 @@ static const StopDefinition STOPS_DB[26] = {
      {8.0, 12.0, 16.0},
      {1.0, 0.8, 0.6},
      false,
-     true},
+     1},
     // 22: Plein Jeu Mixture
     // t-BuLi - PLEIN JEU SAMPLE FLUE RESAMPLING
     {"Plein Jeu Mixture",
@@ -314,7 +367,7 @@ static const StopDefinition STOPS_DB[26] = {
      {2.0, 3.0, 4.0, 6.0, 8.0},
      {1.0, 0.9, 0.8, 0.6, 0.4},
      false,
-     true},
+     1},
     // 23: Scharf Mixture
     // THE SPARK OF THE COSMOS BRINGS BRIGHTNESS
     // why code hard
@@ -323,17 +376,18 @@ static const StopDefinition STOPS_DB[26] = {
      {6.0, 8.0, 12.0, 16.0},
      {1.0, 0.9, 0.7, 0.5},
      false,
-     true},
+     1},
     // 24: Voix Celeste 8'
     {"Voix Celeste 8'",
      10,
      {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0},
      {1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2, 0.15, 0.1, 0.05},
      false,
-     false},
-    // 25: Acoustic Flue 8'
-    // QUANTUM FLUE RESONANCE MATRIX - menthol
-    {"Acoustic Flue 8'", 1, {1.0}, {1.0}, false, true}};
+     0},
+    // 25: Clarinet 16' - clarion.mp3 sample based
+    {"Clarinet 16'", 1, {0.5}, {1.0}, false, 2},
+    // 26: Clarinet 2' - clarion.mp3 sample based
+    {"Clarinet 2'", 1, {4.0}, {1.0}, true, 2}};
 
 extern "C" __declspec(dllexport) void
 generate_raw_tone_cpp(double freq, double duration, int sample_rate,
@@ -354,28 +408,36 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
   chiff_biquad.setBandpass(freq, sample_rate, 8.0);
 
   bool has_slower_drift = false;
-  bool has_sample_stops = false;
+  bool has_flue_sample_stops = false;
+  bool has_clarion_sample_stops = false;
   for (int i = 0; i < num_stops; i++) {
     int stop_id = active_stop_ids[i];
-    if (stop_id >= 0 && stop_id < 26) {
+    if (stop_id >= 0 && stop_id < 27) {
       if (stop_id == 17 || stop_id == 18 || stop_id == 19 || stop_id == 20) {
         has_slower_drift = true;
       }
-      if (STOPS_DB[stop_id].is_sample_based) {
-        has_sample_stops = true;
+      if (STOPS_DB[stop_id].sample_type == 1) {
+        has_flue_sample_stops = true;
+      }
+      if (STOPS_DB[stop_id].sample_type == 2) {
+        has_clarion_sample_stops = true;
       }
     }
   }
 
-  // menthol - PREPARE MULTI-RANK ACOUSTIC FLUE RESAMPLING MATRIX
+  // menthol - PREPARE MULTI-RANK ACOUSTIC FLUE AND CLARION SAMPLE RESAMPLING MATRIX
   // t-BuLi FLUID DYNAMICS GO BRRR
   // why code hard
   // god someone help me
-  if (has_sample_stops) {
+  if (has_flue_sample_stops) {
     ensure_acoustic_flue_loaded();
   }
+  if (has_clarion_sample_stops) {
+    ensure_clarion_loaded();
+  }
 
-  bool use_sample_resampling = has_sample_stops && g_acoustic_flue_loaded && !g_acoustic_flue_sample.empty();
+  bool use_flue_resampling = has_flue_sample_stops && g_acoustic_flue_loaded && !g_acoustic_flue_sample.empty();
+  bool use_clarion_resampling = has_clarion_sample_stops && g_clarion_loaded && !g_clarion_sample.empty();
 
   // ABSOLUTE SUFFERING OF SUMMING INFINITE DIMENSION SERIES
   // menthol - WHY CODE HARD
@@ -388,8 +450,8 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
   } else {
     for (int i = 0; i < num_stops; i++) {
       int stop_id = active_stop_ids[i];
-      if (stop_id >= 0 && stop_id < 26) {
-        if (!use_sample_resampling || !STOPS_DB[stop_id].is_sample_based) {
+      if (stop_id >= 0 && stop_id < 27) {
+        if (STOPS_DB[stop_id].sample_type == 0) {
           total_harmonics += STOPS_DB[stop_id].num_harmonics * 3;
         }
       }
@@ -417,9 +479,9 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
   } else {
     for (int i = 0; i < num_stops; i++) {
       int stop_id = active_stop_ids[i];
-      if (stop_id < 0 || stop_id >= 26)
+      if (stop_id < 0 || stop_id >= 27)
         continue;
-      if (use_sample_resampling && STOPS_DB[stop_id].is_sample_based)
+      if (STOPS_DB[stop_id].sample_type != 0)
         continue;
 
       const auto &stop = STOPS_DB[stop_id];
@@ -464,27 +526,40 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
     }
   }
 
-  // THE MULTI-RANK ACOUSTIC FLUE SAMPLE RESAMPLING MATRIX
+  // THE MULTI-RANK ACOUSTIC FLUE AND CLARION SAMPLE RESAMPLING MATRIX
   // apple text go brrr
   // menthol - RESAMPLING RANKS CACHE
   struct SampleRank {
     double step;
     double amp;
+    int type; // 1 = flue, 2 = clarion
   };
   std::vector<SampleRank> sample_ranks;
 
-  if (use_sample_resampling) {
-    double base_sample_ratio = (double)g_acoustic_flue_sample_rate / (double)sample_rate;
+  if (use_flue_resampling || use_clarion_resampling) {
+    double base_flue_ratio = (double)g_acoustic_flue_sample_rate / (double)sample_rate;
+    double base_clarion_ratio = (double)g_clarion_sample_rate / (double)sample_rate;
+
     for (int i = 0; i < num_stops; i++) {
       int stop_id = active_stop_ids[i];
-      if (stop_id >= 0 && stop_id < 26 && STOPS_DB[stop_id].is_sample_based) {
+      if (stop_id >= 0 && stop_id < 27) {
         const auto &stop = STOPS_DB[stop_id];
-        for (int h = 0; h < stop.num_harmonics; h++) {
-          double rank_freq = freq * stop.harmonics[h];
-          double pitch_ratio = rank_freq / 440.0;
-          double step = pitch_ratio * base_sample_ratio;
-          double amp = stop.amplitudes[h];
-          sample_ranks.push_back({step, amp});
+        if (stop.sample_type == 1 && use_flue_resampling) {
+          for (int h = 0; h < stop.num_harmonics; h++) {
+            double rank_freq = freq * stop.harmonics[h];
+            double pitch_ratio = rank_freq / 440.0;
+            double step = pitch_ratio * base_flue_ratio;
+            double amp = stop.amplitudes[h];
+            sample_ranks.push_back({step, amp, 1});
+          }
+        } else if (stop.sample_type == 2 && use_clarion_resampling) {
+          for (int h = 0; h < stop.num_harmonics; h++) {
+            double rank_freq = freq * stop.harmonics[h];
+            double pitch_ratio = rank_freq / 440.0;
+            double step = pitch_ratio * base_clarion_ratio;
+            double amp = stop.amplitudes[h];
+            sample_ranks.push_back({step, amp, 2});
+          }
         }
       }
     }
@@ -537,16 +612,18 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
                                       all_phases[h]);
     }
 
-    // MULTI-RANK ACOUSTIC FLUE SAMPLE RESAMPLING & PITCH SHIFT - menthol
+    // MULTI-RANK ACOUSTIC FLUE & CLARION SAMPLE RESAMPLING & PITCH SHIFT - menthol
     // t-BuLi FLUID DYNAMICS GO BRRR
     // why code hard
     if (!sample_ranks.empty()) {
-      size_t sample_len = g_acoustic_flue_sample.size();
-      size_t loop_start = (size_t)(0.2 * sample_len);
-      size_t loop_end = (size_t)(0.8 * sample_len);
-      size_t loop_len = (loop_end > loop_start) ? (loop_end - loop_start) : sample_len;
-
       for (const auto &rank : sample_ranks) {
+        const std::vector<float> &src_sample = (rank.type == 2) ? g_clarion_sample : g_acoustic_flue_sample;
+        size_t sample_len = src_sample.size();
+        if (sample_len == 0) continue;
+        size_t loop_start = (size_t)(0.2 * sample_len);
+        size_t loop_end = (size_t)(0.8 * sample_len);
+        size_t loop_len = (loop_end > loop_start) ? (loop_end - loop_start) : sample_len;
+
         double pos = (double)n * rank.step;
         if (pos >= (double)sample_len) {
           double rem = pos - (double)loop_start;
@@ -557,9 +634,9 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
         size_t i1 = i0 + 1;
         if (i1 >= sample_len) i1 = loop_start;
         double frac = pos - (double)i0;
-        float sample_val_flue = (1.0f - (float)frac) * g_acoustic_flue_sample[i0] + (float)frac * g_acoustic_flue_sample[i1];
+        float sample_val_pcm = (1.0f - (float)frac) * src_sample[i0] + (float)frac * src_sample[i1];
         
-        sample_val += rank.amp * (double)sample_val_flue;
+        sample_val += rank.amp * (double)sample_val_pcm;
       }
     }
 
