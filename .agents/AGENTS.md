@@ -6,7 +6,7 @@ Every time `newsynthesis.py` is modified, you must compile the script into a sta
 ### Compilation Command:
 ```powershell
 # Compile C++ synthesis DLL
-& "C:\Users\EME0012\AppData\Local\Microsoft\WinGet\Packages\MartinStorsjo.LLVM-MinGW.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe\llvm-mingw-20260602-ucrt-x86_64\bin\g++.exe" -O3 -shared -o openorgelsynth.dll openorgelsynth.cpp
+& "C:\Users\EME0012\AppData\Local\Microsoft\WinGet\Packages\MartinStorsjo.LLVM-MinGW.UCRT_Microsoft.Winget.Source_8wekyb3d8bbwe\llvm-mingw-20260602-ucrt-x86_64\bin\g++.exe" -O3 -shared -static -static-libgcc -static-libstdc++ -o openorgelsynth.dll openorgelsynth.cpp
 
 # Compile standalone executable
 python -m PyInstaller newsynthesis.spec --noconfirm

@@ -1,7 +1,7 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-08-11 21:09:06
+Updated At     : 2026-08-11 21:14:18
 Total Commits  : 44
 Total Releases : 7
 ================================================================================
@@ -25,7 +25,7 @@ Details : Release Prealpha_v1.5.0: Compiled standalone application executable co
 --------------------------------------------------------------------------------
 Version : Prealpha_v1.5.1
 Date    : 2026-08-11
-Commit  : 15b2480
+Commit  : 14f9655
 Details : Release Prealpha_v1.5.1: Standalone executable release bundling interface & synthesis engine with sounddevice
 --------------------------------------------------------------------------------
 Version : Prealpha_v1.2.0
@@ -53,7 +53,7 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-15b2480  | 2026-08-11 | williamemery2010-deb | Release Prealpha_v1.5.1: Standalone executable build bundling sounddevice, mido, serial, customtkinter, scipy, clarion.mp3
+14f9655  | 2026-08-11 | williamemery2010-deb | Release Prealpha_v1.5.1: Standalone executable build bundling sounddevice, mido, serial, customtkinter, scipy, clarion.mp3
 10f319e  | 2026-08-11 | github-actions[bot]  | Auto-update commits_and_releases.txt [skip ci]
 633b126  | 2026-08-11 | williamemery2010-deb | Merge branch 'main' of https://github.com/williamemery2010-debug/OpenOrgel
 4f6a520  | 2026-08-11 | williamemery2010-deb | docs: clarify standalone executable compilation and release packaging
