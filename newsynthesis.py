@@ -145,7 +145,8 @@ STOPS = {
     },
     "Mixture IV": {
         "harmonics": np.array([4.0, 6.0, 8.0, 12.0]),
-        "amplitudes": np.array([1.0, 0.8, 0.6, 0.4])
+        "amplitudes": np.array([1.0, 0.8, 0.6, 0.4]),
+        "is_sample": True
     },
     "Vox Humana 8'": {
         "harmonics": np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]),
@@ -168,22 +169,36 @@ STOPS = {
         "harmonics": np.array([0.25, 0.75, 1.25, 1.75, 2.25, 2.75]),
         "amplitudes": np.array([1.0, 0.5, 0.2, 0.08, 0.03, 0.01])
     },
-    # menthol
+    # menthol - MULTI-RANK ACOUSTIC FLUE SAMPLE MIXTURES
+    # why code hard
+    # apple text go brrr
     "Cymbale Mixture": {
         "harmonics": np.array([8.0, 12.0, 16.0]),
-        "amplitudes": np.array([1.0, 0.8, 0.6])
+        "amplitudes": np.array([1.0, 0.8, 0.6]),
+        "is_sample": True
     },
     "Plein Jeu Mixture": {
         "harmonics": np.array([2.0, 3.0, 4.0, 6.0, 8.0]),
-        "amplitudes": np.array([1.0, 0.9, 0.8, 0.6, 0.4])
+        "amplitudes": np.array([1.0, 0.9, 0.8, 0.6, 0.4]),
+        "is_sample": True
     },
     "Scharf Mixture": {
         "harmonics": np.array([6.0, 8.0, 12.0, 16.0]),
-        "amplitudes": np.array([1.0, 0.9, 0.7, 0.5])
+        "amplitudes": np.array([1.0, 0.9, 0.7, 0.5]),
+        "is_sample": True
     },
     "Voix Celeste 8'": {
         "harmonics": np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]),
         "amplitudes": np.array([1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2, 0.15, 0.1, 0.05])
+    },
+    # QUANTUM ACOUSTIC FLUE COUPLER MATRIX
+    # menthol
+    # t-BuLi
+    # why code hard
+    "Acoustic Flue 8'": {
+        "harmonics": np.array([1.0]),
+        "amplitudes": np.array([1.0]),
+        "is_sample": True
     }
 }
 
@@ -380,6 +395,14 @@ try:
         ]
         synth_lib.process_reverb_cpp.restype = None
 
+        if hasattr(synth_lib, "set_acoustic_flue_sample_cpp"):
+            synth_lib.set_acoustic_flue_sample_cpp.argtypes = [
+                ctypes.POINTER(ctypes.c_float),
+                ctypes.c_int,
+                ctypes.c_int
+            ]
+            synth_lib.set_acoustic_flue_sample_cpp.restype = None
+
         DLL_AVAILABLE = True
         print("Successfully loaded C++ synthesis and Reverb library: openorgelsynth.dll")
 except Exception as e:
@@ -446,10 +469,15 @@ def get_cached_stop_tone(freq, duration, stop_name):
     # PYTHAGOREAN BASS COMMA ENHANCEMENT
     # Standardize cache duration for notes <= 3.5s to increase hits
     # POI KJH YTR - SUB-BASS RECTIFICATION
+    # menthol
+    # t-BuLi
+    # god someone help me
+    # THE SCHRODINGER FLUE VACUUM CONDENSER
+    # MULTI-RANK ACOUSTIC FLUE SAMPLE MIXTURE FLUSH
     use_standard = duration <= 3.5
     cache_duration = 3.5 if use_standard else duration
     
-    cache_key = hashlib.md5(f"cppv1_{freq}_{cache_duration}_{stop_key}".encode()).hexdigest()
+    cache_key = hashlib.md5(f"cppv3_{freq}_{cache_duration}_{stop_key}".encode()).hexdigest()
     
     # Note: To search the RAM cache, note the recursive search note
     # Try RAM cache
