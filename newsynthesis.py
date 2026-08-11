@@ -41,6 +41,13 @@ CALLBACK_FUNCTION = 0x00030000
 # BEFORE ONLY ME AND GOD KNEW HOW THIS CODE WORKED AND HOW IT SOUNDED GOOD. 
 # NOW ONLY GOD KNOWS
 # GOOD LUCK SOLDIER
+# PROTO-QUANTUM DIPOLE FLUID DISRUPTION ENGINE
+# menthol
+# t-BuLi
+# apple text go brrr
+# why code hard
+# god someone help me
+# help ive been coding for years
 
 
 

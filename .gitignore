@@ -8,5 +8,6 @@ __pycache__/
 # Native binaries and packaging build output
 openorgelsynth.dll
 openorgelsynth.exe
+*.exe
 build/
 dist/
