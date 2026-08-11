@@ -64,8 +64,9 @@ PHASE 4: AUTOMATED BUILD PIPELINE & PACKAGING (August 11, 2026)
 --------------------------------------------------------------------------------
 * August 11, 2026 [Commits 7bf28db, d4bb842, e57f100, 80e6ea3, 4f4225a, 4f91c46]:
   - Standardized repository structure and updated project guidelines (.agents/AGENTS.md).
-  - Formally mandated executable recompilation (PyInstaller newsynthesis.spec),
-    Desktop output sync, and GitHub release tagging for every codebase change.
+  - Formally mandated compiling both the user interface and native synthesis engine
+    into a standalone executable file (openorgelsynth.exe via PyInstaller newsynthesis.spec),
+    copying to Desktop, and releasing on GitHub so the code is directly runnable and usable.
   - Released version tag: Prealpha_v1.3.0.
 
 --------------------------------------------------------------------------------
@@ -77,5 +78,6 @@ PHASE 5: SAMPLE-BASED REPLACEMENT & TIMELINE INTEGRATION (August 11, 2026)
   - Replaced Gedeckt stops with Acoustic Flue 16', 8', 4', and 2' stops powered
     by stoppedflue.mp3 sample-based resampling.
   - Authored comprehensive project_timeline.txt and updated repository_summary.txt.
-  - Recompiled binaries and published release tag: Prealpha_v1.4.0.
+  - Bundled interface and synthesis DLL into standalone executable, copied to Desktop,
+    and published release tag: Prealpha_v1.4.0.
 ================================================================================

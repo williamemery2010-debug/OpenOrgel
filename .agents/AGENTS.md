@@ -24,7 +24,7 @@ Copy-Item -Path dist\openorgelsynth.exe -Destination "C:\Users\EME0012\OneDrive 
 For every change made to the codebase:
 1. **Application Synthesis & Packaging**:
    - Compile `openorgelsynth.dll` with LLVM-MinGW C++ compiler.
-   - Build standalone application executable `openorgelsynth.exe` via PyInstaller (`newsynthesis.spec`).
+   - Build standalone application executable `openorgelsynth.exe` via PyInstaller (`newsynthesis.spec`), compiling both the graphical user interface and synthesis engine into a single executable so it is directly runnable and usable upon release.
    - Copy `openorgelsynth.exe` to Desktop target path.
 2. **Release Tagging & History**:
    - Update version history via `python update_history.py`.
