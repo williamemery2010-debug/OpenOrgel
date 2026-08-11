@@ -1,9 +1,15 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
+<<<<<<< HEAD
 Updated At     : 2026-08-11 19:44:55
 Total Commits  : 29
 Total Releases : 4
+=======
+Updated At     : 2026-08-11 09:41:59
+Total Commits  : 33
+Total Releases : 3
+>>>>>>> bd79e6c414cbc0d664eb698619eb715ad64dfa9d
 ================================================================================
 
 🚀 RELEASES / TAGS
@@ -38,7 +44,15 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
+<<<<<<< HEAD
 970fa89  | 2026-08-11 | williamemery2010-deb | Establish automated synthesis application packaging & GitHub release workflow
+=======
+ccc6d99  | 2026-08-11 | Violinteresting      | Merge pull request #3 from williamemery2010-debug/review/stops-restructure
+80e6ea3  | 2026-08-11 | Violinteresting      | Merge branch 'main' into review/stops-restructure
+e57f100  | 2026-08-11 | williamemery2010-deb | Merge branch 'review/stops-restructure' of https://github.com/williamemery2010-debug/OpenOrgel into review/stops-restructure
+d4bb842  | 2026-08-11 | williamemery2010-deb | style: clean up repository structure and add section comments
+7bf28db  | 2026-08-11 | williamemery2010-deb | feat: implement pipe organ synthesis POC with MIDI playback support and environment configuration
+>>>>>>> bd79e6c414cbc0d664eb698619eb715ad64dfa9d
 b101420  | 2026-08-03 | github-actions[bot]  | Auto-update commits_and_releases.txt [skip ci]
 5453152  | 2026-08-04 | Violinteresting      | Merge pull request #1 from williamemery2010-debug/review/stops-restructure
 6be611f  | 2026-08-04 | Violinteresting      | Merge branch 'main' into review/stops-restructure

@@ -5,7 +5,7 @@ a = Analysis(
     ['newsynthesis.py'],
     pathex=[],
     binaries=[],
-    datas=[('openorgelsynth.dll', '.')],
+    datas=[('openorgelsynth.dll', '.'), ('stoppedflue.mp3', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
