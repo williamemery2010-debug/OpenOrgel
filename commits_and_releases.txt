@@ -1,9 +1,9 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-08-11 10:42:28
-Total Commits  : 38
-Total Releases : 5
+Updated At     : 2026-08-11 20:53:32
+Total Commits  : 43
+Total Releases : 6
 ================================================================================
 
 🚀 RELEASES / TAGS
@@ -17,6 +17,11 @@ Version : Prealpha_v1.4.0
 Date    : 2026-08-11
 Commit  : 94bcdaf
 Details : Release Prealpha_v1.4.0: Replace Clarinet & Gedeckt stops with Clarion and Acoustic Flue sample-based synthesis, and add project timeline
+--------------------------------------------------------------------------------
+Version : Prealpha_v1.5.0
+Date    : 2026-08-11
+Commit  : 58518fd
+Details : Release Prealpha_v1.5.0: Compiled standalone application executable containing GUI frontend and C++ synthesis engine
 --------------------------------------------------------------------------------
 Version : Prealpha_v1.2.0
 Date    : 2026-06-26
@@ -43,8 +48,11 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
+58518fd  | 2026-08-11 | github-actions[bot]  | Auto-update commits_and_releases.txt [skip ci]
+633b126  | 2026-08-11 | williamemery2010-deb | Merge branch 'main' of https://github.com/williamemery2010-debug/OpenOrgel
+4f6a520  | 2026-08-11 | williamemery2010-deb | docs: clarify standalone executable compilation and release packaging
 c5eec34  | 2026-08-11 | github-actions[bot]  | Auto-update commits_and_releases.txt [skip ci]
-94bcdaf  | 2026-08-11 | williamemery2010-deb | Replace Clarinet & Gedeckt stops with Clarion and Acoustic Flue sample-based synthesis, and add project timeline
+671b59e  | 2026-08-11 | github-actions[bot]  | Auto-update commits_and_releases.txt [skip ci]
 94bcdaf  | 2026-08-11 | williamemery2010-deb | Replace Clarinet & Gedeckt stops with Clarion and Acoustic Flue sample-based synthesis, and add project timeline
 a27b580  | 2026-08-11 | github-actions[bot]  | Auto-update commits_and_releases.txt [skip ci]
 4f91c46  | 2026-08-11 | williamemery2010-deb | Merge branch 'main' of https://github.com/williamemery2010-debug/OpenOrgel
