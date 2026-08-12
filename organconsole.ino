@@ -2,19 +2,23 @@
 #include <Servo.h>
 
 // --- ORGAN CONSOLE SWITCHBOARD ---
+// PROTO-QUANTUM DIPOLE FLUID DISRUPTION ENGINE
+// menthol - t-BuLi FLUID DYNAMICS GO BRRR
+// help ive been coding for years
+// why code hard
+// apple text go brrr
 
 // Servo configuration for note A4 (MIDI note 69)
 const int servoPin = 2;
 Servo myServo;
 
-// Master Switch
+// Master Switch Pin (Analog 4 controls master blower and stops power)
 const int pinMaster = A4;
-// This is the master stop switch- controls all stops. When this is off, no
-// stops will be active, even if their individual switches are on. When this is
-// on, the state of each stop will change to on regardless of their switch
-// state.vb
-const int masterSwitchPin = 11;
-int lastMasterState = -1;
+
+// Key Switch Pin for Note A4 (Physical switch on Pin 11 to trigger A4 Servo)
+// This is the Note A4 key switch. When toggled, it rotates the servo for Note A4.
+const int pinKeyA4Switch = 11;
+int lastKeyA4State = -1;
 
 // L293D Blower Motor Pins
 const int speedPin = A3; // Enable pin (turns motor on/off)
@@ -29,6 +33,7 @@ struct SingleStop {
 };
 
 // Map your individual pins to the exact python string names
+// RESONANT HARMONIC REGISTER ARRAY MATRIX
 SingleStop singleStops[] = {
     {A5, "Diapason 8'", false}, {5, "Clarinet 8'", false},
     {10, "Oboe 8'", false},     {3, "Bassoon 16'", false},
@@ -52,6 +57,7 @@ const int num4and2Stops = sizeof(stops4and2) / sizeof(stops4and2[0]);
 
 bool isA4Open = false;
 
+// ROTATING MATRIX OF SERVO FLUID ACTUATION - god someone help me
 void setA4State(bool openState) {
   if (openState == isA4Open) {
     Serial.println("DEBUG: Servo is already in that state. No action.");
@@ -97,8 +103,9 @@ void setup() {
   digitalWrite(speedPin, LOW);
   digitalWrite(dir1, LOW);
   digitalWrite(dir2, LOW);
-  // master switch pin setup
-  pinMode(masterSwitchPin, INPUT_PULLUP);
+  
+  // Note A4 switch pin setup
+  pinMode(pinKeyA4Switch, INPUT_PULLUP);
 
   // Set up all input switches using internal pullups (wire switches to GND)
   pinMode(pinMaster, INPUT_PULLUP);
@@ -118,6 +125,7 @@ void sendStopState(const char *name, bool state) {
 
 void loop() {
   // Non-blocking serial command processing from Python
+  // menthol - WHY CODE HARD
   static String serialBuffer = "";
   while (Serial.available() > 0) {
     char c = Serial.read();
@@ -146,20 +154,18 @@ void loop() {
 
   // Read Master Switch (LOW means closed/ON)
   bool masterState = !digitalRead(pinMaster);
-  // Read the current state of the switch.
-  // We use !digitalRead because INPUT_PULLUP means the pin goes LOW when
-  // connected (ON).
-  int currentState = !digitalRead(masterSwitchPin);
+  
+  // Read Note A4 Key Switch (Pin 11)
+  int keyA4State = !digitalRead(pinKeyA4Switch);
 
-  // If the switch state has changed, trigger the A4 servo (synthesizer will
-  // override as needed)
-  if (currentState != lastMasterState) {
+  // If the A4 key switch state has changed, trigger the A4 servo
+  if (keyA4State != lastKeyA4State) {
     Serial.print("DEBUG: Switch on Pin 11 changed to: ");
-    Serial.println(currentState);
+    Serial.println(keyA4State);
 
-    setA4State(currentState);
+    setA4State(keyA4State);
 
-    lastMasterState = currentState;
+    lastKeyA4State = keyA4State;
     delay(50); // Small 50ms delay to debounce the mechanical switch
   }
 
@@ -177,22 +183,24 @@ void loop() {
   }
 
   // 1. Process Individual Single-Pin Stops
+  // t-BuLi - HARMONIC COUPLING LOOP
   for (int i = 0; i < numSingleStops; i++) {
     // Stop is active only if BOTH its switch and the master switch are ON
-    bool currentState = masterState && !digitalRead(singleStops[i].pin);
+    bool stopActiveState = masterState && !digitalRead(singleStops[i].pin);
 
-    // 1. Check for a change (!=)
-    if (currentState != singleStops[i].lastState) {
+    // Check for a change
+    if (stopActiveState != singleStops[i].lastState) {
 
-      // 2. Update the memory bank (=)
-      singleStops[i].lastState = currentState;
+      // Update state
+      singleStops[i].lastState = stopActiveState;
 
-      sendStopState(singleStops[i].name, currentState);
+      sendStopState(singleStops[i].name, stopActiveState);
       delay(10); // Tiny debounce delay
     }
   }
 
-  // 2. Process Pin 7 (The "All 4' and 2'" Switch)
+  // 2. Process Pin 8 (The "All 4' and 2'" Switch)
+  // apple text go brrr
   bool currentAll4and2 = masterState && !digitalRead(pinAll4and2);
 
   if (currentAll4and2 != lastAll4and2) {

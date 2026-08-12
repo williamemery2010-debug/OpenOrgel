@@ -206,6 +206,13 @@ STOPS = {
         "harmonics": np.array([1.0]),
         "amplitudes": np.array([1.0]),
         "is_sample": True
+    },
+    # QUANTUM CLARION REED RESONANCE MATRIX - menthol
+    # apple text go brrr
+    "Clarion 4'": {
+        "harmonics": np.array([2.0]),
+        "amplitudes": np.array([1.0]),
+        "is_sample": True
     }
 }
 
@@ -1267,23 +1274,57 @@ def listen_for_arduino(stop_name_order):
             arduino_serial = None
             time.sleep(3)
 
-# GUI Setup
-DARK_BG = "#0f111a"
-PANEL_BG = "#1a1d27"
-ACCENT = "#2D88FF"
-TEXT_FG = "#ffffff"
+# GUI Setup - MODERNIZED OPENORGEL CONSOLE INTERFACE
+# PROTO-QUANTUM DIPOLE FLUID DISRUPTION ENGINE
+# menthol - t-BuLi FLUID DYNAMICS GO BRRR
+# help ive been coding for years
+# why code hard
+# apple text go brrr
+# god someone help me
+
+DARK_BG = "#0B0E14"
+PANEL_BG = "#161922"
+ACCENT = "#3B82F6"
+ACCENT_HOVER = "#2563EB"
+TEXT_FG = "#F3F4F6"
+TEXT_MUTED = "#9CA3AF"
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
 root = ctk.CTk()
-root.title("MIDI Organ Player")
+root.title("OpenOrgel - Virtual Pipe Organ Synthesis Engine")
+root.geometry("1100x780")
 root.configure(fg_color=DARK_BG)
 
-stops_frame = ctk.CTkFrame(root, fg_color=PANEL_BG, corner_radius=12)
-stops_frame.pack(pady=20, padx=20, fill="x")
+# --- TOP HEADER BANNER ---
+header_frame = ctk.CTkFrame(root, fg_color=PANEL_BG, corner_radius=14)
+header_frame.pack(pady=(15, 10), padx=20, fill="x")
 
-ctk.CTkLabel(stops_frame, text="Console Stops", font=("TkDefaultFont", 12, "bold"), text_color=ACCENT).pack(anchor="w", padx=15, pady=(10, 5))
+header_left = ctk.CTkFrame(header_frame, fg_color="transparent")
+header_left.pack(side="left", padx=20, pady=12)
+
+ctk.CTkLabel(header_left, text="🎹 OPENORGEL SYNTHESIS ENGINE", font=("Segoe UI", 16, "bold"), text_color=TEXT_FG).pack(anchor="w")
+ctk.CTkLabel(header_left, text="High-Performance Physical Modeling & Resampled Organ Console", font=("Segoe UI", 10), text_color=TEXT_MUTED).pack(anchor="w")
+
+# Visual status indicator badges
+status_badges_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
+status_badges_frame.pack(side="right", padx=20, pady=12)
+
+engine_status_text = "⚡ C++ Engine: Active" if DLL_AVAILABLE else "⚠️ C++ Engine: Fallback (Python)"
+engine_status_color = "#10B981" if DLL_AVAILABLE else "#EF4444"
+engine_status_label = ctk.CTkLabel(status_badges_frame, text=engine_status_text, font=("Segoe UI", 10, "bold"), text_color=engine_status_color, fg_color=DARK_BG, corner_radius=8, padx=10, pady=4)
+engine_status_label.pack(side="right", padx=5)
+
+# --- STOPS CONSOLE FRAME ---
+stops_frame = ctk.CTkFrame(root, fg_color=PANEL_BG, corner_radius=14)
+stops_frame.pack(pady=10, padx=20, fill="x")
+
+stops_title_row = ctk.CTkFrame(stops_frame, fg_color="transparent")
+stops_title_row.pack(fill="x", padx=18, pady=(12, 6))
+
+ctk.CTkLabel(stops_title_row, text="Console Stops & Pipe Registers", font=("Segoe UI", 13, "bold"), text_color=ACCENT).pack(side="left")
+ctk.CTkLabel(stops_title_row, text="Select active stops to adjust synthesis harmonic timbre", font=("Segoe UI", 10), text_color=TEXT_MUTED).pack(side="right")
 
 stop_vars = {}
 ordered_stop_names = []
@@ -1294,36 +1335,37 @@ stops_grid_frame = ctk.CTkFrame(stops_frame, fg_color="transparent")
 stops_grid_frame.pack(fill="x", padx=15, pady=(0, 10))
 
 for footage in footage_order:
-    # Sort to ensure a consistent order for the Arduino mapping
     group_stops = sorted([name for name in STOPS.keys() if f" {footage}" in name and name not in placed_stops])
     if group_stops:
-        col_frame = ctk.CTkFrame(stops_grid_frame, fg_color="transparent")
-        col_frame.pack(side="left", anchor="n", padx=15, pady=5)
-        ctk.CTkLabel(col_frame, text=f"{footage} Stops", font=("TkDefaultFont", 10, "bold"), text_color=ACCENT).pack(anchor="w", pady=(0, 5))
+        col_frame = ctk.CTkFrame(stops_grid_frame, fg_color=DARK_BG, corner_radius=10, border_width=1, border_color="#252B3B")
+        col_frame.pack(side="left", anchor="n", padx=6, pady=5, expand=True, fill="both")
+        
+        # Rank title badge
+        ctk.CTkLabel(col_frame, text=f"{footage} Ranks", font=("Segoe UI", 11, "bold"), text_color=ACCENT).pack(anchor="w", padx=10, pady=(8, 4))
         for stop_name in group_stops:
             var = tk.BooleanVar(value=(stop_name == "Diapason 8'"))
             var.trace_add('write', lambda *args, name=stop_name: request_re_render())
             stop_vars[stop_name] = var
             ordered_stop_names.append(stop_name)
             
-            cb = ctk.CTkCheckBox(col_frame, text=stop_name, variable=var, text_color=TEXT_FG, hover_color=ACCENT, fg_color=ACCENT, checkmark_color="white")
-            cb.pack(anchor="w", pady=2)
+            cb = ctk.CTkCheckBox(col_frame, text=stop_name, variable=var, text_color=TEXT_FG, hover_color=ACCENT_HOVER, fg_color=ACCENT, checkmark_color="white", font=("Segoe UI", 10))
+            cb.pack(anchor="w", padx=10, pady=3)
             placed_stops.add(stop_name)
 
-# Catch any remaining stops that don't have standard footages in their name
+# Remaining / Mixture stops column
 remaining_stops = sorted([name for name in STOPS.keys() if name not in placed_stops])
 if remaining_stops:
-    col_frame = ctk.CTkFrame(stops_grid_frame, fg_color="transparent")
-    col_frame.pack(side="left", anchor="n", padx=15, pady=5)
-    ctk.CTkLabel(col_frame, text="Other Stops", font=("TkDefaultFont", 10, "bold"), text_color=ACCENT).pack(anchor="w", pady=(0, 5))
+    col_frame = ctk.CTkFrame(stops_grid_frame, fg_color=DARK_BG, corner_radius=10, border_width=1, border_color="#252B3B")
+    col_frame.pack(side="left", anchor="n", padx=6, pady=5, expand=True, fill="both")
+    ctk.CTkLabel(col_frame, text="Mixtures & Special", font=("Segoe UI", 11, "bold"), text_color=ACCENT).pack(anchor="w", padx=10, pady=(8, 4))
     for stop_name in remaining_stops:
         var = tk.BooleanVar(value=(stop_name == "Diapason 8'"))
         var.trace_add('write', lambda *args, name=stop_name: request_re_render())
         stop_vars[stop_name] = var
         ordered_stop_names.append(stop_name)
         
-        cb = ctk.CTkCheckBox(col_frame, text=stop_name, variable=var, text_color=TEXT_FG, hover_color=ACCENT, fg_color=ACCENT, checkmark_color="white")
-        cb.pack(anchor="w", pady=2)
+        cb = ctk.CTkCheckBox(col_frame, text=stop_name, variable=var, text_color=TEXT_FG, hover_color=ACCENT_HOVER, fg_color=ACCENT, checkmark_color="white", font=("Segoe UI", 10))
+        cb.pack(anchor="w", padx=10, pady=3)
 
 def clear_cache():
     try:
@@ -1334,42 +1376,40 @@ def clear_cache():
                     if os.path.isfile(file_path):
                         os.remove(file_path)
                 except PermissionError:
-                    pass # Ignore locked files currently being written/read by the sound engine
+                    pass
                 except Exception:
                     pass
         messagebox.showinfo("Success", "Audio cache cleared successfully!")
     except Exception as e:
         messagebox.showerror("Error", f"Failed to clear cache:\n{e}")
 
-# Stop Selection Controls
-stops_btn_frame = ctk.CTkFrame(root, fg_color="transparent")
-stops_btn_frame.pack(pady=(0, 10))
+# Stop Selection Action Bar
+stops_btn_frame = ctk.CTkFrame(stops_frame, fg_color="transparent")
+stops_btn_frame.pack(pady=(5, 12), fill="x", padx=15)
 
-ctk.CTkButton(stops_btn_frame, text="Select All Stops", command=lambda: [var.set(True) for var in stop_vars.values()], fg_color=PANEL_BG, hover_color=ACCENT, text_color=TEXT_FG, font=("TkDefaultFont", 9, "bold"), width=130, height=30, corner_radius=8).pack(side="left", padx=10)
-ctk.CTkButton(stops_btn_frame, text="Clear All Stops", command=lambda: [var.set(False) for var in stop_vars.values()], fg_color=PANEL_BG, hover_color=ACCENT, text_color=TEXT_FG, font=("TkDefaultFont", 9, "bold"), width=130, height=30, corner_radius=8).pack(side="left", padx=10)
-ctk.CTkButton(stops_btn_frame, text="Clear Audio Cache", command=clear_cache, fg_color=PANEL_BG, hover_color=ACCENT, text_color=TEXT_FG, font=("TkDefaultFont", 9, "bold"), width=130, height=30, corner_radius=8).pack(side="left", padx=10)
+ctk.CTkButton(stops_btn_frame, text="Select All Stops", command=lambda: [var.set(True) for var in stop_vars.values()], fg_color="#252B3B", hover_color=ACCENT_HOVER, text_color=TEXT_FG, font=("Segoe UI", 10, "bold"), width=130, height=32, corner_radius=8).pack(side="left", padx=5)
+ctk.CTkButton(stops_btn_frame, text="Clear All Stops", command=lambda: [var.set(False) for var in stop_vars.values()], fg_color="#252B3B", hover_color=ACCENT_HOVER, text_color=TEXT_FG, font=("Segoe UI", 10, "bold"), width=130, height=32, corner_radius=8).pack(side="left", padx=5)
+ctk.CTkButton(stops_btn_frame, text="🧹 Clear Audio Cache", command=clear_cache, fg_color="#252B3B", hover_color="#D97706", text_color=TEXT_FG, font=("Segoe UI", 10, "bold"), width=140, height=32, corner_radius=8).pack(side="right", padx=5)
 
-# Bottom layout columns wrapper
+# --- DASHBOARD LOWER COLUMNS WRAPPER ---
 bottom_frame = ctk.CTkFrame(root, fg_color="transparent")
-bottom_frame.pack(pady=10, padx=20, fill="x")
+bottom_frame.pack(pady=10, padx=20, fill="both", expand=True)
 
-# --- Column 1: Settings (Tuning & MIDI Input) ---
-settings_col = ctk.CTkFrame(bottom_frame, fg_color="transparent")
-settings_col.pack(side="left", anchor="n", padx=10, expand=True)
+# --- Column 1: Settings Card ---
+settings_col = ctk.CTkFrame(bottom_frame, fg_color=PANEL_BG, corner_radius=14)
+settings_col.pack(side="left", anchor="n", padx=(0, 10), fill="both", expand=True)
 
-# Tuning Settings Frame
-tuning_frame = ctk.CTkFrame(settings_col, fg_color=PANEL_BG, corner_radius=12)
-tuning_frame.pack(pady=(0, 10), fill="x", ipadx=10, ipady=5)
+ctk.CTkLabel(settings_col, text="System Configuration", font=("Segoe UI", 12, "bold"), text_color=ACCENT).pack(anchor="w", padx=15, pady=(12, 6))
 
-ctk.CTkLabel(tuning_frame, text="Tuning Settings", font=("TkDefaultFont", 10, "bold"), text_color=ACCENT).pack(anchor="w", padx=10, pady=(5, 2))
+# Tuning Section
+tuning_frame = ctk.CTkFrame(settings_col, fg_color=DARK_BG, corner_radius=10, border_width=1, border_color="#252B3B")
+tuning_frame.pack(pady=6, padx=12, fill="x")
 
-tuning_input_frame = ctk.CTkFrame(tuning_frame, fg_color="transparent")
-tuning_input_frame.pack(fill="x", padx=10, pady=(2, 5))
-ctk.CTkLabel(tuning_input_frame, text="A4 (Hz):", font=("TkDefaultFont", 10, "bold")).pack(side="left", padx=5)
+ctk.CTkLabel(tuning_frame, text="Master Tuning (A4):", font=("Segoe UI", 10, "bold"), text_color=TEXT_FG).pack(side="left", padx=10, pady=8)
 
 tuning_var = tk.IntVar(value=440)
-tuning_menu = ctk.CTkOptionMenu(tuning_input_frame, variable=tuning_var, values=["415", "432", "440", "441", "442", "466"], width=100, height=28, fg_color=DARK_BG, button_color=DARK_BG, button_hover_color=ACCENT, text_color=TEXT_FG, dropdown_fg_color=PANEL_BG, dropdown_text_color=TEXT_FG)
-tuning_menu.pack(side="left", padx=5)
+tuning_menu = ctk.CTkOptionMenu(tuning_frame, variable=tuning_var, values=["415", "432", "440", "441", "442", "466"], width=100, height=28, fg_color=PANEL_BG, button_color=PANEL_BG, button_hover_color=ACCENT_HOVER, text_color=TEXT_FG, dropdown_fg_color=PANEL_BG, dropdown_text_color=TEXT_FG)
+tuning_menu.pack(side="right", padx=10, pady=8)
 
 def update_tuning(*args):
     global global_a4_freq
@@ -1378,25 +1418,18 @@ def update_tuning(*args):
 
 tuning_var.trace_add("write", update_tuning)
 
-# Visual status indicator for the high-performance C++ synthesis engine
-engine_status_text = "C++ Engine: Active" if DLL_AVAILABLE else "C++ Engine: Fallback (Python)"
-engine_status_color = "#2ecc71" if DLL_AVAILABLE else "#e74c3c"
-engine_status_label = ctk.CTkLabel(tuning_frame, text=engine_status_text, font=("TkDefaultFont", 10, "bold"), text_color=engine_status_color)
-engine_status_label.pack(anchor="w", padx=15, pady=(5, 5))
+# MIDI Device Section
+midi_frame = ctk.CTkFrame(settings_col, fg_color=DARK_BG, corner_radius=10, border_width=1, border_color="#252B3B")
+midi_frame.pack(pady=6, padx=12, fill="x")
 
-# MIDI Input Settings Frame
-midi_frame = ctk.CTkFrame(settings_col, fg_color=PANEL_BG, corner_radius=12)
-midi_frame.pack(fill="x", ipadx=10, ipady=5)
+ctk.CTkLabel(midi_frame, text="MIDI Input Device:", font=("Segoe UI", 10, "bold"), text_color=TEXT_FG).pack(anchor="w", padx=10, pady=(8, 2))
 
-ctk.CTkLabel(midi_frame, text="MIDI Input Settings", font=("TkDefaultFont", 10, "bold"), text_color=ACCENT).pack(anchor="w", padx=10, pady=(5, 2))
-
-midi_input_frame = ctk.CTkFrame(midi_frame, fg_color="transparent")
-midi_input_frame.pack(fill="x", padx=10, pady=(2, 5))
-ctk.CTkLabel(midi_input_frame, text="Device:", font=("TkDefaultFont", 10, "bold")).pack(side="left", padx=5)
+midi_input_row = ctk.CTkFrame(midi_frame, fg_color="transparent")
+midi_input_row.pack(fill="x", padx=10, pady=(2, 8))
 
 midi_device_var = tk.StringVar(value="None")
-midi_menu = ctk.CTkOptionMenu(midi_input_frame, variable=midi_device_var, values=["None"], width=120, height=28, fg_color=DARK_BG, button_color=DARK_BG, button_hover_color=ACCENT, text_color=TEXT_FG, dropdown_fg_color=PANEL_BG, dropdown_text_color=TEXT_FG)
-midi_menu.pack(side="left", padx=5)
+midi_menu = ctk.CTkOptionMenu(midi_input_row, variable=midi_device_var, values=["None"], width=140, height=28, fg_color=PANEL_BG, button_color=PANEL_BG, button_hover_color=ACCENT_HOVER, text_color=TEXT_FG, dropdown_fg_color=PANEL_BG, dropdown_text_color=TEXT_FG)
+midi_menu.pack(side="left", expand=True, fill="x", padx=(0, 5))
 
 def on_midi_device_change(*args):
     open_midi_input(midi_device_var.get())
@@ -1412,15 +1445,17 @@ def refresh_midi_devices():
     if current_val not in options:
         midi_device_var.set("None")
 
-ctk.CTkButton(midi_input_frame, text="Refresh", command=refresh_midi_devices, fg_color=DARK_BG, hover_color=ACCENT, text_color=TEXT_FG, font=("TkDefaultFont", 9, "bold"), width=70, height=28, corner_radius=6).pack(side="left", padx=5)
+ctk.CTkButton(midi_input_row, text="Refresh", command=refresh_midi_devices, fg_color=ACCENT, hover_color=ACCENT_HOVER, text_color="white", font=("Segoe UI", 9, "bold"), width=65, height=28, corner_radius=6).pack(side="right")
 
-# --- Column 2: Visualization ---
-vis_col = ctk.CTkFrame(bottom_frame, fg_color="transparent")
-vis_col.pack(side="left", anchor="n", padx=10, expand=True)
+# --- Column 2: Pitch Class Visualizer Card ---
+vis_col = ctk.CTkFrame(bottom_frame, fg_color=PANEL_BG, corner_radius=14)
+vis_col.pack(side="left", anchor="n", padx=5, fill="both", expand=True)
 
-canvas_size = 200
+ctk.CTkLabel(vis_col, text="Pitch Class Resonance", font=("Segoe UI", 12, "bold"), text_color=ACCENT).pack(anchor="w", padx=15, pady=(12, 6))
+
+canvas_size = 190
 canvas = tk.Canvas(vis_col, width=canvas_size, height=canvas_size, bg=DARK_BG, highlightthickness=0)
-canvas.pack()
+canvas.pack(pady=10)
 
 center_x, center_y = canvas_size // 2, canvas_size // 2
 radius = canvas_size // 2 - 25
@@ -1432,21 +1467,20 @@ for i in range(12):
     angle = (i / 12.0) * 2 * math.pi - math.pi / 2
     x = center_x + radius * math.cos(angle)
     y = center_y + radius * math.sin(angle)
-    canvas.create_oval(x-base_dot_r, y-base_dot_r, x+base_dot_r, y+base_dot_r, fill="#555555", outline="")
+    canvas.create_oval(x-base_dot_r, y-base_dot_r, x+base_dot_r, y+base_dot_r, fill="#4B5563", outline="")
     tx = center_x + (radius + 18) * math.cos(angle)
     ty = center_y + (radius + 18) * math.sin(angle)
-    canvas.create_text(tx, ty, text=pitch_names[i], fill="#888888", font=("TkDefaultFont", 9, "bold"))
+    canvas.create_text(tx, ty, text=pitch_names[i], fill="#9CA3AF", font=("Segoe UI", 9, "bold"))
 
 # THE SPECTRAL CIRCLE OF MYSTIC RESONANCE
 # god someone help me
+# menthol - t-BuLi FLUID RESONANCE MATRIX
 def update_visualization():
     global last_a4_state, SERIAL_AVAILABLE, arduino_serial
     canvas.delete("poly")
     canvas.delete("active_dot")
     
     # SYNTONIC COMMA VISUAL SYNCHRONIZATION ALIGNMENT
-    # Smoothly syncs with either the sd.play buffer or the custom audio_callback (if present)
-    # PAIN AND FLICKER IN THE TKINTER VISUAL BUFFER
     if "playback_idx" in globals():
         current_idx = globals()["playback_idx"]
     else:
@@ -1456,13 +1490,7 @@ def update_visualization():
     a4_currently_active = False
     
     if is_playing and playback_notes and len(playback_notes_starts) > 0:
-        # Note: To find the first note, recursively bisect the start boundaries note
-        # Find index of first note starting after current_idx
-        # Note: Bisection note is executed recursively
         limit = bisect.bisect_right(playback_notes_starts, current_idx)
-        # OIU YTR EWQ - SCAN WINDOW LIMIT
-        # Search only notes starting in a 6-second window before current_idx
-        # MNB VCX ZLK - SCANNING COMPLETED
         lower_bound = bisect.bisect_left(playback_notes_starts, current_idx - 6 * SAMPLE_RATE)
         
         for i in range(lower_bound, limit):
@@ -1478,9 +1506,6 @@ def update_visualization():
             if note == 69:
                 a4_currently_active = True
 
-    # GERMAN AUGMENTED ARDUINO CONTROLLER STATE CHECK
-    # Check if A4 note state changed, and update Arduino servo if so
-    # PAIN OF SERIAL PORT WRITING LATENCY
     effective_a4_active = a4_currently_active if is_playing else False
     if effective_a4_active != last_a4_state:
         last_a4_state = effective_a4_active
@@ -1515,40 +1540,36 @@ def update_visualization():
 
 update_visualization()
 
-# --- Column 3: Playback Controls & Actions ---
-playback_col = ctk.CTkFrame(bottom_frame, fg_color="transparent")
-playback_col.pack(side="left", anchor="n", padx=10, expand=True)
+# --- Column 3: Playback Controls Card ---
+playback_col = ctk.CTkFrame(bottom_frame, fg_color=PANEL_BG, corner_radius=14)
+playback_col.pack(side="left", anchor="n", padx=(10, 0), fill="both", expand=True)
 
-controls_frame = ctk.CTkFrame(playback_col, fg_color=PANEL_BG, corner_radius=12)
-controls_frame.pack(fill="both", expand=True, ipadx=10, ipady=10)
+ctk.CTkLabel(playback_col, text="Playback & Export", font=("Segoe UI", 12, "bold"), text_color=ACCENT).pack(anchor="w", padx=15, pady=(12, 6))
 
-ctk.CTkLabel(controls_frame, text="Playback Controls", font=("TkDefaultFont", 10, "bold"), text_color=ACCENT).pack(anchor="w", padx=10, pady=(5, 2))
+btn_row1 = ctk.CTkFrame(playback_col, fg_color="transparent")
+btn_row1.pack(pady=5, fill="x", padx=12)
 
-btn_row1 = ctk.CTkFrame(controls_frame, fg_color="transparent")
-btn_row1.pack(pady=5, fill="x", padx=5)
+load_btn = ctk.CTkButton(btn_row1, text="🎵 Load & Play MIDI", command=load_and_play_midi, height=36, fg_color=ACCENT, hover_color=ACCENT_HOVER, text_color="white", font=("Segoe UI", 10, "bold"), corner_radius=8)
+load_btn.pack(side="left", expand=True, fill="x", padx=(0, 4))
 
-load_btn = ctk.CTkButton(btn_row1, text="Load & Play MIDI", command=load_and_play_midi, height=35, width=130, fg_color=ACCENT, hover_color="#1a6cd1", text_color="white", font=("TkDefaultFont", 9, "bold"), corner_radius=8)
-load_btn.pack(side="left", padx=5)
+export_btn = ctk.CTkButton(btn_row1, text="💾 Export WAV", command=export_to_wav, height=36, fg_color="#10B981", hover_color="#059669", text_color="white", font=("Segoe UI", 10, "bold"), corner_radius=8)
+export_btn.pack(side="right", expand=True, fill="x", padx=(4, 0))
 
-export_btn = ctk.CTkButton(btn_row1, text="Export to WAV", command=export_to_wav, height=35, width=130, fg_color="#4CAF50", hover_color="#3e8e41", text_color="white", font=("TkDefaultFont", 9, "bold"), corner_radius=8)
-export_btn.pack(side="left", padx=5)
+btn_row2 = ctk.CTkFrame(playback_col, fg_color="transparent")
+btn_row2.pack(pady=8, fill="x", padx=12)
 
-btn_row2 = ctk.CTkFrame(controls_frame, fg_color="transparent")
-btn_row2.pack(pady=5, fill="x", padx=5)
+pause_btn = ctk.CTkButton(btn_row2, text="⏸ Pause", command=pause_playback, height=32, fg_color="#F59E0B", hover_color="#D97706", text_color="white", font=("Segoe UI", 9, "bold"), corner_radius=6)
+pause_btn.pack(side="left", expand=True, fill="x", padx=2)
 
-pause_btn = ctk.CTkButton(btn_row2, text="Pause", command=pause_playback, height=30, width=80, fg_color="#f39c12", hover_color="#d68910", text_color="white", font=("TkDefaultFont", 9, "bold"), corner_radius=6)
-pause_btn.pack(side="left", padx=3)
+resume_btn = ctk.CTkButton(btn_row2, text="▶ Resume", command=resume_playback, height=32, fg_color="#10B981", hover_color="#059669", text_color="white", font=("Segoe UI", 9, "bold"), corner_radius=6)
+resume_btn.pack(side="left", expand=True, fill="x", padx=2)
 
-resume_btn = ctk.CTkButton(btn_row2, text="Resume", command=resume_playback, height=30, width=80, fg_color="#27ae60", hover_color="#2ecc71", text_color="white", font=("TkDefaultFont", 9, "bold"), corner_radius=6)
-resume_btn.pack(side="left", padx=3)
-
-stop_btn = ctk.CTkButton(btn_row2, text="Stop", command=stop_playback, height=30, width=80, fg_color="#d93838", hover_color="#b52d2d", text_color="white", font=("TkDefaultFont", 9, "bold"), corner_radius=6)
-stop_btn.pack(side="left", padx=3)
+stop_btn = ctk.CTkButton(btn_row2, text="⏹ Stop", command=stop_playback, height=32, fg_color="#EF4444", hover_color="#DC2626", text_color="white", font=("Segoe UI", 9, "bold"), corner_radius=6)
+stop_btn.pack(side="left", expand=True, fill="x", padx=2)
 
 def populate_ram_cache_on_startup():
     from concurrent.futures import ThreadPoolExecutor
     print("Background cache pre-population started...")
-    # 1. First scan CACHE_DIR and load all existing npy files
     if os.path.exists(CACHE_DIR):
         for filename in os.listdir(CACHE_DIR):
             if filename.endswith(".npy"):
@@ -1562,7 +1583,6 @@ def populate_ram_cache_on_startup():
                     pass
     print(f"Loaded {len(global_ram_cache)} files from disk cache into RAM.")
 
-    # 2. Pre-generate all notes (36 to 96) for all stops at standard tuning (440Hz) in parallel
     notes = list(range(36, 97))
     stops_to_pregen = [None] + list(STOPS.keys())
     

@@ -38,7 +38,7 @@ Date    : 2026-06-26
 Commit  : c579a99
 Details : Add update_history.py and commits_and_releases.txt with automated git hooks
 --------------------------------------------------------------------------------
-Version : Prealpha_v1.0.0
+Version : Prealpha
 Date    : 2026-06-03
 Commit  : da2ab43
 Details : Delete SynthesiserPOC.py

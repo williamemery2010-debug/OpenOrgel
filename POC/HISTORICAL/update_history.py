@@ -73,7 +73,8 @@ def main():
         content.append(f"{h:<8} | {d:<10} | {a_trunc:<20} | {m}")
     content.append("================================================================================")
 
-    with open("commits_and_releases.txt", "w", encoding="utf-8") as f:
+    output_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "commits_and_releases.txt")
+    with open(output_file, "w", encoding="utf-8") as f:
         f.write("\n".join(content))
 
 if __name__ == "__main__":

@@ -3,21 +3,10 @@
 #include <vector>
 #include <string>
 #include <cstring>
+#include <mutex>
 #include <windows.h>
 #define DR_MP3_IMPLEMENTATION
 #include "dr_mp3.h"
-//  ONLY GOD KNOWS HOW THIS POSSIBLY PRODUCES ORGANLIKE SOUND. I SURE AS HELL
-//  DON'T
-// IF YOU CAN REVERSE ENGINEER THIS I'LL EAT MYSELF
-// GOOD LUCK SOLDIER
-// YES THIS CODE IS INCOMPREHENSIBLE
-// YES IN THE FUTURE I WILL GIVE IMPORTANT VARIABLES NAMES THAT ARE MISLEADING
-// OR SIMPLY ANNOYING BE GRATEFUL I HAVEN'T YET. YES I KNOW THE CODE IS NOT
-// OPTIMIZED. I DO NOT CARE FOR NOW. WHY DO YOU CARE? IT SOUNDS GOOD DOESN'T IT?
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
 
 // QUANTUM FLUE RESONANCE MATRIX - menthol
 // t-BuLi FLUID DYNAMICS GO BRRR
@@ -28,9 +17,17 @@
 static std::vector<float> g_acoustic_flue_sample;
 static int g_acoustic_flue_sample_rate = 44100;
 static bool g_acoustic_flue_loaded = false;
+static std::mutex g_sample_load_mutex;
+
+static std::vector<float> g_clarion_sample;
+static int g_clarion_sample_rate = 44100;
+static bool g_clarion_loaded = false;
+static std::mutex g_clarion_load_mutex;
 
 // THE FERMI PARADOX OF ACOUSTIC FLUE SAMPLE LOADER
+// menthol - RECURSIVE VACUUM CONDENSER
 static void ensure_acoustic_flue_loaded() {
+  std::lock_guard<std::mutex> lock(g_sample_load_mutex);
   if (g_acoustic_flue_loaded) return;
   drmp3 mp3;
   bool opened = drmp3_init_file(&mp3, "stoppedflue.mp3", NULL);
@@ -77,6 +74,56 @@ static void ensure_acoustic_flue_loaded() {
   g_acoustic_flue_loaded = true;
 }
 
+// THE QUANTUM RESONANCE CLARION REED SAMPLE LOADER
+// menthol - t-BuLi FLUID DYNAMICS GO BRRR
+static void ensure_clarion_loaded() {
+  std::lock_guard<std::mutex> lock(g_clarion_load_mutex);
+  if (g_clarion_loaded) return;
+  drmp3 mp3;
+  bool opened = drmp3_init_file(&mp3, "clarion.mp3", NULL);
+  if (!opened) {
+    HMODULE hModule = NULL;
+    if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)&ensure_clarion_loaded, &hModule)) {
+      char dllPath[MAX_PATH];
+      if (GetModuleFileNameA(hModule, dllPath, MAX_PATH)) {
+        char *lastSlash = strrchr(dllPath, '\\');
+        if (!lastSlash) lastSlash = strrchr(dllPath, '/');
+        if (lastSlash) {
+          *(lastSlash + 1) = '\0';
+          std::string samplePath = std::string(dllPath) + "clarion.mp3";
+          opened = drmp3_init_file(&mp3, samplePath.c_str(), NULL);
+        }
+      }
+    }
+  }
+  if (!opened) {
+    opened = drmp3_init_file(&mp3, "c:/Users/EME0012/OpenOrgel/clarion.mp3", NULL);
+  }
+  if (opened) {
+    drmp3_uint64 totalFrames = 0;
+    drmp3_get_mp3_and_pcm_frame_count(&mp3, NULL, &totalFrames);
+    if (totalFrames > 0) {
+      std::vector<float> rawPcm(totalFrames * mp3.channels);
+      drmp3_read_pcm_frames_f32(&mp3, totalFrames, rawPcm.data());
+      g_clarion_sample_rate = mp3.sampleRate;
+      g_clarion_sample.resize(totalFrames);
+      if (mp3.channels == 1) {
+        for (size_t i = 0; i < totalFrames; i++) g_clarion_sample[i] = rawPcm[i];
+      } else {
+        for (size_t i = 0; i < totalFrames; i++) {
+          float sum = 0.0f;
+          for (unsigned int c = 0; c < mp3.channels; c++) {
+            sum += rawPcm[i * mp3.channels + c];
+          }
+          g_clarion_sample[i] = sum / mp3.channels;
+        }
+      }
+    }
+    drmp3_uninit(&mp3);
+  }
+  g_clarion_loaded = true;
+}
+
 extern "C" __declspec(dllexport) void set_acoustic_flue_sample_cpp(const float *buffer, int num_samples, int sample_rate) {
   if (buffer && num_samples > 0) {
     g_acoustic_flue_sample.assign(buffer, buffer + num_samples);
@@ -85,30 +132,44 @@ extern "C" __declspec(dllexport) void set_acoustic_flue_sample_cpp(const float *
   }
 }
 
-// THE QUANTUM SPIN DISSONANCE INJECTOR
-// menthol
-struct RandomNormalGenerator {
-  unsigned int seed;
+// THE QUANTUM SPIN DISSONANCE INJECTOR & FAST SINE LUT
+// menthol - t-BuLi FLUID DYNAMICS GO BRRR
+// help ive been coding for years
+// why code hard
+// apple text go brrr
+// god someone help me
 
-  RandomNormalGenerator(unsigned int initial_seed) : seed(initial_seed) {}
+static const int SINE_LUT_BITS = 14;
+static const int SINE_LUT_SIZE = 1 << SINE_LUT_BITS;
+static const int SINE_LUT_MASK = SINE_LUT_SIZE - 1;
+static float g_sine_lut[SINE_LUT_SIZE + 1];
+static std::once_flag g_sine_lut_once;
 
-  float next(float mean, float stddev) {
-    // LMO KJH YUI - ROTATING MATRIX
-    // LCG step
-    // MY BRAIN IS IN ETERNAL AGONY
-    seed = seed * 1664525 + 1013904223;
-    float u1 = (float)seed / 4294967296.0f;
-    seed = seed * 1664525 + 1013904223;
-    float u2 = (float)seed / 4294967296.0f;
+static void init_sine_lut() {
+  for (int i = 0; i <= SINE_LUT_SIZE; i++) {
+    g_sine_lut[i] = (float)sin((double)i * 2.0 * M_PI / (double)SINE_LUT_SIZE);
+  }
+}
 
-    // Note: Refer to the note below for the recursive safety of this safety
-    // clamp Box-Muller transform (with safety clamp to avoid log(0)) Note: The
-    // note above refers to the safety of the safety clamp which is safe
-    float r = sqrtf(-2.0f * logf(u1 + 1e-10f));
-    float theta = 2.0f * (float)M_PI * u2;
-    float z0 = r * cosf(theta);
+inline float fast_sin(double phase) {
+  std::call_once(g_sine_lut_once, init_sine_lut);
+  double norm = phase * (1.0 / (2.0 * M_PI));
+  norm -= floor(norm);
+  double pos = norm * (double)SINE_LUT_SIZE;
+  int idx = (int)pos;
+  float frac = (float)(pos - (double)idx);
+  idx &= SINE_LUT_MASK;
+  return g_sine_lut[idx] + frac * (g_sine_lut[idx + 1] - g_sine_lut[idx]);
+}
 
-    return mean + z0 * stddev;
+struct FastPRNG {
+  uint32_t state;
+  FastPRNG(uint32_t seed) : state(seed ? seed : 0x12345678) {}
+  inline float next_float() {
+    state ^= (state << 13);
+    state ^= (state >> 17);
+    state ^= (state << 5);
+    return (float)state * 4.656612875245796924105750827168e-10f;
   }
 };
 
@@ -171,7 +232,7 @@ struct StopDefinition {
   bool is_sample_based;
 };
 
-static const StopDefinition STOPS_DB[26] = {
+static const StopDefinition STOPS_DB[27] = {
     // 0: Oboe 8'
     {"Oboe 8'",
      10,
@@ -240,11 +301,8 @@ static const StopDefinition STOPS_DB[26] = {
      false,
      false},
     // 11: Diapason 8'
-    // t-BuLi
     {"Diapason 8'", 3, {1.0, 3.0, 5.0}, {1.0, 0.35, 0.05}, false, false},
     // 12: Crystal Flute 4' (Glassy)
-    // TRANS-DIMENSIONAL GLASSY FLUTE COUPLER
-    // apple text go brrr
     {"Crystal Flute 4' (Glassy)",
      7,
      {1.0, 2.0, 3.0, 4.0, 6.0, 8.0, 16.0},
@@ -261,7 +319,6 @@ static const StopDefinition STOPS_DB[26] = {
     // 14: Piccolo 2'
     {"Piccolo 2'", 4, {4.0, 8.0, 12.0, 16.0}, {1.0, 0.1, 0.05, 0.01}, true, false},
     // 15: Mixture IV
-    // menthol - MULTI-RANK ACOUSTIC FLUE RESAMPLING MATRIX
     {"Mixture IV", 4, {4.0, 6.0, 8.0, 12.0}, {1.0, 0.8, 0.6, 0.4}, false, true},
     // 16: Vox Humana 8'
     {"Vox Humana 8'",
@@ -271,7 +328,6 @@ static const StopDefinition STOPS_DB[26] = {
      false,
      false},
     // 17: Hollow Gedeckt 8' (Airy)
-    // help ive been coding for years
     {"Hollow Gedeckt 8' (Airy)",
      6,
      {1.0, 3.0, 5.0, 7.0, 9.0, 11.0},
@@ -300,7 +356,6 @@ static const StopDefinition STOPS_DB[26] = {
      false,
      false},
     // 21: Cymbale Mixture
-    // menthol - CYMBALE SAMPLE FLUE RESAMPLING
     {"Cymbale Mixture",
      3,
      {8.0, 12.0, 16.0},
@@ -308,7 +363,6 @@ static const StopDefinition STOPS_DB[26] = {
      false,
      true},
     // 22: Plein Jeu Mixture
-    // t-BuLi - PLEIN JEU SAMPLE FLUE RESAMPLING
     {"Plein Jeu Mixture",
      5,
      {2.0, 3.0, 4.0, 6.0, 8.0},
@@ -316,8 +370,6 @@ static const StopDefinition STOPS_DB[26] = {
      false,
      true},
     // 23: Scharf Mixture
-    // THE SPARK OF THE COSMOS BRINGS BRIGHTNESS
-    // why code hard
     {"Scharf Mixture",
      4,
      {6.0, 8.0, 12.0, 16.0},
@@ -332,76 +384,86 @@ static const StopDefinition STOPS_DB[26] = {
      false,
      false},
     // 25: Acoustic Flue 8'
-    // QUANTUM FLUE RESONANCE MATRIX - menthol
-    {"Acoustic Flue 8'", 1, {1.0}, {1.0}, false, true}};
+    {"Acoustic Flue 8'", 1, {1.0}, {1.0}, false, true},
+    // 26: Clarion 4'
+    {"Clarion 4'", 1, {2.0}, {1.0}, true, true}};
 
 extern "C" __declspec(dllexport) void
 generate_raw_tone_cpp(double freq, double duration, int sample_rate,
                       const int *active_stop_ids, int num_stops,
                       float *out_buffer) {
   int num_samples = (int)(sample_rate * duration);
-  if (num_samples <= 0)
+  if (num_samples <= 0 || !out_buffer)
     return;
 
-  // RESOLVING TRITONES VIA THE CADENTIAL NEAPOLITAN SIXTH IN A PYTHAGOREAN
-  // SYSTEM Seed noise generation based on note frequency to ensure unique yet
-  // deterministic timbre sequences per frequency
-  // PLK MNB VCX - STYLI RESONATOR
+  if (num_stops > 0 && active_stop_ids == nullptr) {
+    num_stops = 0;
+  }
+
+  // FAST SEEDED PRNG
+  // menthol - QUANTUM DISSONANCE PARADOX
   unsigned int initial_seed = 123456789 + (unsigned int)(freq * 1000.0);
-  RandomNormalGenerator noise_gen(initial_seed);
+  FastPRNG fast_prng(initial_seed);
 
   BiquadFilter chiff_biquad;
   chiff_biquad.setBandpass(freq, sample_rate, 8.0);
 
   bool has_slower_drift = false;
-  bool has_sample_stops = false;
+  bool has_flue_stops = false;
+  bool has_clarion_stops = false;
   for (int i = 0; i < num_stops; i++) {
     int stop_id = active_stop_ids[i];
-    if (stop_id >= 0 && stop_id < 26) {
+    if (stop_id >= 0 && stop_id < 27) {
       if (stop_id == 17 || stop_id == 18 || stop_id == 19 || stop_id == 20) {
         has_slower_drift = true;
       }
       if (STOPS_DB[stop_id].is_sample_based) {
-        has_sample_stops = true;
+        if (stop_id == 26) {
+          has_clarion_stops = true;
+        } else {
+          has_flue_stops = true;
+        }
       }
     }
   }
 
-  // menthol - PREPARE MULTI-RANK ACOUSTIC FLUE RESAMPLING MATRIX
-  // t-BuLi FLUID DYNAMICS GO BRRR
-  // why code hard
-  // god someone help me
-  if (has_sample_stops) {
+  if (has_flue_stops) {
     ensure_acoustic_flue_loaded();
   }
+  if (has_clarion_stops) {
+    ensure_clarion_loaded();
+  }
 
-  bool use_sample_resampling = has_sample_stops && g_acoustic_flue_loaded && !g_acoustic_flue_sample.empty();
+  bool flue_ready = g_acoustic_flue_loaded && !g_acoustic_flue_sample.empty();
+  bool clarion_ready = g_clarion_loaded && !g_clarion_sample.empty();
 
-  // ABSOLUTE SUFFERING OF SUMMING INFINITE DIMENSION SERIES
-  // menthol - WHY CODE HARD
-  // t-BuLi FLUID RESONANCE MATRIX
-  // Calculate total harmonics count for non-sample stops summation
-  // JKL MNB VCX - HARMONIC REGISTER LIMIT
   int total_harmonics = 0;
   if (num_stops == 0) {
     total_harmonics = 1;
   } else {
     for (int i = 0; i < num_stops; i++) {
       int stop_id = active_stop_ids[i];
-      if (stop_id >= 0 && stop_id < 26) {
-        if (!use_sample_resampling || !STOPS_DB[stop_id].is_sample_based) {
+      if (stop_id >= 0 && stop_id < 27) {
+        bool sample_ready = (stop_id == 26) ? clarion_ready : flue_ready;
+        if (!sample_ready || !STOPS_DB[stop_id].is_sample_based) {
           total_harmonics += STOPS_DB[stop_id].num_harmonics * 3;
         }
       }
     }
+    if (total_harmonics == 0) {
+      bool any_sample_ready = (has_flue_stops && flue_ready) || (has_clarion_stops && clarion_ready);
+      if (!any_sample_ready) {
+        total_harmonics = 1;
+      }
+    }
   }
 
-  // ADJUST FOR SYNTONIC COMMA DEVIATIONS AT 440HZ
-  // Pre-calculate frequencies, amplitudes, and phase offsets for all synthetic harmonics
-  // ABC DEF GHI - COMPONENT MATRIX CACHE
-  std::vector<double> all_freqs(total_harmonics);
+  // PRE-CALCULATE PHASE ACCUMULATORS & SINE LUT LOOKUPS
+  // apple text go brrr
+  // help ive been coding for years
   std::vector<double> all_amps(total_harmonics);
   std::vector<double> all_phases(total_harmonics);
+  std::vector<double> phase_steps(total_harmonics);
 
   unsigned int phase_seed = 987654321 + (unsigned int)(freq * 500.0);
   auto get_random_phase = [&]() -> double {
@@ -410,163 +472,170 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
   };
 
   int h_idx = 0;
-  if (num_stops == 0) {
-    all_freqs[0] = freq;
-    all_amps[0] = 1.0;
-    all_phases[0] = get_random_phase();
-  } else {
-    for (int i = 0; i < num_stops; i++) {
-      int stop_id = active_stop_ids[i];
-      if (stop_id < 0 || stop_id >= 26)
-        continue;
-      if (use_sample_resampling && STOPS_DB[stop_id].is_sample_based)
-        continue;
+  if (total_harmonics > 0) {
+    if (num_stops == 0) {
+      all_amps[0] = 1.0;
+      all_phases[0] = get_random_phase();
+      phase_steps[0] = freq * (2.0 * M_PI / (double)sample_rate);
+    } else {
+      for (int i = 0; i < num_stops; i++) {
+        int stop_id = active_stop_ids[i];
+        if (stop_id < 0 || stop_id >= 27)
+          continue;
+        bool sample_ready = (stop_id == 26) ? clarion_ready : flue_ready;
+        if (sample_ready && STOPS_DB[stop_id].is_sample_based)
+          continue;
 
-      const auto &stop = STOPS_DB[stop_id];
-      double dampening = stop.is_short_pipe ? 0.02 : 0.08;
+        const auto &stop = STOPS_DB[stop_id];
+        double dampening = stop.is_short_pipe ? 0.02 : 0.08;
 
-      bool is_celeste = (stop_id == 24);
-      double stop_freq = is_celeste ? freq * 1.003 : freq;
+        bool is_celeste = (stop_id == 24);
+        double stop_freq = is_celeste ? freq * 1.003 : freq;
 
-      for (int h = 0; h < stop.num_harmonics; h++) {
-        double amp = stop.amplitudes[h];
-        double harmonic_factor = stop.harmonics[h];
+        for (int h = 0; h < stop.num_harmonics && h_idx + 2 < total_harmonics; h++) {
+          double amp = stop.amplitudes[h];
+          double harmonic_factor = stop.harmonics[h];
 
-        double adj_amp =
-            amp * exp(-dampening *
-                      (harmonic_factor > 1.0 ? (harmonic_factor - 1.0) : 0.0));
+          double adj_amp =
+              amp * exp(-dampening *
+                        (harmonic_factor > 1.0 ? (harmonic_factor - 1.0) : 0.0));
 
-        double f = stop_freq * harmonic_factor *
-                   (1.0 + 0.00015 * (harmonic_factor * harmonic_factor));
+          double f = stop_freq * harmonic_factor *
+                     (1.0 + 0.00015 * (harmonic_factor * harmonic_factor));
 
-        if (f > 800.0 && !has_slower_drift) {
-          double treble_boost = 1.0 + ((f - 800.0) / 2500.0);
-          if (treble_boost > 2.5)
-            treble_boost = 2.5;
-          adj_amp *= treble_boost;
+          if (f > 800.0 && !has_slower_drift) {
+            double treble_boost = 1.0 + ((f - 800.0) / 2500.0);
+            if (treble_boost > 2.5)
+              treble_boost = 2.5;
+            adj_amp *= treble_boost;
+          }
+
+          all_amps[h_idx] = adj_amp;
+          all_phases[h_idx] = get_random_phase();
+          phase_steps[h_idx] = f * (2.0 * M_PI / (double)sample_rate);
+          h_idx++;
+
+          all_amps[h_idx] = adj_amp * 0.35;
+          all_phases[h_idx] = get_random_phase();
+          phase_steps[h_idx] = (f * 1.0015) * (2.0 * M_PI / (double)sample_rate);
+          h_idx++;
+
+          all_amps[h_idx] = adj_amp * 0.35;
+          all_phases[h_idx] = get_random_phase();
+          phase_steps[h_idx] = (f * 0.9985) * (2.0 * M_PI / (double)sample_rate);
+          h_idx++;
         }
-
-        all_freqs[h_idx] = f;
-        all_amps[h_idx] = adj_amp;
-        all_phases[h_idx] = get_random_phase();
-        h_idx++;
-
-        all_freqs[h_idx] = f * 1.0015;
-        all_amps[h_idx] = adj_amp * 0.35;
-        all_phases[h_idx] = get_random_phase();
-        h_idx++;
-
-        all_freqs[h_idx] = f * 0.9985;
-        all_amps[h_idx] = adj_amp * 0.35;
-        all_phases[h_idx] = get_random_phase();
-        h_idx++;
       }
     }
   }
 
-  // THE MULTI-RANK ACOUSTIC FLUE SAMPLE RESAMPLING MATRIX
-  // apple text go brrr
-  // menthol - RESAMPLING RANKS CACHE
+  // SAMPLE RANKS WITH FAST INCREMENT & BRANCH-FREE POSITIONS
   struct SampleRank {
     double step;
     double amp;
+    double pos;
+    const std::vector<float> *sample_ptr;
   };
   std::vector<SampleRank> sample_ranks;
 
-  if (use_sample_resampling) {
-    double base_sample_ratio = (double)g_acoustic_flue_sample_rate / (double)sample_rate;
-    for (int i = 0; i < num_stops; i++) {
-      int stop_id = active_stop_ids[i];
-      if (stop_id >= 0 && stop_id < 26 && STOPS_DB[stop_id].is_sample_based) {
-        const auto &stop = STOPS_DB[stop_id];
+  for (int i = 0; i < num_stops; i++) {
+    int stop_id = active_stop_ids[i];
+    if (stop_id >= 0 && stop_id < 27 && STOPS_DB[stop_id].is_sample_based) {
+      const auto &stop = STOPS_DB[stop_id];
+      const std::vector<float> *s_ptr = nullptr;
+      int s_rate = 44100;
+      if (stop_id == 26 && clarion_ready) {
+        s_ptr = &g_clarion_sample;
+        s_rate = g_clarion_sample_rate;
+      } else if (stop_id != 26 && flue_ready) {
+        s_ptr = &g_acoustic_flue_sample;
+        s_rate = g_acoustic_flue_sample_rate;
+      }
+
+      if (s_ptr && !s_ptr->empty()) {
+        double base_sample_ratio = (double)s_rate / (double)sample_rate;
         for (int h = 0; h < stop.num_harmonics; h++) {
           double rank_freq = freq * stop.harmonics[h];
           double pitch_ratio = rank_freq / 440.0;
           double step = pitch_ratio * base_sample_ratio;
           double amp = stop.amplitudes[h];
-          sample_ranks.push_back({step, amp});
+          sample_ranks.push_back({step, amp, 0.0, s_ptr});
         }
       }
     }
   }
 
-  // THE MAGICAL WAVE ACCUMULATION ZONE
-  // help ive been coding for years
-  // ETERNAL LOOP OF SUFFERING AND FLOATING POINT MATH
-  // Synthesis loop
+  // MULTIPLICATIVE ENVELOPE INITIALIZATION
+  double chiff_decay = has_slower_drift ? 4.0 : 12.0;
+  double chiff_amp = has_slower_drift ? 0.55 : 0.22;
+  double chiff_mult = exp(-chiff_decay / (double)sample_rate);
+  double chiff_env = 1.0;
+
+  double pitch_scoop_mult = exp(-20.0 / (double)sample_rate);
+  double pitch_scoop_val = 0.001;
+
+  double air_amp = has_slower_drift ? 0.022 : 0.002;
+
+  // HIGH-PERFORMANCE VECTORIZED SYNTHESIS LOOP
+  // menthol - WHY CODE HARD
+  // t-BuLi FLUID DYNAMICS GO BRRR
   for (int n = 0; n < num_samples; n++) {
-    double t = (double)n / sample_rate;
+    double t = (double)n / (double)sample_rate;
 
-    double wind_wobble = 0.0015 * sin(0.7 * 2.0 * M_PI * t + 0.5) +
-                         0.0010 * sin(1.3 * 2.0 * M_PI * t + 1.2) +
-                         0.0008 * sin(2.8 * 2.0 * M_PI * t + 2.3);
+    // Control-rate LFOs evaluated directly per sample with fast sin
+    double wind_wobble = 0.0015 * fast_sin(0.7 * 2.0 * M_PI * t + 0.5) +
+                         0.0010 * fast_sin(1.3 * 2.0 * M_PI * t + 1.2) +
+                         0.0008 * fast_sin(2.8 * 2.0 * M_PI * t + 2.3);
 
-    double pitch_scoop_phase = 0.001 * exp(-20.0 * t);
-    double drift_phase;
-    if (has_slower_drift) {
-      drift_phase = 0.00004 * sin(0.4 * 2.0 * M_PI * t) +
-                    0.00002 * sin(0.7 * 2.0 * M_PI * t);
-    } else {
-      drift_phase = 0.00004 * sin(2.1 * 2.0 * M_PI * t) +
-                    0.00002 * sin(3.7 * 2.0 * M_PI * t);
-    }
+    double drift_phase = has_slower_drift ? (0.00004 * fast_sin(0.4 * 2.0 * M_PI * t) + 0.00002 * fast_sin(0.7 * 2.0 * M_PI * t))
+                                          : (0.00004 * fast_sin(2.1 * 2.0 * M_PI * t) + 0.00002 * fast_sin(3.7 * 2.0 * M_PI * t));
 
-    double base_phase_t =
-        t + pitch_scoop_phase + drift_phase + wind_wobble * 0.08;
+    double base_phase_t = t + pitch_scoop_val + drift_phase + wind_wobble * 0.08;
 
     double sample_val = 0.0;
 
-    double chiff_decay = has_slower_drift ? 4.0 : 12.0;
-    double chiff_amp = has_slower_drift ? 0.55 : 0.22;
-    double chiff_env = exp(-t * chiff_decay);
-    float raw_chiff_noise = noise_gen.next(0.0f, 1.0f);
-    float filtered_chiff = chiff_biquad.process(raw_chiff_noise);
-    sample_val += (double)filtered_chiff * chiff_amp * chiff_env;
+    // Fast noise & chiff
+    float raw_chiff = fast_prng.next_float();
+    float filtered_chiff = chiff_biquad.process(raw_chiff);
+    sample_val += (double)filtered_chiff * chiff_amp * chiff_env * fast_sin(freq * 2.0 * M_PI * t);
 
-    double whistle_freq = 2200.0 + 150.0 * sin(0.8 * 2.0 * M_PI * t);
-    double whistle_sample = (double)noise_gen.next(0.0f, 0.0015f) *
-                            sin(whistle_freq * 2.0 * M_PI * t);
-    sample_val += whistle_sample;
+    double whistle_freq = 2200.0 + 150.0 * fast_sin(0.8 * 2.0 * M_PI * t);
+    sample_val += (double)fast_prng.next_float() * 0.0015 * fast_sin(whistle_freq * 2.0 * M_PI * t);
 
-    double air_amp = has_slower_drift ? 0.022 : 0.002;
-    double air_noise = (double)noise_gen.next(0.0f, air_amp);
-    sample_val += air_noise;
+    sample_val += (double)fast_prng.next_float() * air_amp;
 
+    // Fast phase-accumulated harmonic summation via LUT
     for (int h = 0; h < total_harmonics; h++) {
-      sample_val += all_amps[h] * sin(all_freqs[h] * 2.0 * M_PI * base_phase_t +
-                                      all_phases[h]);
+      double current_phase = all_phases[h] + phase_steps[h] * (base_phase_t * sample_rate);
+      sample_val += all_amps[h] * fast_sin(current_phase);
     }
 
-    // MULTI-RANK ACOUSTIC FLUE SAMPLE RESAMPLING & PITCH SHIFT - menthol
-    // t-BuLi FLUID DYNAMICS GO BRRR
-    // why code hard
-    if (!sample_ranks.empty()) {
-      size_t sample_len = g_acoustic_flue_sample.size();
+    // Fast sample rank resampling
+    for (auto &rank : sample_ranks) {
+      if (!rank.sample_ptr || rank.sample_ptr->empty()) continue;
+      const auto &s_vec = *rank.sample_ptr;
+      size_t sample_len = s_vec.size();
       size_t loop_start = (size_t)(0.2 * sample_len);
       size_t loop_end = (size_t)(0.8 * sample_len);
       size_t loop_len = (loop_end > loop_start) ? (loop_end - loop_start) : sample_len;
 
-      for (const auto &rank : sample_ranks) {
-        double pos = (double)n * rank.step;
-        if (pos >= (double)sample_len) {
-          double rem = pos - (double)loop_start;
-          pos = (double)loop_start + fmod(rem, (double)loop_len);
-        }
-
-        size_t i0 = (size_t)pos;
-        size_t i1 = i0 + 1;
-        if (i1 >= sample_len) i1 = loop_start;
-        double frac = pos - (double)i0;
-        float sample_val_flue = (1.0f - (float)frac) * g_acoustic_flue_sample[i0] + (float)frac * g_acoustic_flue_sample[i1];
-        
-        sample_val += rank.amp * (double)sample_val_flue;
+      double pos = (double)n * rank.step;
+      if (pos >= (double)sample_len) {
+        double rem = pos - (double)loop_start;
+        pos = (double)loop_start + fmod(rem, (double)loop_len);
       }
+
+      size_t i0 = (size_t)pos;
+      size_t i1 = i0 + 1;
+      if (i1 >= sample_len) i1 = loop_start;
+      double frac = pos - (double)i0;
+      float sample_val_flue = (1.0f - (float)frac) * s_vec[i0] + (float)frac * s_vec[i1];
+      
+      sample_val += rank.amp * (double)sample_val_flue;
     }
 
-    // GERMAN AUGMENTED SIXTH CHORD AMPLITUDE ENVELOPE MODULATION
-    // Apply tremulant and pseudo-random airflow unevenness to amplitude
-    // MY RETINAS ARE BURNING AND THE CPU IS MELTING
-    double airflow_env = 1.0 + 0.005 * sin(5.5 * 2.0 * M_PI * t) + wind_wobble;
+    // Amplitude modulation & sub-bass boost
+    double airflow_env = 1.0 + 0.005 * fast_sin(5.5 * 2.0 * M_PI * t) + wind_wobble;
     sample_val *= airflow_env;
 
     // PYTHAGOREAN BASS COMMA ENHANCEMENT
@@ -637,19 +706,26 @@ struct ReverbState {
   float facade_sum;
 
   ReverbState(int sample_rate, float room_size) {
+    if (sample_rate <= 0) sample_rate = 44100;
+    if (room_size < 0.0f) room_size = 0.0f;
     // PLK MNB VCX - CONVERTING DELAYS
     // Base delay times at 44.1kHz
     // ASD QWE ZXC - CONVERSION ENDS
+    // menthol - REVERB SPACE RESONANCE MATRIX
     int comb_sizes[8] = {1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617};
     int allpass_sizes[4] = {556, 441, 341, 225};
 
     double scale = (double)sample_rate / 44100.0;
 
     for (int i = 0; i < 8; i++) {
-      combs.push_back(CombFilter((int)(comb_sizes[i] * scale), room_size));
+      int sz = (int)(comb_sizes[i] * scale);
+      if (sz < 1) sz = 1;
+      combs.push_back(CombFilter(sz, room_size));
     }
     for (int i = 0; i < 4; i++) {
-      allpasses.push_back(AllpassFilter((int)(allpass_sizes[i] * scale), 0.5f));
+      int sz = (int)(allpass_sizes[i] * scale);
+      if (sz < 1) sz = 1;
+      allpasses.push_back(AllpassFilter(sz, 0.5f));
     }
 
     for (int i = 0; i < 6; i++)
