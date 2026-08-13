@@ -56,6 +56,12 @@ static void ensure_acoustic_flue_loaded() {
   drmp3 mp3;
   bool opened = drmp3_init_file(&mp3, "stoppedflue.mp3", NULL);
   if (!opened) {
+    opened = drmp3_init_file(&mp3, "Audio_and_Logs/stoppedflue.mp3", NULL);
+  }
+  if (!opened) {
+    opened = drmp3_init_file(&mp3, "Engine_and_Source/stoppedflue.mp3", NULL);
+  }
+  if (!opened) {
     HMODULE hModule = NULL;
     if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)&ensure_acoustic_flue_loaded, &hModule)) {
       char dllPath[MAX_PATH];
@@ -66,6 +72,10 @@ static void ensure_acoustic_flue_loaded() {
           *(lastSlash + 1) = '\0';
           std::string samplePath = std::string(dllPath) + "stoppedflue.mp3";
           opened = drmp3_init_file(&mp3, samplePath.c_str(), NULL);
+          if (!opened) {
+            samplePath = std::string(dllPath) + "../Audio_and_Logs/stoppedflue.mp3";
+            opened = drmp3_init_file(&mp3, samplePath.c_str(), NULL);
+          }
         }
       }
     }
@@ -111,6 +121,12 @@ static void ensure_clarion_loaded() {
   drmp3 mp3;
   bool opened = drmp3_init_file(&mp3, "clarion.mp3", NULL);
   if (!opened) {
+    opened = drmp3_init_file(&mp3, "Audio_and_Logs/clarion.mp3", NULL);
+  }
+  if (!opened) {
+    opened = drmp3_init_file(&mp3, "Engine_and_Source/clarion.mp3", NULL);
+  }
+  if (!opened) {
     HMODULE hModule = NULL;
     if (GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, (LPCSTR)&ensure_clarion_loaded, &hModule)) {
       char dllPath[MAX_PATH];
@@ -121,6 +137,10 @@ static void ensure_clarion_loaded() {
           *(lastSlash + 1) = '\0';
           std::string samplePath = std::string(dllPath) + "clarion.mp3";
           opened = drmp3_init_file(&mp3, samplePath.c_str(), NULL);
+          if (!opened) {
+            samplePath = std::string(dllPath) + "../Audio_and_Logs/clarion.mp3";
+            opened = drmp3_init_file(&mp3, samplePath.c_str(), NULL);
+          }
         }
       }
     }
@@ -245,7 +265,7 @@ struct StopDefinition {
   bool is_sample_based;
 };
 
-static const StopDefinition STOPS_DB[27] = {
+static const StopDefinition STOPS_DB[30] = {
     // 0: Oboe 8'
     {"Oboe 8'",
      10,
@@ -401,7 +421,13 @@ static const StopDefinition STOPS_DB[27] = {
     // 25: Acoustic Flue 8'
     {"Acoustic Flue 8'", 1, {1.0}, {1.0}, false, true},
     // 26: Clarion 4'
-    {"Clarion 4'", 1, {2.0}, {1.0}, true, true}};
+    {"Clarion 4'", 1, {2.0}, {1.0}, true, true},
+    // 27: Acoustic Flue 16'
+    {"Acoustic Flue 16'", 1, {0.5}, {1.0}, false, true},
+    // 28: Acoustic Flue 4'
+    {"Acoustic Flue 4'", 1, {2.0}, {1.0}, true, true},
+    // 29: Acoustic Flue 2'
+    {"Acoustic Flue 2'", 1, {4.0}, {1.0}, true, true}};
 
 extern "C" __declspec(dllexport) void
 generate_raw_tone_cpp(double freq, double duration, int sample_rate,
@@ -440,7 +466,7 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
   bool has_clarion_stops = false;
   for (int i = 0; i < num_stops; i++) {
     int stop_id = active_stop_ids[i];
-    if (stop_id >= 0 && stop_id < 27) {
+    if (stop_id >= 0 && stop_id < 30) {
       if (stop_id == 17 || stop_id == 18 || stop_id == 19 || stop_id == 20) {
         has_slower_drift = true;
       }
@@ -470,7 +496,7 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
   } else {
     for (int i = 0; i < num_stops; i++) {
       int stop_id = active_stop_ids[i];
-      if (stop_id >= 0 && stop_id < 27) {
+      if (stop_id >= 0 && stop_id < 30) {
         bool sample_ready = (stop_id == 26) ? clarion_ready : flue_ready;
         if (!sample_ready || !STOPS_DB[stop_id].is_sample_based) {
           total_harmonics += STOPS_DB[stop_id].num_harmonics * 3;
@@ -507,7 +533,7 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
     } else {
       for (int i = 0; i < num_stops; i++) {
         int stop_id = active_stop_ids[i];
-        if (stop_id < 0 || stop_id >= 27)
+        if (stop_id < 0 || stop_id >= 30)
           continue;
         bool sample_ready = (stop_id == 26) ? clarion_ready : flue_ready;
         if (sample_ready && STOPS_DB[stop_id].is_sample_based)
@@ -567,7 +593,7 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
 
   for (int i = 0; i < num_stops; i++) {
     int stop_id = active_stop_ids[i];
-    if (stop_id >= 0 && stop_id < 27 && STOPS_DB[stop_id].is_sample_based) {
+    if (stop_id >= 0 && stop_id < 30 && STOPS_DB[stop_id].is_sample_based) {
       const auto &stop = STOPS_DB[stop_id];
       const std::vector<float> *s_ptr = nullptr;
       int s_rate = 44100;
@@ -581,9 +607,10 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
 
       if (s_ptr && !s_ptr->empty()) {
         double base_sample_ratio = (double)s_rate / (double)sample_rate;
+        double sample_base_freq = (stop_id == 26) ? 440.0 : 220.0;
         for (int h = 0; h < stop.num_harmonics; h++) {
           double rank_freq = freq * stop.harmonics[h];
-          double pitch_ratio = rank_freq / 440.0;
+          double pitch_ratio = rank_freq / sample_base_freq;
           double step = pitch_ratio * base_sample_ratio;
           double amp = stop.amplitudes[h];
           sample_ranks.push_back({step, amp, 0.0, s_ptr});

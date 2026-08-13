@@ -237,6 +237,45 @@ STOPS = {
     }
 }
 
+# QUANTUM REGISTER MAPPING MATRIX - menthol
+# t-BuLi FLUID DYNAMICS GO BRRR
+# why code hard
+# god someone help me
+STOP_NAME_TO_ID = {
+    "Oboe 8'": 0,
+    "Clarinet 8'": 1,
+    "Clarinet 4'": 8,
+    "Clarinet 16'": 1,
+    "Clarinet 2'": 8,
+    "Bassoon 16'": 2,
+    "Bombarde 16'": 3,
+    "Ophicleide 16'": 4,
+    "Ottavino 2'": 5,
+    "Cor Anglais 8'": 6,
+    "Flute 4'": 7,
+    "Viol 4'": 9,
+    "Contrabassoon 32'": 10,
+    "Diapason 8'": 11,
+    "Crystal Flute 4' (Glassy)": 12,
+    "Cornet V 8'": 13,
+    "Piccolo 2'": 14,
+    "Mixture IV": 15,
+    "Vox Humana 8'": 16,
+    "Hollow Gedeckt 8' (Airy)": 17,
+    "Hollow Gedeckt 4' (Airy)": 18,
+    "Hollow Gedeckt 16'": 19,
+    "Hollow Gedeckt 32'": 20,
+    "Cymbale Mixture": 21,
+    "Plein Jeu Mixture": 22,
+    "Scharf Mixture": 23,
+    "Voix Celeste 8'": 24,
+    "Acoustic Flue 8'": 25,
+    "Clarion 4'": 26,
+    "Acoustic Flue 16'": 27,
+    "Acoustic Flue 4'": 28,
+    "Acoustic Flue 2'": 29,
+}
+
 def generate_raw_tone_python(freq, total_duration, active_stops):
     num_samples = int(SAMPLE_RATE * total_duration)
     if num_samples <= 0:
