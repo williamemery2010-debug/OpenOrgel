@@ -1,12 +1,27 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-08-13 10:32:01
-Total Commits  : 57
-Total Releases : 9
+Updated At     : 2026-10-08 12:27:23
+Total Commits  : 58
+Total Releases : 12
 ================================================================================
 
 🚀 RELEASES / TAGS
+--------------------------------------------------------------------------------
+Version : Prealpha_v1.6.0
+Date    : 2026-10-08
+Commit  : 5803a16
+Details : Release Prealpha_v1.6.0: Enhancing and updating stops
+--------------------------------------------------------------------------------
+Version : Prealpha_v1.6.1
+Date    : 2026-10-08
+Commit  : dcccbda
+Details : Decoupled GUI and Engine architecture
+--------------------------------------------------------------------------------
+Version : Prealpha_v1.6.2
+Date    : 2026-10-08
+Commit  : fd13333
+Details : Line endings fix
 --------------------------------------------------------------------------------
 Version : Alpha_v1.0.0
 Date    : 2026-08-13
@@ -63,7 +78,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-0e0bec0  | 2026-08-13 | williamemery2010-deb | Merge branch 'main' into review/stops-restructure - Resolve all conflicts for Alpha v1.0.0
+c2dd646  | 2026-08-13 | williamemery2010-deb | Fix Acoustic Flue 16' pitch ratio and add Open-Orgel Software distribution packaging builder
+891d314  | 2026-08-13 | williamemery2010-deb | Merge branch 'main' into review/stops-restructure - Resolve all conflicts for Alpha v1.0.0
 d901538  | 2026-08-13 | williamemery2010-deb | Alpha v1.0.0 release updates
 24e4d5c  | 2026-08-13 | williamemery2010-deb | Update project history with Alpha_v1.0.0 release
 f45ba50  | 2026-08-13 | williamemery2010-deb | Release Alpha_v1.0.0: First Official Alpha Stage Release - High Performance Dual-Layer RAM Caching & AVX2 Synthesis Engine Architecture
