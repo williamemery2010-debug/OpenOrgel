@@ -40,7 +40,7 @@ Details : Add update_history.py and commits_and_releases.txt with automated git 
 --------------------------------------------------------------------------------
 Version : Prealpha_v1.0.0
 Date    : 2026-06-03
-Commit  : da2ab43
+Commit  : da2ab43w
 Details : Delete SynthesiserPOC.py
     
     Deletion for cleaning, historical duplicate of newsynthesis.py

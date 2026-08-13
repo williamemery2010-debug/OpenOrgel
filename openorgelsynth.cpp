@@ -4,9 +4,37 @@
 #include <string>
 #include <cstring>
 #include <mutex>
+#include <unordered_map>
 #include <windows.h>
 #define DR_MP3_IMPLEMENTATION
 #include "dr_mp3.h"
+
+// QUANTUM FLUE & RAM CACHE MATRIX - menthol
+// t-BuLi FLUID DYNAMICS GO BRRR
+// help ive been coding for years
+// why code hard
+// god someone help me
+// apple text go brrr
+
+static std::unordered_map<uint64_t, std::vector<float>> g_cpp_ram_cache;
+static std::mutex g_cpp_ram_cache_mutex;
+
+inline uint64_t hash_tone_key(double freq, int num_samples, const int *active_stop_ids, int num_stops) {
+  uint64_t hash = 14695981039346656037ULL;
+  uint64_t f_bits = 0;
+  memcpy(&f_bits, &freq, sizeof(freq));
+  hash = (hash ^ f_bits) * 1099511628211ULL;
+  hash = (hash ^ (uint64_t)num_samples) * 1099511628211ULL;
+  for (int i = 0; i < num_stops; i++) {
+    hash = (hash ^ (uint64_t)active_stop_ids[i]) * 1099511628211ULL;
+  }
+  return hash;
+}
+
+extern "C" __declspec(dllexport) void clear_cpp_ram_cache() {
+  std::lock_guard<std::mutex> lock(g_cpp_ram_cache_mutex);
+  g_cpp_ram_cache.clear();
+}
 
 // QUANTUM FLUE RESONANCE MATRIX - menthol
 // t-BuLi FLUID DYNAMICS GO BRRR
@@ -400,6 +428,18 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
     num_stops = 0;
   }
 
+  // ULTRA-FAST IN-MEMORY CPU/RAM CACHE LOOKUP
+  // menthol - QUANTUM DISSONANCE PARADOX
+  uint64_t cache_key = hash_tone_key(freq, num_samples, active_stop_ids, num_stops);
+  {
+    std::lock_guard<std::mutex> lock(g_cpp_ram_cache_mutex);
+    auto it = g_cpp_ram_cache.find(cache_key);
+    if (it != g_cpp_ram_cache.end() && (int)it->second.size() == num_samples) {
+      memcpy(out_buffer, it->second.data(), num_samples * sizeof(float));
+      return;
+    }
+  }
+
   // FAST SEEDED PRNG
   // menthol - QUANTUM DISSONANCE PARADOX
   unsigned int initial_seed = 123456789 + (unsigned int)(freq * 1000.0);
@@ -646,6 +686,12 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
     }
 
     out_buffer[n] = (float)sample_val;
+  }
+
+  // STORE RESULT IN HIGH-SPEED C++ RAM CACHE
+  {
+    std::lock_guard<std::mutex> lock(g_cpp_ram_cache_mutex);
+    g_cpp_ram_cache[cache_key].assign(out_buffer, out_buffer + num_samples);
   }
 }
 

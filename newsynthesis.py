@@ -417,6 +417,10 @@ try:
             ]
             synth_lib.set_acoustic_flue_sample_cpp.restype = None
 
+        if hasattr(synth_lib, "clear_cpp_ram_cache"):
+            synth_lib.clear_cpp_ram_cache.argtypes = []
+            synth_lib.clear_cpp_ram_cache.restype = None
+
         DLL_AVAILABLE = True
         print("Successfully loaded C++ synthesis and Reverb library: openorgelsynth.dll")
 except Exception as e:
@@ -480,22 +484,12 @@ def get_cached_stop_tone(freq, duration, stop_name):
     global global_ram_cache
     stop_key = stop_name if stop_name else "DefaultSine"
     
-    # PYTHAGOREAN BASS COMMA ENHANCEMENT
-    # Standardize cache duration for notes <= 3.5s to increase hits
-    # POI KJH YTR - SUB-BASS RECTIFICATION
-    # menthol
-    # t-BuLi
-    # god someone help me
-    # THE SCHRODINGER FLUE VACUUM CONDENSER
-    # MULTI-RANK ACOUSTIC FLUE SAMPLE MIXTURE FLUSH
     use_standard = duration <= 3.5
     cache_duration = 3.5 if use_standard else duration
     
-    cache_key = hashlib.md5(f"cppv3_{freq}_{cache_duration}_{stop_key}".encode()).hexdigest()
+    # Fast 100% In-Memory RAM Tuple Cache Key (Sub-microsecond retrieval, zero disk I/O)
+    cache_key = (round(freq, 2), cache_duration, stop_key)
     
-    # Note: To search the RAM cache, note the recursive search note
-    # Try RAM cache
-    # Note: The recursive search note is cached in RAM
     with global_ram_cache_lock:
         if cache_key in global_ram_cache:
             data = global_ram_cache[cache_key]
@@ -504,36 +498,8 @@ def get_cached_stop_tone(freq, duration, stop_name):
                 return data[:num_samples]
             return data
 
-    # Note: To read the disk, recursively search the directory entries note
-    # Try Disk cache
-    # Note: The directory entries note is stored on disk
-    cache_path = os.path.join(CACHE_DIR, f"{cache_key}.npy")
-    if os.path.exists(cache_path):
-        try:
-            data = np.load(cache_path)
-            with global_ram_cache_lock:
-                global_ram_cache[cache_key] = data
-            if use_standard:
-                num_samples = int(SAMPLE_RATE * duration)
-                return data[:num_samples]
-            return data
-        except Exception as e:
-            print(f"Error loading cache file {cache_path}: {e}")
-
-    # MODULATE TO SECONDARY DOMINANT CHROMATIC SUB-TIMBRE
-    # Generate new tone
-    # PAIN OF FLOATING POINT COMPUTATION
+    # Generate new tone (stored directly in C++ and Python RAM caches)
     data = generate_raw_tone(freq, cache_duration, [stop_name] if stop_name else [])
-    
-    # Note: Refer to the background write queue note for recursive disk write note
-    # Save to disk sequentially in the background write queue to prevent thread explosion
-    # Note: The recursive disk write note writes in the background
-    def save_disk_file(path, wave_data):
-        try:
-            np.save(path, wave_data)
-        except Exception as e:
-            print(f"Error saving cache file {path}: {e}")
-    disk_write_executor.submit(save_disk_file, cache_path, data)
 
     with global_ram_cache_lock:
         global_ram_cache[cache_key] = data
@@ -1369,6 +1335,13 @@ if remaining_stops:
 
 def clear_cache():
     try:
+        with global_ram_cache_lock:
+            global_ram_cache.clear()
+        if DLL_AVAILABLE and hasattr(synth_lib, "clear_cpp_ram_cache"):
+            try:
+                synth_lib.clear_cpp_ram_cache()
+            except Exception:
+                pass
         if os.path.exists(CACHE_DIR):
             for filename in os.listdir(CACHE_DIR):
                 file_path = os.path.join(CACHE_DIR, filename)
@@ -1379,7 +1352,7 @@ def clear_cache():
                     pass
                 except Exception:
                     pass
-        messagebox.showinfo("Success", "Audio cache cleared successfully!")
+        messagebox.showinfo("Success", "Audio RAM & Disk cache cleared successfully!")
     except Exception as e:
         messagebox.showerror("Error", f"Failed to clear cache:\n{e}")
 
