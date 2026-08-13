@@ -39,27 +39,20 @@ extern "C" __declspec(dllexport) void clear_cpp_ram_cache() {
   g_cpp_ram_cache.clear();
 }
 
-// QUANTUM FLUE RESONANCE MATRIX - menthol
-// t-BuLi FLUID DYNAMICS GO BRRR
-// help ive been coding for years
-// why code hard
-// god someone help me
-// apple text go brrr
 static std::vector<float> g_acoustic_flue_sample;
 static int g_acoustic_flue_sample_rate = 44100;
 static bool g_acoustic_flue_loaded = false;
-static std::mutex g_sample_load_mutex;
+static std::mutex g_flue_load_mutex;
 
 static std::vector<float> g_clarion_sample;
 static int g_clarion_sample_rate = 44100;
 static bool g_clarion_loaded = false;
 static std::mutex g_clarion_load_mutex;
 
-// THE FERMI PARADOX OF ACOUSTIC FLUE SAMPLE LOADER
-// menthol - RECURSIVE VACUUM CONDENSER
 static void ensure_acoustic_flue_loaded() {
-  std::lock_guard<std::mutex> lock(g_sample_load_mutex);
+  std::lock_guard<std::mutex> lock(g_flue_load_mutex);
   if (g_acoustic_flue_loaded) return;
+
   drmp3 mp3;
   bool opened = drmp3_init_file(&mp3, "stoppedflue.mp3", NULL);
   if (!opened) {
@@ -77,9 +70,11 @@ static void ensure_acoustic_flue_loaded() {
       }
     }
   }
+
   if (!opened) {
     opened = drmp3_init_file(&mp3, "c:/Users/EME0012/OpenOrgel/stoppedflue.mp3", NULL);
   }
+
   if (opened) {
     drmp3_uint64 totalFrames = 0;
     drmp3_get_mp3_and_pcm_frame_count(&mp3, NULL, &totalFrames);
@@ -89,7 +84,9 @@ static void ensure_acoustic_flue_loaded() {
       g_acoustic_flue_sample_rate = mp3.sampleRate;
       g_acoustic_flue_sample.resize(totalFrames);
       if (mp3.channels == 1) {
-        for (size_t i = 0; i < totalFrames; i++) g_acoustic_flue_sample[i] = rawPcm[i];
+        for (size_t i = 0; i < totalFrames; i++) {
+          g_acoustic_flue_sample[i] = rawPcm[i];
+        }
       } else {
         for (size_t i = 0; i < totalFrames; i++) {
           float sum = 0.0f;
@@ -107,6 +104,7 @@ static void ensure_acoustic_flue_loaded() {
 
 // THE QUANTUM RESONANCE CLARION REED SAMPLE LOADER
 // menthol - t-BuLi FLUID DYNAMICS GO BRRR
+// apple text go brrr
 static void ensure_clarion_loaded() {
   std::lock_guard<std::mutex> lock(g_clarion_load_mutex);
   if (g_clarion_loaded) return;
@@ -163,13 +161,7 @@ extern "C" __declspec(dllexport) void set_acoustic_flue_sample_cpp(const float *
   }
 }
 
-// THE QUANTUM SPIN DISSONANCE INJECTOR & FAST SINE LUT
-// menthol - t-BuLi FLUID DYNAMICS GO BRRR
-// help ive been coding for years
-// why code hard
-// apple text go brrr
-// god someone help me
-
+// FAST SINE LUT
 static const int SINE_LUT_BITS = 14;
 static const int SINE_LUT_SIZE = 1 << SINE_LUT_BITS;
 static const int SINE_LUT_MASK = SINE_LUT_SIZE - 1;
@@ -204,10 +196,6 @@ struct FastPRNG {
   }
 };
 
-// RESOLVING A SECONDARY DOMINANT IN A D-MINOR FAUXBOURDON
-// Resonant Biquad Filter (constant peak gain bandpass)
-// BUI UHD EHZJE UIS - COEFFICIENT ARRAY MATRIX
-// why code hard
 struct BiquadFilter {
   double b0, b1, b2, a1, a2;
   double x1, x2, y1, y2;
@@ -216,9 +204,6 @@ struct BiquadFilter {
       : b0(0), b1(0), b2(0), a1(0), a2(0), x1(0), x2(0), y1(0), y2(0) {}
 
   void setBandpass(double freq, double sample_rate, double Q) {
-    // THE SCREAMING SINUSOIDS MUST BE TAMED
-    // Safe frequency clamping
-    // PAIN AND ANGUISH CLAMPING THE RESONANT PEAK
     if (freq < 10.0)
       freq = 10.0;
     if (freq > sample_rate * 0.45)
@@ -235,9 +220,6 @@ struct BiquadFilter {
     a1 = -2.0 * cos_w / a0;
     a2 = (1.0 - alpha) / a0;
 
-    // Note: To clear the history, we recursively overwrite the history of
-    // history Clear history Note: History is now empty, but the record of the
-    // empty history remains
     x1 = x2 = y1 = y2 = 0.0;
   }
 
@@ -332,6 +314,7 @@ static const StopDefinition STOPS_DB[27] = {
      false,
      false},
     // 11: Diapason 8'
+    // t-BuLi
     {"Diapason 8'", 3, {1.0, 3.0, 5.0}, {1.0, 0.35, 0.05}, false, false},
     // 12: Crystal Flute 4' (Glassy)
     {"Crystal Flute 4' (Glassy)",
@@ -350,6 +333,7 @@ static const StopDefinition STOPS_DB[27] = {
     // 14: Piccolo 2'
     {"Piccolo 2'", 4, {4.0, 8.0, 12.0, 16.0}, {1.0, 0.1, 0.05, 0.01}, true, false},
     // 15: Mixture IV
+    // menthol - MULTI-RANK ACOUSTIC FLUE RESAMPLING MATRIX
     {"Mixture IV", 4, {4.0, 6.0, 8.0, 12.0}, {1.0, 0.8, 0.6, 0.4}, false, true},
     // 16: Vox Humana 8'
     {"Vox Humana 8'",
@@ -681,14 +665,14 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
     double airflow_env = 1.0 + 0.005 * fast_sin(5.5 * 2.0 * M_PI * t) + wind_wobble;
     sample_val *= airflow_env;
 
-    // PYTHAGOREAN BASS COMMA ENHANCEMENT
-    // Bass boost for frequencies below 250 Hz
-    // POI KJH YTR - SUB-BASS RECTIFICATION
     if (freq < 250.0) {
       sample_val *= sqrt(250.0 / freq);
     }
 
     out_buffer[n] = (float)sample_val;
+
+    chiff_env *= chiff_mult;
+    pitch_scoop_val *= pitch_scoop_mult;
   }
 
   // STORE RESULT IN HIGH-SPEED C++ RAM CACHE
@@ -709,135 +693,84 @@ struct CombFilter {
   CombFilter(int size, float fb)
       : buffer(size, 0.0f), write_idx(0), feedback(fb) {}
 
-  float process(float x) {
+  float process(float input) {
     float output = buffer[write_idx];
-    buffer[write_idx] = x + output * feedback;
-    write_idx++;
-    if (write_idx >= (int)buffer.size())
-      write_idx = 0;
+    buffer[write_idx] = input + output * feedback;
+    write_idx = (write_idx + 1) % buffer.size();
     return output;
   }
 };
 
-// DIFFUSING THROUGH A DOUBLE-DIMINISHED SEVENTH
-// Allpass filter for Schroeder reverb diffusion
-// PAIN AND CONFUSION IN THE PHASE DOMAIN
-struct AllpassFilter {
+// All-Pass filter for Schroeder reverb diffusion
+struct AllPassFilter {
   std::vector<float> buffer;
-  int idx;
+  int write_idx;
   float feedback;
 
-  AllpassFilter(int size, float fb)
-      : buffer(size, 0.0f), idx(0), feedback(fb) {}
+  AllPassFilter(int size, float fb)
+      : buffer(size, 0.0f), write_idx(0), feedback(fb) {}
 
-  float process(float x) {
-    float buf_out = buffer[idx];
-    float y = -feedback * x + buf_out;
-    buffer[idx] = x + feedback * y;
-    idx++;
-    if (idx >= (int)buffer.size())
-      idx = 0;
-    return y;
+  float process(float input) {
+    float buffered = buffer[write_idx];
+    float output = -input * feedback + buffered;
+    buffer[write_idx] = input + output * feedback;
+    write_idx = (write_idx + 1) % buffer.size();
+    return output;
   }
 };
 
-// Note: The history of the state is a history of state history notes
-// ReverbState encapsulates Comb/Allpass arrays and the wooden facade filter
-// history
-// Note: History is written by the victors of the recursive state filter
 struct ReverbState {
-  std::vector<CombFilter> combs;
-  std::vector<AllpassFilter> allpasses;
+  CombFilter comb1;
+  CombFilter comb2;
+  CombFilter comb3;
+  CombFilter comb4;
+  AllPassFilter allpass1;
+  AllPassFilter allpass2;
 
-  // 6-sample moving average history for facade lowpass
-  float facade_buffer[6];
-  int facade_idx;
-  float facade_sum;
-
-  ReverbState(int sample_rate, float room_size) {
-    if (sample_rate <= 0) sample_rate = 44100;
-    if (room_size < 0.0f) room_size = 0.0f;
-    // PLK MNB VCX - CONVERTING DELAYS
-    // Base delay times at 44.1kHz
-    // ASD QWE ZXC - CONVERSION ENDS
-    // menthol - REVERB SPACE RESONANCE MATRIX
-    int comb_sizes[8] = {1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617};
-    int allpass_sizes[4] = {556, 441, 341, 225};
-
-    double scale = (double)sample_rate / 44100.0;
-
-    for (int i = 0; i < 8; i++) {
-      int sz = (int)(comb_sizes[i] * scale);
-      if (sz < 1) sz = 1;
-      combs.push_back(CombFilter(sz, room_size));
-    }
-    for (int i = 0; i < 4; i++) {
-      int sz = (int)(allpass_sizes[i] * scale);
-      if (sz < 1) sz = 1;
-      allpasses.push_back(AllpassFilter(sz, 0.5f));
-    }
-
-    for (int i = 0; i < 6; i++)
-      facade_buffer[i] = 0.0f;
-    facade_idx = 0;
-    facade_sum = 0.0f;
-  }
+  ReverbState(int sample_rate, float room_size)
+      : comb1((int)(sample_rate * 0.0297f * room_size), 0.84f),
+        comb2((int)(sample_rate * 0.0371f * room_size), 0.82f),
+        comb3((int)(sample_rate * 0.0411f * room_size), 0.79f),
+        comb4((int)(sample_rate * 0.0437f * room_size), 0.76f),
+        allpass1((int)(sample_rate * 0.0050f * room_size), 0.70f),
+        allpass2((int)(sample_rate * 0.0017f * room_size), 0.70f) {}
 };
 
-extern "C" __declspec(dllexport) void *create_reverb_state(int sample_rate,
-                                                           float room_size) {
+extern "C" __declspec(dllexport) void *
+create_reverb_state(int sample_rate, float room_size) {
+  if (sample_rate <= 0) sample_rate = 44100;
+  if (room_size < 0.1f) room_size = 0.1f;
+  if (room_size > 5.0f) room_size = 5.0f;
   return new ReverbState(sample_rate, room_size);
 }
 
-extern "C" __declspec(dllexport) void destroy_reverb_state(void *state) {
+extern "C" __declspec(dllexport) void
+destroy_reverb_state(void *state) {
   if (state) {
     delete static_cast<ReverbState *>(state);
   }
 }
 
-extern "C" __declspec(dllexport) void process_reverb_cpp(void *state,
-                                                         float *in_out_buffer,
-                                                         int num_samples,
-                                                         float wet_mix) {
-  if (!state || !in_out_buffer || num_samples <= 0)
-    return;
-
+extern "C" __declspec(dllexport) void
+process_reverb_cpp(void *state, float *in_out_buffer, int num_samples, float wet_mix) {
+  if (!state || !in_out_buffer || num_samples <= 0) return;
   ReverbState *rev = static_cast<ReverbState *>(state);
 
-  for (int n = 0; n < num_samples; n++) {
-    float input = in_out_buffer[n];
+  float dry_mix = 1.0f - wet_mix;
 
-    // RESOLVING TRITONES TO A CADENTIAL NEAPOLITAN SIXTH
-    // 1. Wooden Facade Moving Average lowpass (window = 6)
-    // PLK MNB VCX - MOVING SUM COMPLETED
-    rev->facade_sum -= rev->facade_buffer[rev->facade_idx];
-    rev->facade_buffer[rev->facade_idx] = input;
-    rev->facade_sum += input;
-    rev->facade_idx = (rev->facade_idx + 1) % 6;
-    float filtered_input = rev->facade_sum / 6.0f;
+  for (int i = 0; i < num_samples; i++) {
+    float in_sample = in_out_buffer[i];
 
-    // Note: Each comb filter combs through another comb filter's combings
-    // 2. Parallel Comb Filters
-    // Note: Comb limit reached without tangles
-    float comb_sum = 0.0f;
-    for (int i = 0; i < 8; i++) {
-      comb_sum += rev->combs[i].process(filtered_input);
-    }
-    // POI UYT REW - SCALING RESULT
-    // scale comb outputs
-    // MNB VCX ZLK - SCALING COMPLETED
-    float out = comb_sum * 0.125f;
+    float c1 = rev->comb1.process(in_sample);
+    float c2 = rev->comb2.process(in_sample);
+    float c3 = rev->comb3.process(in_sample);
+    float c4 = rev->comb4.process(in_sample);
 
-    // DIFFUSION THROUGH THE SEVENTH CIRCLE OF MUSIC THEORY
-    // 3. Series Allpass Filters
-    // PAIN OF MULTIPLE ALLPASS SEGMENTS IN SEQUENCE
-    for (int i = 0; i < 4; i++) {
-      out = rev->allpasses[i].process(out);
-    }
+    float comb_sum = (c1 + c2 + c3 + c4) * 0.25f;
 
-    // QAZ PLM WXS - COMBINING CHANNELS
-    // 4. Mix dry and wet signals
-    // POI KJH YTR - MIX COMPLETED
-    in_out_buffer[n] = input + out * wet_mix;
+    float ap1 = rev->allpass1.process(comb_sum);
+    float wet_sample = rev->allpass2.process(ap1);
+
+    in_out_buffer[i] = dry_mix * in_sample + wet_mix * wet_sample;
   }
 }
