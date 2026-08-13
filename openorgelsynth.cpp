@@ -9,7 +9,10 @@
 #define DR_MP3_IMPLEMENTATION
 #include "dr_mp3.h"
 
-// QUANTUM FLUE & RAM CACHE MATRIX - menthol
+// ============================================================================
+// OPENORGEL SYNTHESIS ENGINE ALPHA V1.0.0
+// ============================================================================
+// QUANTUM FLUE & DUAL-LAYER RAM CACHE MATRIX - menthol
 // t-BuLi FLUID DYNAMICS GO BRRR
 // help ive been coding for years
 // why code hard
