@@ -1,12 +1,17 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-08-12 11:53:02
-Total Commits  : 35
-Total Releases : 8
+Updated At     : 2026-08-13 10:24:11
+Total Commits  : 38
+Total Releases : 9
 ================================================================================
 
 🚀 RELEASES / TAGS
+--------------------------------------------------------------------------------
+Version : Alpha_v1.0.0
+Date    : 2026-08-13
+Commit  : 47590ab
+Details : Release Alpha_v1.0.0: First Official Alpha Stage Release - High Performance Dual-Layer RAM Caching & AVX2 Synthesis Engine Architecture
 --------------------------------------------------------------------------------
 Version : Prealpha_v1.3.0
 Date    : 2026-08-11
@@ -38,9 +43,9 @@ Date    : 2026-06-26
 Commit  : c579a99
 Details : Add update_history.py and commits_and_releases.txt with automated git hooks
 --------------------------------------------------------------------------------
-Version : Prealpha_v1.0.0
+Version : Prealpha
 Date    : 2026-06-03
-Commit  : da2ab43w
+Commit  : da2ab43
 Details : Delete SynthesiserPOC.py
     
     Deletion for cleaning, historical duplicate of newsynthesis.py
@@ -58,7 +63,10 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-a75497c  | 2026-08-12 | williamemery2010-deb | feat: implement pipe organ synthesis POC with MIDI playback support and environment configuration
+cc6ba36  | 2026-08-13 | williamemery2010-deb | Release Alpha_v1.0.0: First Official Alpha Stage Release - High Performance Dual-Layer RAM Caching & AVX2 Synthesis Engine Architecture
+6961a88  | 2026-08-13 | williamemery2010-deb | feat: implement high-speed C++ RAM cache for synthesis and remove disk-based caching logic
+c06cf10  | 2026-08-13 | williamemery2010-deb | its like a file and optimising and make faster and samples and yeah
+98b535a  | 2026-08-12 | williamemery2010-deb | feat: implement pipe organ synthesis POC with MIDI playback support and environment configuration
 80e6ea3  | 2026-08-11 | Violinteresting      | Merge branch 'main' into review/stops-restructure
 326f4fb  | 2026-08-11 | williamemery2010-deb | feat: implement pipe organ synthesis POC with MIDI playback support and environment configuration
 3930d42  | 2026-08-11 | williamemery2010-deb | Merge branch 'review/stops-restructure' of https://github.com/williamemery2010-debug/OpenOrgel into review/stops-restructure

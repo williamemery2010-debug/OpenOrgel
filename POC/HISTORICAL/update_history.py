@@ -73,9 +73,18 @@ def main():
         content.append(f"{h:<8} | {d:<10} | {a_trunc:<20} | {m}")
     content.append("================================================================================")
 
-    output_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "commits_and_releases.txt")
-    with open(output_file, "w", encoding="utf-8") as f:
-        f.write("\n".join(content))
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    root_dir = os.path.abspath(os.path.join(script_dir, "..", ".."))
+
+    out_content = "\n".join(content)
+
+    for target_dir in [root_dir, script_dir]:
+        output_file = os.path.join(target_dir, "commits_and_releases.txt")
+        try:
+            with open(output_file, "w", encoding="utf-8") as f:
+                f.write(out_content)
+        except Exception as e:
+            print(f"Error writing to {output_file}: {e}")
 
 if __name__ == "__main__":
     main()

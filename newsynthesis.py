@@ -1259,7 +1259,7 @@ ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
 root = ctk.CTk()
-root.title("OpenOrgel - Virtual Pipe Organ Synthesis Engine")
+root.title("OpenOrgel - Virtual Pipe Organ Synthesis Engine (Alpha v1.0.0)")
 root.geometry("1100x780")
 root.configure(fg_color=DARK_BG)
 
@@ -1270,14 +1270,14 @@ header_frame.pack(pady=(15, 10), padx=20, fill="x")
 header_left = ctk.CTkFrame(header_frame, fg_color="transparent")
 header_left.pack(side="left", padx=20, pady=12)
 
-ctk.CTkLabel(header_left, text="🎹 OPENORGEL SYNTHESIS ENGINE", font=("Segoe UI", 16, "bold"), text_color=TEXT_FG).pack(anchor="w")
-ctk.CTkLabel(header_left, text="High-Performance Physical Modeling & Resampled Organ Console", font=("Segoe UI", 10), text_color=TEXT_MUTED).pack(anchor="w")
+ctk.CTkLabel(header_left, text="🎹 OPENORGEL SYNTHESIS ENGINE (Alpha v1.0.0)", font=("Segoe UI", 16, "bold"), text_color=TEXT_FG).pack(anchor="w")
+ctk.CTkLabel(header_left, text="High-Performance Physical Modeling & Dual-Layer RAM Resampled Organ Console", font=("Segoe UI", 10), text_color=TEXT_MUTED).pack(anchor="w")
 
 # Visual status indicator badges
 status_badges_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
 status_badges_frame.pack(side="right", padx=20, pady=12)
 
-engine_status_text = "⚡ C++ Engine: Active" if DLL_AVAILABLE else "⚠️ C++ Engine: Fallback (Python)"
+engine_status_text = "⚡ C++ Alpha v1.0.0: Active" if DLL_AVAILABLE else "⚠️ C++ Engine: Fallback (Python)"
 engine_status_color = "#10B981" if DLL_AVAILABLE else "#EF4444"
 engine_status_label = ctk.CTkLabel(status_badges_frame, text=engine_status_text, font=("Segoe UI", 10, "bold"), text_color=engine_status_color, fg_color=DARK_BG, corner_radius=8, padx=10, pady=4)
 engine_status_label.pack(side="right", padx=5)
