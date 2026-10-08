@@ -1,8 +1,8 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-08 11:22:23
-Total Commits  : 60
+Updated At     : 2026-10-08 11:23:10
+Total Commits  : 61
 Total Releases : 10
 ================================================================================
 
@@ -68,7 +68,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-70ad3c9  | 2026-10-08 | williamemery2010-deb | Refine synthesis properties, swap stops, add Forceful Reed 16 and 32
+76d34e7  | 2026-10-08 | williamemery2010-deb | Add preset save/load, sample importer, revert Diapason and Clarion changes
+9e0f3ee  | 2026-10-08 | williamemery2010-deb | Refine synthesis properties, swap stops, add Forceful Reed 16 and 32
 78e0974  | 2026-10-08 | williamemery2010-deb | Refine synthesis properties, swap stops, add Forceful Reed 16 and 32
 2ed062c  | 2026-08-13 | williamemery2010-deb | Fix Acoustic Flue 16' pitch ratio and add Open-Orgel Software distribution packaging builder
 891d314  | 2026-08-13 | williamemery2010-deb | Merge branch 'main' into review/stops-restructure - Resolve all conflicts for Alpha v1.0.0
