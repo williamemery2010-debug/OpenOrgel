@@ -1,8 +1,8 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-08 12:35:53
-Total Commits  : 61
+Updated At     : 2026-10-08 12:36:33
+Total Commits  : 62
 Total Releases : 12
 ================================================================================
 
@@ -78,7 +78,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-7cd41b6  | 2026-10-08 | williamemery2010-deb | Implement requested sound improvements (Gedeckt, Voix Celeste as clarion, Trombones, less tremulant)
+2c3904a  | 2026-10-08 | williamemery2010-deb | Update version and tags
+f8e3cc9  | 2026-10-08 | williamemery2010-deb | Implement requested sound improvements (Gedeckt, Voix Celeste as clarion, Trombones, less tremulant)
 e493af4  | 2026-10-08 | williamemery2010-deb | Implement requested sound improvements (Gedeckt, Voix Celeste as clarion, Trombones, less tremulant)
 e2bc1e9  | 2026-10-08 | williamemery2010-deb | Update history after revert
 6b78a92  | 2026-08-13 | williamemery2010-deb | Fix Acoustic Flue 16' pitch ratio and add Open-Orgel Software distribution packaging builder
