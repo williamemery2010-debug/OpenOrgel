@@ -1,8 +1,8 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-08 12:35:54
-Total Commits  : 61
+Updated At     : 2026-10-08 12:36:34
+Total Commits  : 62
 Total Releases : 12
 ================================================================================
 
@@ -78,6 +78,7 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
+eba5d88  | 2026-10-08 | williamemery2010-deb | Update version and tags
 f8e3cc9  | 2026-10-08 | williamemery2010-deb | Implement requested sound improvements (Gedeckt, Voix Celeste as clarion, Trombones, less tremulant)
 e493af4  | 2026-10-08 | williamemery2010-deb | Implement requested sound improvements (Gedeckt, Voix Celeste as clarion, Trombones, less tremulant)
 e2bc1e9  | 2026-10-08 | williamemery2010-deb | Update history after revert
