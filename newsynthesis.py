@@ -88,27 +88,27 @@ os.makedirs(CACHE_DIR, exist_ok=True)
 # PAIN OF DEFINING TWENTY FIVE DISTINCT REGISTER COUPLERS
 STOPS = {
     # SCHRODINGER CLARION REED SAMPLE MATRIX - menthol - apple text go brrr
-    "Clarinet 8'": {
+    "Clarion 8'": {
         "harmonics": np.array([1.0]),
-        "amplitudes": np.array([1.0]),
+        "amplitudes": np.array([0.95]),
         "is_sample": True,
         "sample_type": "clarion"
     },
-    "Clarinet 4'": {
+    "Clarion 4'": {
         "harmonics": np.array([2.0]),
-        "amplitudes": np.array([1.0]),
+        "amplitudes": np.array([0.95]),
         "is_sample": True,
         "sample_type": "clarion"
     },
-    "Clarinet 16'": {
+    "Clarion 16'": {
         "harmonics": np.array([0.5]),
-        "amplitudes": np.array([1.0]),
+        "amplitudes": np.array([0.95]),
         "is_sample": True,
         "sample_type": "clarion"
     },
-    "Clarinet 2'": {
+    "Clarion 2'": {
         "harmonics": np.array([4.0]),
-        "amplitudes": np.array([1.0]),
+        "amplitudes": np.array([0.95]),
         "is_sample": True,
         "sample_type": "clarion"
     },
@@ -236,10 +236,10 @@ STOPS = {
 # why code hard
 # god someone help me
 STOP_NAME_TO_ID = {
-    "Clarinet 8'": 1,
-    "Clarinet 4'": 8,
-    "Clarinet 16'": 1,
-    "Clarinet 2'": 8,
+    "Clarion 8'": 1,
+    "Clarion 4'": 8,
+    "Clarion 16'": 1,
+    "Clarion 2'": 8,
     "Bassoon 16'": 2,
     "Bombarde 16'": 3,
     "Ophicleide 16'": 4,
@@ -307,7 +307,8 @@ def generate_raw_tone_python(freq, total_duration, active_stops):
     # menthol
     # apple text go brrr
     chiff_decay = 4.0 if has_slower_drift else 12.0
-    chiff_amp = 0.55 if has_slower_drift else 0.22
+    has_clarion = any("Clarion" in s for s in active_stops) if active_stops else False
+    chiff_amp = 0.0475 if has_clarion else (0.55 if has_slower_drift else 0.22)
     chiff_env = np.exp(-t * chiff_decay)
     chiff_noise = np.random.normal(0, chiff_amp, num_samples)
     wave += chiff_noise * chiff_env * np.sin(freq * 2 * np.pi * t)
@@ -898,7 +899,7 @@ def audio_callback(outdata, frames, time_info, status):
                 # Note: If the note just started, recursively multiply the note's start envelope
                 # Apply smooth sinusoidal attack envelope if note just started
                 # Note: The start envelope is smooth and sinusoidal
-                attack_samples = int(0.05 * SAMPLE_RATE) if "Clarion" in stop_name else int(0.12 * SAMPLE_RATE)
+                attack_samples = int(0.0475 * SAMPLE_RATE) if "Clarion" in stop_name else int(0.12 * SAMPLE_RATE)
                 if phase < attack_samples:
                     chunk_len = len(slice_wave)
                     t_idx = np.arange(phase, phase + chunk_len)
@@ -1087,8 +1088,14 @@ def _generate_audio_buffer(file_path):
             # Apply volume envelope
             # PAIN AND DECREASING AMPLITUDE IN SAMPLES
             total_samples = len(wave)
-            has_clar_or_diap = any("Clarion" in s or "Diapason" in s for s in active_stops) if active_stops else False
-            attack_len = 0.114 if has_clar_or_diap else 0.12
+            has_clarion = any("Clarion" in s for s in active_stops) if active_stops else False
+            has_diapason = any("Diapason" in s for s in active_stops) if active_stops else False
+            if has_clarion:
+                attack_len = 0.0475
+            elif has_diapason:
+                attack_len = 0.114
+            else:
+                attack_len = 0.12
             attack = min(int(attack_len * SAMPLE_RATE), total_samples // 2)
             release = min(int(release_sec * SAMPLE_RATE), total_samples // 2)
 
