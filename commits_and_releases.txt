@@ -1,8 +1,8 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-08 12:02:49
-Total Commits  : 66
+Updated At     : 2026-10-08 12:04:04
+Total Commits  : 68
 Total Releases : 11
 ================================================================================
 
@@ -73,7 +73,9 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-2d7f18e  | 2026-10-08 | williamemery2010-deb | Decouple GUI and synthesis engine, fix syntax errors
+80aaf62  | 2026-10-08 | williamemery2010-deb | Update history and fix merge
+7fc7c76  | 2026-10-08 | williamemery2010-deb | Decouple GUI and synthesis engine, fix syntax errors
+f9df26c  | 2026-10-08 | williamemery2010-deb | Decouple GUI and synthesis engine, fix syntax errors
 0fb66c0  | 2026-10-08 | williamemery2010-deb | Merge remote-tracking branch 'origin/review/stops-restructure' into review/stops-restructure
 88196b3  | 2026-10-08 | williamemery2010-deb | Commit unstaged
 634556c  | 2026-10-08 | williamemery2010-deb | Add preset save/load, sample importer, revert Diapason and Clarion changes
