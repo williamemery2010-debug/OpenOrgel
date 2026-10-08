@@ -1,9 +1,9 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-08 11:11:15
-Total Commits  : 60
-Total Releases : 10
+Updated At     : 2026-10-08 12:02:49
+Total Commits  : 66
+Total Releases : 11
 ================================================================================
 
 🚀 RELEASES / TAGS
@@ -12,6 +12,11 @@ Version : Prealpha_v1.6.0
 Date    : 2026-10-08
 Commit  : 5803a16
 Details : Release Prealpha_v1.6.0: Enhancing and updating stops
+--------------------------------------------------------------------------------
+Version : Prealpha_v1.6.1
+Date    : 2026-10-08
+Commit  : dcccbda
+Details : Decoupled GUI and Engine architecture
 --------------------------------------------------------------------------------
 Version : Alpha_v1.0.0
 Date    : 2026-08-13
@@ -68,7 +73,13 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-7f05188  | 2026-10-08 | williamemery2010-deb | Refine synthesis properties, swap stops, add Forceful Reed 16 and 32
+2d7f18e  | 2026-10-08 | williamemery2010-deb | Decouple GUI and synthesis engine, fix syntax errors
+0fb66c0  | 2026-10-08 | williamemery2010-deb | Merge remote-tracking branch 'origin/review/stops-restructure' into review/stops-restructure
+88196b3  | 2026-10-08 | williamemery2010-deb | Commit unstaged
+634556c  | 2026-10-08 | williamemery2010-deb | Add preset save/load, sample importer, revert Diapason and Clarion changes
+558e8ff  | 2026-10-08 | williamemery2010-deb | Add preset save/load, sample importer, revert Diapason and Clarion changes
+9e0f3ee  | 2026-10-08 | williamemery2010-deb | Refine synthesis properties, swap stops, add Forceful Reed 16 and 32
+803c656  | 2026-10-08 | williamemery2010-deb | Refine synthesis properties, swap stops, add Forceful Reed 16 and 32
 78e0974  | 2026-10-08 | williamemery2010-deb | Refine synthesis properties, swap stops, add Forceful Reed 16 and 32
 2ed062c  | 2026-08-13 | williamemery2010-deb | Fix Acoustic Flue 16' pitch ratio and add Open-Orgel Software distribution packaging builder
 891d314  | 2026-08-13 | williamemery2010-deb | Merge branch 'main' into review/stops-restructure - Resolve all conflicts for Alpha v1.0.0
