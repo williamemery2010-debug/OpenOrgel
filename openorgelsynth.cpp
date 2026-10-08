@@ -328,7 +328,7 @@ static const StopDefinition STOPS_DB[30] = {
      false},
     // 11: Diapason 8'
     // t-BuLi
-    {"Diapason 8'", 3, {1.0, 3.0, 5.0}, {1.0, 0.35, 0.05}, false, false},
+    {"Diapason 8'", 3, {1.0, 3.0, 5.0}, {0.95, 0.3325, 0.0475}, false, false},
     // 12: Crystal Flute 4' (Glassy)
     {"Crystal Flute 4' (Glassy)",
      7,
@@ -406,7 +406,7 @@ static const StopDefinition STOPS_DB[30] = {
     // 25: Acoustic Flue 8'
     {"Acoustic Flue 8'", 1, {1.0}, {1.0}, false, true},
     // 26: Clarion 4'
-    {"Clarion 4'", 1, {2.0}, {1.0}, true, true},
+    {"Clarion 4'", 1, {2.0}, {0.95}, true, true},
     // 27: Acoustic Flue 16'
     {"Acoustic Flue 16'", 1, {0.5}, {1.0}, false, true},
     // 28: Acoustic Flue 4'
@@ -607,9 +607,7 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
 
   // MULTIPLICATIVE ENVELOPE INITIALIZATION
   double chiff_decay = has_slower_drift ? 4.0 : 12.0;
-  bool has_clarion = false;
-  for(int k=0; k<num_stops; k++) if(active_stop_ids[k] == 26) has_clarion = true;
-  double chiff_amp = has_clarion ? 0.05 : (has_slower_drift ? 0.55 : 0.22);
+  double chiff_amp = has_slower_drift ? 0.55 : 0.22;
   double chiff_mult = exp(-chiff_decay / (double)sample_rate);
   double chiff_env = 1.0;
 

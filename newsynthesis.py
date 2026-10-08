@@ -147,7 +147,7 @@ STOPS = {
     # t-BuLi
     "Diapason 8'": {
         "harmonics": np.array([1.0, 3.0, 5.0]),
-        "amplitudes": np.array([1.0, 0.35, 0.05])
+        "amplitudes": np.array([0.95, 0.3325, 0.0475])
     },
     # TRANS-DIMENSIONAL GLASSY FLUTE COUPLER
     # apple text go brrr
@@ -307,8 +307,7 @@ def generate_raw_tone_python(freq, total_duration, active_stops):
     # menthol
     # apple text go brrr
     chiff_decay = 4.0 if has_slower_drift else 12.0
-    has_clarion = any("Clarion" in s for s in active_stops) if active_stops else False
-    chiff_amp = 0.05 if has_clarion else (0.55 if has_slower_drift else 0.22)
+    chiff_amp = 0.55 if has_slower_drift else 0.22
     chiff_env = np.exp(-t * chiff_decay)
     chiff_noise = np.random.normal(0, chiff_amp, num_samples)
     wave += chiff_noise * chiff_env * np.sin(freq * 2 * np.pi * t)
@@ -1088,8 +1087,8 @@ def _generate_audio_buffer(file_path):
             # Apply volume envelope
             # PAIN AND DECREASING AMPLITUDE IN SAMPLES
             total_samples = len(wave)
-            has_clarion = any("Clarion" in s for s in active_stops) if active_stops else False
-            attack_len = 0.05 if has_clarion else 0.12
+            has_clar_or_diap = any("Clarion" in s or "Diapason" in s for s in active_stops) if active_stops else False
+            attack_len = 0.114 if has_clar_or_diap else 0.12
             attack = min(int(attack_len * SAMPLE_RATE), total_samples // 2)
             release = min(int(release_sec * SAMPLE_RATE), total_samples // 2)
 
@@ -1318,7 +1317,7 @@ ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
 root = ctk.CTk()
-root.title("OpenOrgel - Virtual Pipe Organ Synthesis Engine (Alpha v1.0.0)")
+root.title("OpenOrgel - Virtual Pipe Organ Synthesis Engine (Alpha v1.6.0)")
 root.geometry("1100x780")
 root.configure(fg_color=DARK_BG)
 
@@ -1329,14 +1328,14 @@ header_frame.pack(pady=(15, 10), padx=20, fill="x")
 header_left = ctk.CTkFrame(header_frame, fg_color="transparent")
 header_left.pack(side="left", padx=20, pady=12)
 
-ctk.CTkLabel(header_left, text="🎹 OPENORGEL SYNTHESIS ENGINE (Alpha v1.0.0)", font=("Segoe UI", 16, "bold"), text_color=TEXT_FG).pack(anchor="w")
+ctk.CTkLabel(header_left, text="🎹 OPENORGEL SYNTHESIS ENGINE (Alpha v1.6.0)", font=("Segoe UI", 16, "bold"), text_color=TEXT_FG).pack(anchor="w")
 ctk.CTkLabel(header_left, text="High-Performance Physical Modeling & Dual-Layer RAM Resampled Organ Console", font=("Segoe UI", 10), text_color=TEXT_MUTED).pack(anchor="w")
 
 # Visual status indicator badges
 status_badges_frame = ctk.CTkFrame(header_frame, fg_color="transparent")
 status_badges_frame.pack(side="right", padx=20, pady=12)
 
-engine_status_text = "⚡ C++ Alpha v1.0.0: Active" if DLL_AVAILABLE else "⚠️ C++ Engine: Fallback (Python)"
+engine_status_text = "⚡ C++ Alpha v1.6.0: Active" if DLL_AVAILABLE else "⚠️ C++ Engine: Fallback (Python)"
 engine_status_color = "#10B981" if DLL_AVAILABLE else "#EF4444"
 engine_status_label = ctk.CTkLabel(status_badges_frame, text=engine_status_text, font=("Segoe UI", 10, "bold"), text_color=engine_status_color, fg_color=DARK_BG, corner_radius=8, padx=10, pady=4)
 engine_status_label.pack(side="right", padx=5)
@@ -1422,6 +1421,7 @@ stops_btn_frame.pack(pady=(5, 12), fill="x", padx=15)
 ctk.CTkButton(stops_btn_frame, text="Select All Stops", command=lambda: [var.set(True) for var in stop_vars.values()], fg_color="#252B3B", hover_color=ACCENT_HOVER, text_color=TEXT_FG, font=("Segoe UI", 10, "bold"), width=130, height=32, corner_radius=8).pack(side="left", padx=5)
 ctk.CTkButton(stops_btn_frame, text="Clear All Stops", command=lambda: [var.set(False) for var in stop_vars.values()], fg_color="#252B3B", hover_color=ACCENT_HOVER, text_color=TEXT_FG, font=("Segoe UI", 10, "bold"), width=130, height=32, corner_radius=8).pack(side="left", padx=5)
 ctk.CTkButton(stops_btn_frame, text="🧹 Clear Audio Cache", command=clear_cache, fg_color="#252B3B", hover_color="#D97706", text_color=TEXT_FG, font=("Segoe UI", 10, "bold"), width=140, height=32, corner_radius=8).pack(side="right", padx=5)
+ctk.CTkButton(stops_btn_frame, text="Import Samples", command=import_samples, fg_color="#10B981", hover_color="#059669", text_color="white", font=("Segoe UI", 10, "bold"), width=130, height=32, corner_radius=8).pack(side="right", padx=5)
 
 # --- DASHBOARD LOWER COLUMNS WRAPPER ---
 bottom_frame = ctk.CTkFrame(root, fg_color="transparent")
@@ -1658,5 +1658,66 @@ root.protocol("WM_DELETE_WINDOW", on_closing)
 
 # Populate MIDI devices on startup
 refresh_midi_devices()
+
+
+import json
+import shutil
+from tkinter import filedialog
+
+PRESET_FILE = "organ_presets.json"
+
+def load_presets():
+    if os.path.exists(PRESET_FILE):
+        try:
+            with open(PRESET_FILE, 'r') as f:
+                return json.load(f)
+        except:
+            pass
+    return {}
+
+def save_presets(data):
+    try:
+        with open(PRESET_FILE, 'w') as f:
+            json.dump(data, f)
+    except:
+        pass
+
+def handle_preset_save(key):
+    data = load_presets()
+    active = [stop for stop, var in stop_vars.items() if var.get()]
+    data[str(key)] = active
+    save_presets(data)
+    print(f"Saved preset {key}")
+
+def handle_preset_load(key):
+    data = load_presets()
+    if str(key) in data:
+        active = data[str(key)]
+        for stop, var in stop_vars.items():
+            var.set(stop in active)
+        print(f"Loaded preset {key}")
+        update_stops_from_ui()
+
+for i in range(1, 10):
+    root.bind(str(i), lambda event, k=i: handle_preset_load(k))
+    root.bind(f"<Shift-KeyPress-{i}>", lambda event, k=i: handle_preset_save(k))
+
+def import_samples():
+    files = filedialog.askopenfilenames(
+        title="Import Soundfonts or Samples",
+        filetypes=[("Samples & Soundfonts", "*.sf2 *.sf3 *.zip *.nkc *.nkr *.nkx *.ogi *.nki *.nicint"), ("All files", "*.*")]
+    )
+    if not files:
+        return
+    import_dir = "imported_samples"
+    os.makedirs(import_dir, exist_ok=True)
+    count = 0
+    for f in files:
+        try:
+            shutil.copy(f, import_dir)
+            count += 1
+        except Exception as e:
+            print(f"Failed to import {f}: {e}")
+    print(f"Successfully imported {count} items.")
 
 root.mainloop()
