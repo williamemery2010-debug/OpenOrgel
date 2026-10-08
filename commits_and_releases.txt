@@ -1,8 +1,8 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-08 12:19:33
-Total Commits  : 72
+Updated At     : 2026-10-08 12:19:52
+Total Commits  : 73
 Total Releases : 11
 ================================================================================
 
@@ -73,7 +73,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-4a9008b  | 2026-10-08 | williamemery2010-deb | Fix unstaged files
+8188eee  | 2026-10-08 | williamemery2010-deb | Update history
+8480db8  | 2026-10-08 | williamemery2010-deb | Fix unstaged files
 7b0711a  | 2026-10-08 | williamemery2010-deb | Restore Clarion 8' synthesis changes with 5% faster attack and 5% quieter amplitude
 5d83c63  | 2026-10-08 | williamemery2010-deb | Restore Clarion 8' synthesis changes with 5% faster attack and 5% quieter amplitude
 e2285fa  | 2026-10-08 | williamemery2010-deb | Resolve merge conflict in history
