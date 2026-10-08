@@ -1,8 +1,8 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-08 11:23:59
-Total Commits  : 62
+Updated At     : 2026-10-08 11:40:01
+Total Commits  : 63
 Total Releases : 10
 ================================================================================
 
@@ -68,7 +68,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-eb4da93  | 2026-10-08 | williamemery2010-deb | Add preset save/load, sample importer, revert Diapason and Clarion changes
+83e5b6d  | 2026-10-08 | williamemery2010-deb | Commit unstaged
+634556c  | 2026-10-08 | williamemery2010-deb | Add preset save/load, sample importer, revert Diapason and Clarion changes
 558e8ff  | 2026-10-08 | williamemery2010-deb | Add preset save/load, sample importer, revert Diapason and Clarion changes
 9e0f3ee  | 2026-10-08 | williamemery2010-deb | Refine synthesis properties, swap stops, add Forceful Reed 16 and 32
 78e0974  | 2026-10-08 | williamemery2010-deb | Refine synthesis properties, swap stops, add Forceful Reed 16 and 32
