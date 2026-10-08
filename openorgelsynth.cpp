@@ -265,7 +265,7 @@ struct StopDefinition {
   bool is_sample_based;
 };
 
-static const StopDefinition STOPS_DB[30] = {
+static const StopDefinition STOPS_DB[32] = {
     // 0: Oboe 8'
     {"Oboe 8'",
      10,
@@ -362,29 +362,29 @@ static const StopDefinition STOPS_DB[30] = {
      {1.0, 0.4, 0.8, 0.2, 0.6, 0.1, 0.05, 0.02},
      false,
      false},
-    // 17: Hollow Gedeckt 8' (Airy)
-    {"Hollow Gedeckt 8' (Airy)",
+    // 17: Gedeckt 8' (Airy)
+    {"Gedeckt 8' (Airy)",
      6,
      {1.0, 3.0, 5.0, 7.0, 9.0, 11.0},
      {1.0, 0.5, 0.2, 0.08, 0.03, 0.01},
      false,
      false},
-    // 18: Hollow Gedeckt 4' (Airy)
-    {"Hollow Gedeckt 4' (Airy)",
+    // 18: Gedeckt 4' (Airy)
+    {"Gedeckt 4' (Airy)",
      6,
      {2.0, 6.0, 10.0, 14.0, 18.0, 22.0},
      {1.0, 0.5, 0.2, 0.08, 0.03, 0.01},
      true,
      false},
-    // 19: Hollow Gedeckt 16'
-    {"Hollow Gedeckt 16'",
+    // 19: Gedeckt 16'
+    {"Gedeckt 16'",
      6,
      {0.5, 1.5, 2.5, 3.5, 4.5, 5.5},
      {1.0, 0.5, 0.2, 0.08, 0.03, 0.01},
      false,
      false},
-    // 20: Hollow Gedeckt 32'
-    {"Hollow Gedeckt 32'",
+    // 20: Gedeckt 32'
+    {"Gedeckt 32'",
      6,
      {0.25, 0.75, 1.25, 1.75, 2.25, 2.75},
      {1.0, 0.5, 0.2, 0.08, 0.03, 0.01},
@@ -413,10 +413,10 @@ static const StopDefinition STOPS_DB[30] = {
      true},
     // 24: Voix Celeste 8'
     {"Voix Celeste 8'",
-     10,
-     {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0},
-     {1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2, 0.15, 0.1, 0.05},
-     false,
+     1,
+     {1.0},
+     {1.0},
+     true,
      false},
     // 25: Acoustic Flue 8'
     {"Acoustic Flue 8'", 1, {1.0}, {1.0}, false, true},
@@ -466,12 +466,12 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
   bool has_clarion_stops = false;
   for (int i = 0; i < num_stops; i++) {
     int stop_id = active_stop_ids[i];
-    if (stop_id >= 0 && stop_id < 30) {
+    if (stop_id >= 0 && stop_id < 32) {
       if (stop_id == 17 || stop_id == 18 || stop_id == 19 || stop_id == 20) {
         has_slower_drift = true;
       }
       if (STOPS_DB[stop_id].is_sample_based) {
-        if (stop_id == 26) {
+        if (stop_id == 26 || stop_id == 24) {
           has_clarion_stops = true;
         } else {
           has_flue_stops = true;
@@ -496,8 +496,8 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
   } else {
     for (int i = 0; i < num_stops; i++) {
       int stop_id = active_stop_ids[i];
-      if (stop_id >= 0 && stop_id < 30) {
-        bool sample_ready = (stop_id == 26) ? clarion_ready : flue_ready;
+      if (stop_id >= 0 && stop_id < 32) {
+        bool sample_ready = (stop_id == 26 || stop_id == 24) ? clarion_ready : flue_ready;
         if (!sample_ready || !STOPS_DB[stop_id].is_sample_based) {
           total_harmonics += STOPS_DB[stop_id].num_harmonics * 3;
         }
@@ -535,7 +535,7 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
         int stop_id = active_stop_ids[i];
         if (stop_id < 0 || stop_id >= 30)
           continue;
-        bool sample_ready = (stop_id == 26) ? clarion_ready : flue_ready;
+        bool sample_ready = (stop_id == 26 || stop_id == 24) ? clarion_ready : flue_ready;
         if (sample_ready && STOPS_DB[stop_id].is_sample_based)
           continue;
 
@@ -593,23 +593,23 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
 
   for (int i = 0; i < num_stops; i++) {
     int stop_id = active_stop_ids[i];
-    if (stop_id >= 0 && stop_id < 30 && STOPS_DB[stop_id].is_sample_based) {
+    if (stop_id >= 0 && stop_id < 32 && STOPS_DB[stop_id].is_sample_based) {
       const auto &stop = STOPS_DB[stop_id];
       const std::vector<float> *s_ptr = nullptr;
       int s_rate = 44100;
-      if (stop_id == 26 && clarion_ready) {
+      if ((stop_id == 26 || stop_id == 24) && clarion_ready) {
         s_ptr = &g_clarion_sample;
         s_rate = g_clarion_sample_rate;
-      } else if (stop_id != 26 && flue_ready) {
+      } else if (stop_id != 26 && stop_id != 24 && flue_ready) {
         s_ptr = &g_acoustic_flue_sample;
         s_rate = g_acoustic_flue_sample_rate;
       }
 
       if (s_ptr && !s_ptr->empty()) {
         double base_sample_ratio = (double)s_rate / (double)sample_rate;
-        double sample_base_freq = (stop_id == 26) ? 440.0 : 220.0;
+        double sample_base_freq = (stop_id == 26 || stop_id == 24) ? 440.0 : 220.0;
         for (int h = 0; h < stop.num_harmonics; h++) {
-          double rank_freq = freq * stop.harmonics[h];
+          double rank_freq = (stop_id == 24 ? freq * 1.006 : freq) * stop.harmonics[h];
           double pitch_ratio = rank_freq / sample_base_freq;
           double step = pitch_ratio * base_sample_ratio;
           double amp = stop.amplitudes[h];
@@ -628,7 +628,7 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
   double pitch_scoop_mult = exp(-20.0 / (double)sample_rate);
   double pitch_scoop_val = 0.001;
 
-  double air_amp = has_slower_drift ? 0.022 : 0.002;
+  double air_amp = (has_slower_drift ? 0.022 : 0.004) + 0.0015 * num_stops;
 
   // HIGH-PERFORMANCE VECTORIZED SYNTHESIS LOOP
   // menthol - WHY CODE HARD
@@ -689,7 +689,7 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
     }
 
     // Amplitude modulation & sub-bass boost
-    double airflow_env = 1.0 + 0.005 * fast_sin(5.5 * 2.0 * M_PI * t) + wind_wobble;
+    double airflow_env = 1.0 + 0.001 * fast_sin(5.5 * 2.0 * M_PI * t) + wind_wobble * 0.4;
     sample_val *= airflow_env;
 
     if (freq < 250.0) {
