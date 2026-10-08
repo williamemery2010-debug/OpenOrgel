@@ -36,7 +36,7 @@ struct SingleStop {
 // RESONANT HARMONIC REGISTER ARRAY MATRIX
 SingleStop singleStops[] = {
     {A5, "Diapason 8'", false}, {5, "Clarinet 8'", false},
-    {10, "Oboe 8'", false},     {3, "Bassoon 16'", false},
+    {10, "Forceful Reed 16'", false},     {3, "Bassoon 16'", false},
     {6, "Bombarde 16'", false}, {7, "Ophicleide 16'", false},
     {9, "Mixture IV", false}};
 const int numSingleStops = sizeof(singleStops) / sizeof(singleStops[0]);
@@ -50,7 +50,7 @@ const char *stops4and2[] = {"Flute 4'",
                             "Clarinet 4'",
                             "Viol 4'",
                             "Crystal Flute 4' (Glassy)",
-                            "Hollow Gedeckt 4' (Airy)",
+                            "Gedeckt 4' (Airy)",
                             "Ottavino 2'",
                             "Piccolo 2'"};
 const int num4and2Stops = sizeof(stops4and2) / sizeof(stops4and2[0]);

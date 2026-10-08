@@ -266,13 +266,6 @@ struct StopDefinition {
 };
 
 static const StopDefinition STOPS_DB[30] = {
-    // 0: Oboe 8'
-    {"Oboe 8'",
-     10,
-     {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0},
-     {0.5, 0.3, 1.0, 0.7, 0.4, 0.3, 0.2, 0.15, 0.1, 0.05},
-     false,
-     false},
     // 1: Clarinet 8'
     {"Clarinet 8'",
      9,
@@ -355,36 +348,33 @@ static const StopDefinition STOPS_DB[30] = {
     // 15: Mixture IV
     // menthol - MULTI-RANK ACOUSTIC FLUE RESAMPLING MATRIX
     {"Mixture IV", 4, {4.0, 6.0, 8.0, 12.0}, {1.0, 0.8, 0.6, 0.4}, false, true},
-    // 16: Vox Humana 8'
-    {"Vox Humana 8'",
-     8,
-     {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0},
-     {1.0, 0.4, 0.8, 0.2, 0.6, 0.1, 0.05, 0.02},
-     false,
-     false},
-    // 17: Hollow Gedeckt 8' (Airy)
-    {"Hollow Gedeckt 8' (Airy)",
+    // 30: Forceful Reed 16'
+    {"Forceful Reed 16'", 10, {0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0}, {1.0, 1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.05}, false, false},
+    // 31: Forceful Reed 32'
+    {"Forceful Reed 32'", 10, {0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5}, {1.0, 1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.05}, false, false},
+    // 17: Gedeckt 8' (Airy)
+    {"Gedeckt 8' (Airy)",
      6,
      {1.0, 3.0, 5.0, 7.0, 9.0, 11.0},
      {1.0, 0.5, 0.2, 0.08, 0.03, 0.01},
      false,
      false},
-    // 18: Hollow Gedeckt 4' (Airy)
-    {"Hollow Gedeckt 4' (Airy)",
+    // 18: Gedeckt 4' (Airy)
+    {"Gedeckt 4' (Airy)",
      6,
      {2.0, 6.0, 10.0, 14.0, 18.0, 22.0},
      {1.0, 0.5, 0.2, 0.08, 0.03, 0.01},
      true,
      false},
-    // 19: Hollow Gedeckt 16'
-    {"Hollow Gedeckt 16'",
+    // 19: Gedeckt 16'
+    {"Gedeckt 16'",
      6,
      {0.5, 1.5, 2.5, 3.5, 4.5, 5.5},
      {1.0, 0.5, 0.2, 0.08, 0.03, 0.01},
      false,
      false},
-    // 20: Hollow Gedeckt 32'
-    {"Hollow Gedeckt 32'",
+    // 20: Gedeckt 32'
+    {"Gedeckt 32'",
      6,
      {0.25, 0.75, 1.25, 1.75, 2.25, 2.75},
      {1.0, 0.5, 0.2, 0.08, 0.03, 0.01},
@@ -412,12 +402,7 @@ static const StopDefinition STOPS_DB[30] = {
      false,
      true},
     // 24: Voix Celeste 8'
-    {"Voix Celeste 8'",
-     10,
-     {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0},
-     {1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2, 0.15, 0.1, 0.05},
-     false,
-     false},
+    {"Voix Celeste 8'", 1, {1.002}, {1.0}, false, true},
     // 25: Acoustic Flue 8'
     {"Acoustic Flue 8'", 1, {1.0}, {1.0}, false, true},
     // 26: Clarion 4'
@@ -553,8 +538,9 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
               amp * exp(-dampening *
                         (harmonic_factor > 1.0 ? (harmonic_factor - 1.0) : 0.0));
 
+          double stop_detune = (active_stop_ids[i] * 7 % 11 - 5) * 0.00015;
           double f = stop_freq * harmonic_factor *
-                     (1.0 + 0.00015 * (harmonic_factor * harmonic_factor));
+                     (1.0 + 0.00015 * (harmonic_factor * harmonic_factor) + stop_detune);
 
           if (f > 800.0 && !has_slower_drift) {
             double treble_boost = 1.0 + ((f - 800.0) / 2500.0);
@@ -621,7 +607,9 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
 
   // MULTIPLICATIVE ENVELOPE INITIALIZATION
   double chiff_decay = has_slower_drift ? 4.0 : 12.0;
-  double chiff_amp = has_slower_drift ? 0.55 : 0.22;
+  bool has_clarion = false;
+  for(int k=0; k<num_stops; k++) if(active_stop_ids[k] == 26) has_clarion = true;
+  double chiff_amp = has_clarion ? 0.05 : (has_slower_drift ? 0.55 : 0.22);
   double chiff_mult = exp(-chiff_decay / (double)sample_rate);
   double chiff_env = 1.0;
 
@@ -637,9 +625,9 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
     double t = (double)n / (double)sample_rate;
 
     // Control-rate LFOs evaluated directly per sample with fast sin
-    double wind_wobble = 0.0015 * fast_sin(0.7 * 2.0 * M_PI * t + 0.5) +
-                         0.0010 * fast_sin(1.3 * 2.0 * M_PI * t + 1.2) +
-                         0.0008 * fast_sin(2.8 * 2.0 * M_PI * t + 2.3);
+    double wind_wobble = 0.0007 * fast_sin(0.7 * 2.0 * M_PI * t + 0.5) +
+                         0.0005 * fast_sin(1.3 * 2.0 * M_PI * t + 1.2) +
+                         0.0004 * fast_sin(2.8 * 2.0 * M_PI * t + 2.3);
 
     double drift_phase = has_slower_drift ? (0.00004 * fast_sin(0.4 * 2.0 * M_PI * t) + 0.00002 * fast_sin(0.7 * 2.0 * M_PI * t))
                                           : (0.00004 * fast_sin(2.1 * 2.0 * M_PI * t) + 0.00002 * fast_sin(3.7 * 2.0 * M_PI * t));
@@ -689,7 +677,7 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
     }
 
     // Amplitude modulation & sub-bass boost
-    double airflow_env = 1.0 + 0.005 * fast_sin(5.5 * 2.0 * M_PI * t) + wind_wobble;
+    double airflow_env = 1.0 + 0.002 * fast_sin(5.5 * 2.0 * M_PI * t) + wind_wobble;
     sample_val *= airflow_env;
 
     if (freq < 250.0) {

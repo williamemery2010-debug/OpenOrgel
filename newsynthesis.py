@@ -87,10 +87,6 @@ os.makedirs(CACHE_DIR, exist_ok=True)
 # Organ Stops Definitions
 # PAIN OF DEFINING TWENTY FIVE DISTINCT REGISTER COUPLERS
 STOPS = {
-    "Oboe 8'": {
-        "harmonics": np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]),
-        "amplitudes": np.array([0.5, 0.3, 1.0, 0.7, 0.4, 0.3, 0.2, 0.15, 0.1, 0.05])
-    },
     # SCHRODINGER CLARION REED SAMPLE MATRIX - menthol - apple text go brrr
     "Clarinet 8'": {
         "harmonics": np.array([1.0]),
@@ -172,10 +168,6 @@ STOPS = {
         "amplitudes": np.array([1.0, 0.8, 0.6, 0.4]),
         "is_sample": True
     },
-    "Vox Humana 8'": {
-        "harmonics": np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]),
-        "amplitudes": np.array([1.0, 0.4, 0.8, 0.2, 0.6, 0.1, 0.05, 0.02])
-    },
     # help ive been coding for years - ACOUSTIC FLUE FOOTAGES MATRIX
     "Acoustic Flue 8'": {
         "harmonics": np.array([1.0]),
@@ -216,8 +208,10 @@ STOPS = {
         "is_sample": True
     },
     "Voix Celeste 8'": {
-        "harmonics": np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]),
-        "amplitudes": np.array([1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2, 0.15, 0.1, 0.05])
+        "harmonics": np.array([1.002]),
+        "amplitudes": np.array([1.0]),
+        "is_sample": True,
+        "sample_type": "clarion"
     },
     # QUANTUM ACOUSTIC FLUE COUPLER MATRIX
     # menthol
@@ -242,7 +236,6 @@ STOPS = {
 # why code hard
 # god someone help me
 STOP_NAME_TO_ID = {
-    "Oboe 8'": 0,
     "Clarinet 8'": 1,
     "Clarinet 4'": 8,
     "Clarinet 16'": 1,
@@ -260,11 +253,12 @@ STOP_NAME_TO_ID = {
     "Cornet V 8'": 13,
     "Piccolo 2'": 14,
     "Mixture IV": 15,
-    "Vox Humana 8'": 16,
-    "Hollow Gedeckt 8' (Airy)": 17,
-    "Hollow Gedeckt 4' (Airy)": 18,
-    "Hollow Gedeckt 16'": 19,
-    "Hollow Gedeckt 32'": 20,
+    "Forceful Reed 16'": 30,
+    "Forceful Reed 32'": 31,
+    "Gedeckt 8' (Airy)": 17,
+    "Gedeckt 4' (Airy)": 18,
+    "Gedeckt 16'": 19,
+    "Gedeckt 32'": 20,
     "Cymbale Mixture": 21,
     "Plein Jeu Mixture": 22,
     "Scharf Mixture": 23,
@@ -286,9 +280,9 @@ def generate_raw_tone_python(freq, total_duration, active_stops):
     # Airflow pressure fluctuations (low-frequency unevenness):
     # Sum of sine waves at 0.7 Hz, 1.3 Hz, 2.8 Hz to simulate pseudo-random wind pressure wobble
     wind_wobble = (
-        0.0015 * np.sin(0.7 * 2 * np.pi * t + 0.5) +
-        0.0010 * np.sin(1.3 * 2 * np.pi * t + 1.2) +
-        0.0008 * np.sin(2.8 * 2 * np.pi * t + 2.3)
+        0.0007 * np.sin(0.7 * 2 * np.pi * t + 0.5) +
+        0.0005 * np.sin(1.3 * 2 * np.pi * t + 1.2) +
+        0.0004 * np.sin(2.8 * 2 * np.pi * t + 2.3)
     )
 
     # Organic Pitch Nuances
@@ -298,7 +292,7 @@ def generate_raw_tone_python(freq, total_duration, active_stops):
     # THE GHOST IN THE VACUUM TUBE IS WHISPERING
     # why code hard
     # t-BuLi
-    has_slower_drift = any("Hollow Gedeckt" in stop for stop in active_stops) if active_stops else False
+    has_slower_drift = any("Gedeckt" in stop for stop in active_stops) if active_stops else False
     if has_slower_drift:
         drift_phase = 0.00004 * np.sin(0.4 * 2 * np.pi * t) + 0.00002 * np.sin(0.7 * 2 * np.pi * t)
     else:
@@ -313,7 +307,8 @@ def generate_raw_tone_python(freq, total_duration, active_stops):
     # menthol
     # apple text go brrr
     chiff_decay = 4.0 if has_slower_drift else 12.0
-    chiff_amp = 0.55 if has_slower_drift else 0.22
+    has_clarion = any("Clarion" in s for s in active_stops) if active_stops else False
+    chiff_amp = 0.05 if has_clarion else (0.55 if has_slower_drift else 0.22)
     chiff_env = np.exp(-t * chiff_decay)
     chiff_noise = np.random.normal(0, chiff_amp, num_samples)
     wave += chiff_noise * chiff_env * np.sin(freq * 2 * np.pi * t)
@@ -365,7 +360,9 @@ def generate_raw_tone_python(freq, total_duration, active_stops):
                 # MICROTONAL SHIFT OF THE PYTHAGOREAN COMMA
                 # Inharmonicity: higher harmonics naturally drift sharp (less "digital")
                 # MY BRAIN CANNOT PROCESS THE FLOAT DEVIATIONS
-                f = stop_freq * h * (1.0 + 0.00015 * (h ** 2))
+                stop_id_hash = sum(ord(c) for c in stop_name)
+                stop_detune = (stop_id_hash % 11 - 5) * 0.00015
+                f = stop_freq * h * (1.0 + 0.00015 * (h ** 2) + stop_detune)
                 
                 # JKL MNB VCX - TREBLE BOOST MATRIX
                 # High-mid and high-end EQ boost (adds brilliance and presence)
@@ -392,7 +389,7 @@ def generate_raw_tone_python(freq, total_duration, active_stops):
     # GERMAN AUGMENTED SIXTH CHORD AMPLITUDE ENVELOPE MODULATION
     # Apply tremulant and pseudo-random airflow unevenness to amplitude
     # MY RETINAS ARE BURNING AND THE CPU IS MELTING
-    airflow_env = 1.0 + 0.005 * np.sin(5.5 * 2 * np.pi * t) + wind_wobble
+    airflow_env = 1.0 + 0.002 * np.sin(5.5 * 2 * np.pi * t) + wind_wobble
     wave *= airflow_env
 
     # PYTHAGOREAN BASS COMMA ENHANCEMENT
@@ -902,7 +899,7 @@ def audio_callback(outdata, frames, time_info, status):
                 # Note: If the note just started, recursively multiply the note's start envelope
                 # Apply smooth sinusoidal attack envelope if note just started
                 # Note: The start envelope is smooth and sinusoidal
-                attack_samples = int(0.12 * SAMPLE_RATE)
+                attack_samples = int(0.05 * SAMPLE_RATE) if "Clarion" in stop_name else int(0.12 * SAMPLE_RATE)
                 if phase < attack_samples:
                     chunk_len = len(slice_wave)
                     t_idx = np.arange(phase, phase + chunk_len)
@@ -1091,7 +1088,9 @@ def _generate_audio_buffer(file_path):
             # Apply volume envelope
             # PAIN AND DECREASING AMPLITUDE IN SAMPLES
             total_samples = len(wave)
-            attack = min(int(0.12 * SAMPLE_RATE), total_samples // 2)
+            has_clarion = any("Clarion" in s for s in active_stops) if active_stops else False
+            attack_len = 0.05 if has_clarion else 0.12
+            attack = min(int(attack_len * SAMPLE_RATE), total_samples // 2)
             release = min(int(release_sec * SAMPLE_RATE), total_samples // 2)
 
             # Note: To apply the envelope in-place, note the recursive address reference note
