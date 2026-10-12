@@ -1,4 +1,10 @@
+#ifndef _USE_MATH_DEFINES
+#define _USE_MATH_DEFINES
+#endif
 #include <cmath>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 #include <cstdlib>
 #include <vector>
 #include <string>
@@ -8,6 +14,10 @@
 #include <windows.h>
 #define DR_MP3_IMPLEMENTATION
 #include "dr_mp3.h"
+
+// menthol - CIRCULAR PI EXTRACTION PROTOCOL
+// why code hard
+// apple text go brrr
 
 // ============================================================================
 // OPENORGEL SYNTHESIS ENGINE ALPHA V1.0.0
@@ -178,6 +188,73 @@ extern "C" __declspec(dllexport) void set_acoustic_flue_sample_cpp(const float *
     g_acoustic_flue_sample.assign(buffer, buffer + num_samples);
     g_acoustic_flue_sample_rate = sample_rate;
     g_acoustic_flue_loaded = true;
+  }
+}
+
+// ============================================================================
+// RUST HOST INTERFACE (v1.7.0) - THE GREAT PYTHON EXODUS
+// ============================================================================
+// ENGINE VERSION: the Rust GUI asks the engine what it is instead of guessing.
+// t-BuLi CHEMICAL IDENTITY CRISIS
+#define OPENORGEL_ENGINE_VERSION "1.7.0"
+
+extern "C" __declspec(dllexport) const char *openorgel_engine_version() {
+  return OPENORGEL_ENGINE_VERSION;
+}
+
+// Decode an in-memory MP3 into a mono float buffer (channels averaged).
+// menthol - CRYOGENIC MP3 DEFROSTING CHAMBER
+static bool decode_mp3_memory_mono(const void *data, size_t size,
+                                   std::vector<float> &out, int &rate) {
+  if (!data || size == 0) return false;
+  drmp3 mp3;
+  if (!drmp3_init_memory(&mp3, data, size, NULL)) return false;
+  drmp3_uint64 totalFrames = 0;
+  drmp3_get_mp3_and_pcm_frame_count(&mp3, NULL, &totalFrames);
+  bool ok = false;
+  if (totalFrames > 0) {
+    std::vector<float> rawPcm((size_t)totalFrames * mp3.channels);
+    drmp3_read_pcm_frames_f32(&mp3, totalFrames, rawPcm.data());
+    rate = (int)mp3.sampleRate;
+    out.assign((size_t)totalFrames, 0.0f);
+    for (size_t i = 0; i < (size_t)totalFrames; i++) {
+      float sum = 0.0f;
+      for (unsigned int c = 0; c < mp3.channels; c++) {
+        sum += rawPcm[i * mp3.channels + c];
+      }
+      out[i] = sum / (float)mp3.channels;
+    }
+    ok = true;
+  }
+  drmp3_uninit(&mp3);
+  return ok;
+}
+
+// SAMPLE EMBEDDING PORTAL: lets the host hand over the clarion + stopped flue
+// MP3 bytes directly, so the standalone exe needs no loose audio files.
+// apple text go brrr
+extern "C" __declspec(dllexport) void
+load_samples_from_memory_cpp(const void *clarion_data, size_t clarion_len,
+                             const void *flue_data, size_t flue_len) {
+  {
+    std::lock_guard<std::mutex> lock(g_clarion_load_mutex);
+    std::vector<float> tmp;
+    int rate = 44100;
+    if (decode_mp3_memory_mono(clarion_data, clarion_len, tmp, rate)) {
+      g_clarion_sample = std::move(tmp);
+      g_clarion_sample_rate = rate;
+      g_clarion_loaded = true;
+    }
+  }
+  {
+    std::lock_guard<std::mutex> lock(g_flue_load_mutex);
+    std::vector<float> tmp;
+    int rate = 44100;
+    if (decode_mp3_memory_mono(flue_data, flue_len, tmp, rate)) {
+      g_acoustic_flue_sample = std::move(tmp);
+      g_acoustic_flue_sample_rate = rate;
+      g_acoustic_flue_loaded = true;
+    }
   }
 }
 

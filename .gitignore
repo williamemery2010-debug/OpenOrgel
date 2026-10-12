@@ -14,3 +14,4 @@ dist/
 Open-Orgel Software/
 Open-Orgel Software.zip
 *.zip
+rust/target/

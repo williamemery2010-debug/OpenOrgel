@@ -1,0 +1,977 @@
+//! THE CONSOLE - egui front end for OpenOrgel.
+//!
+//! 1:1 feature parity with the old Tkinter console (stops, tuning, MIDI in,
+//! pitch-class resonance wheel, load/export/pause/resume/stop, presets 1-9,
+//! Arduino link) in a fraction of the RAM and none of the Python.
+//! help ive been coding for years
+
+use crossbeam_channel::{unbounded, Receiver, Sender};
+use eframe::egui::{
+    self, Align, Align2, Color32, CornerRadius, FontData, FontDefinitions, FontFamily, FontId,
+    Layout, Margin, Pos2, RichText, Sense, Shape, Stroke, StrokeKind, Vec2,
+};
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+
+use crate::audio::AudioOutput;
+use crate::engine::{self, Engine, Rendered, SAMPLE_RATE};
+use crate::ffi;
+use crate::midi_in::{self, MidiConnection};
+use crate::serial::{ArduinoLink, SerialEvent};
+use crate::settings::Settings;
+use crate::stops::{self, Group, STOPS};
+
+// ---- palette (carried over from the legacy console) ----
+const DARK_BG: Color32 = Color32::from_rgb(0x0B, 0x0E, 0x14);
+const PANEL_BG: Color32 = Color32::from_rgb(0x16, 0x19, 0x22);
+const BORDER: Color32 = Color32::from_rgb(0x25, 0x2B, 0x3B);
+const ACCENT: Color32 = Color32::from_rgb(0x3B, 0x82, 0xF6);
+const ACCENT_HOVER: Color32 = Color32::from_rgb(0x25, 0x63, 0xEB);
+const TEXT_FG: Color32 = Color32::from_rgb(0xF3, 0xF4, 0xF6);
+const TEXT_MUTED: Color32 = Color32::from_rgb(0x9C, 0xA3, 0xAF);
+const GREEN: Color32 = Color32::from_rgb(0x10, 0xB9, 0x81);
+const GREEN_HOVER: Color32 = Color32::from_rgb(0x05, 0x96, 0x69);
+const AMBER: Color32 = Color32::from_rgb(0xF5, 0x9E, 0x0B);
+const AMBER_HOVER: Color32 = Color32::from_rgb(0xD9, 0x77, 0x06);
+const RED: Color32 = Color32::from_rgb(0xEF, 0x44, 0x44);
+const RED_HOVER: Color32 = Color32::from_rgb(0xDC, 0x26, 0x26);
+const CHIP: Color32 = Color32::from_rgb(0x25, 0x2B, 0x3B);
+
+const TUNINGS: [u32; 6] = [415, 432, 440, 441, 442, 466];
+const PITCH_NAMES: [&str; 12] = [
+    "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B",
+];
+
+fn bold_family() -> FontFamily {
+    FontFamily::Name("bold".into())
+}
+
+fn bold(text: impl Into<String>, size: f32) -> RichText {
+    RichText::new(text).family(bold_family()).size(size)
+}
+
+fn lerp_color(a: Color32, b: Color32, t: f32) -> Color32 {
+    let l = |x: u8, y: u8| (x as f32 + (y as f32 - x as f32) * t).round() as u8;
+    Color32::from_rgb(l(a.r(), b.r()), l(a.g(), b.g()), l(a.b(), b.b()))
+}
+
+/// Rounded button with an animated hover colour (smoother than stock egui).
+fn pill_button(
+    ui: &mut egui::Ui,
+    text: &str,
+    base: Color32,
+    hover: Color32,
+    size: Vec2,
+    enabled: bool,
+) -> egui::Response {
+    let sense = if enabled { Sense::click() } else { Sense::hover() };
+    let (rect, resp) = ui.allocate_exact_size(size, sense);
+    let id = resp.id.with("hover_anim");
+    let t = ui.ctx().animate_bool_with_time(id, resp.hovered() && enabled, 0.12);
+    let mut fill = lerp_color(base, hover, t);
+    if resp.is_pointer_button_down_on() && enabled {
+        fill = lerp_color(fill, Color32::BLACK, 0.15);
+    }
+    if !enabled {
+        fill = lerp_color(base, DARK_BG, 0.6);
+    }
+    ui.painter().rect_filled(rect, CornerRadius::same(8), fill);
+    let txt_color = if enabled { Color32::WHITE } else { TEXT_MUTED };
+    ui.painter().text(
+        rect.center(),
+        Align2::CENTER_CENTER,
+        text,
+        FontId::new(13.0, bold_family()),
+        txt_color,
+    );
+    if enabled {
+        resp.on_hover_cursor(egui::CursorIcon::PointingHand)
+    } else {
+        resp
+    }
+}
+
+fn card<R>(ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui) -> R) -> R {
+    egui::Frame::new()
+        .fill(PANEL_BG)
+        .corner_radius(CornerRadius::same(14))
+        .inner_margin(Margin::symmetric(16, 12))
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            add(ui)
+        })
+        .inner
+}
+
+fn inner_card<R>(ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui) -> R) -> R {
+    egui::Frame::new()
+        .fill(DARK_BG)
+        .stroke(Stroke::new(1.0, BORDER))
+        .corner_radius(CornerRadius::same(10))
+        .inner_margin(Margin::symmetric(10, 8))
+        .show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            add(ui)
+        })
+        .inner
+}
+
+enum UiMsg {
+    /// Dialog finished: Some(path) to render, None if cancelled.
+    LoadPicked(Option<PathBuf>),
+    RenderDone(Result<Rendered, String>, PathBuf),
+    ExportStarted,
+    ExportDone(Result<PathBuf, String>),
+    ExportCancelled,
+    ImportPicked(Vec<PathBuf>),
+}
+
+#[derive(PartialEq, Clone, Copy)]
+enum Busy {
+    Idle,
+    Dialog,
+    Synth,
+    Export,
+}
+
+pub struct OrgelApp {
+    engine: Arc<Engine>,
+    audio: Result<AudioOutput, String>,
+    settings: Settings,
+    stop_on: Vec<bool>,
+    groups: Vec<(Group, Vec<usize>)>,
+    ordered: Vec<usize>,
+    tuning: u32,
+    volume: f32,
+    midi_devices: Vec<String>,
+    midi_selected: String,
+    midi_conn: Option<MidiConnection>,
+    link: ArduinoLink,
+    last_a4: bool,
+    toast: Option<(String, Instant, Color32)>,
+    busy: Busy,
+    tx: Sender<UiMsg>,
+    rx: Receiver<UiMsg>,
+    engine_version: String,
+    pcs: [bool; 12],
+}
+
+impl OrgelApp {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        setup_fonts(&cc.egui_ctx);
+        setup_visuals(&cc.egui_ctx);
+
+        ffi::init_engine();
+        let engine_version = ffi::engine_version();
+        let engine = Engine::new();
+        let settings = Settings::load();
+
+        let mut stop_on = vec![false; STOPS.len()];
+        if let Some(i) = stops::index_of(stops::DEFAULT_STOP) {
+            stop_on[i] = true;
+        }
+
+        let tuning = if TUNINGS.contains(&settings.tuning) {
+            settings.tuning
+        } else {
+            440
+        };
+        let volume = settings.volume.clamp(0.0, 1.0);
+        engine.set_a4(tuning as f64);
+        engine.set_volume(volume);
+
+        let audio = AudioOutput::start(engine.clone());
+        if let Err(e) = &audio {
+            eprintln!("Audio start failed: {e}");
+        }
+
+        let ctx = cc.egui_ctx.clone();
+        let link = ArduinoLink::spawn(move || ctx.request_repaint());
+
+        let (tx, rx) = unbounded();
+        let mut app = OrgelApp {
+            engine,
+            audio,
+            settings,
+            stop_on,
+            groups: stops::grouped(),
+            ordered: stops::ordered_indices(),
+            tuning,
+            volume,
+            midi_devices: Vec::new(),
+            midi_selected: "None".to_string(),
+            midi_conn: None,
+            link,
+            last_a4: false,
+            toast: None,
+            busy: Busy::Idle,
+            tx,
+            rx,
+            engine_version,
+            pcs: [false; 12],
+        };
+        app.apply_stops();
+        app.refresh_midi_devices();
+        let last = app.settings.last_midi_device.clone();
+        if last != "None" && app.midi_devices.contains(&last) {
+            app.select_midi(&last);
+        }
+        app
+    }
+
+    // ---------- helpers ----------
+
+    fn toast(&mut self, msg: impl Into<String>, color: Color32) {
+        self.toast = Some((msg.into(), Instant::now(), color));
+    }
+
+    fn active_ids(&self) -> Vec<i32> {
+        STOPS
+            .iter()
+            .zip(self.stop_on.iter())
+            .filter(|(_, on)| **on)
+            .map(|(s, _)| s.id)
+            .collect()
+    }
+
+    fn active_names(&self) -> Vec<String> {
+        STOPS
+            .iter()
+            .zip(self.stop_on.iter())
+            .filter(|(_, on)| **on)
+            .map(|(s, _)| s.name.to_string())
+            .collect()
+    }
+
+    /// Stops changed: tell the engine (live tones + background re-render).
+    fn apply_stops(&mut self) {
+        self.engine.set_stops(self.active_ids());
+        self.engine.refresh();
+    }
+
+    fn refresh_midi_devices(&mut self) {
+        self.midi_devices = midi_in::list_inputs();
+        if self.midi_selected != "None" && !self.midi_devices.contains(&self.midi_selected) {
+            self.select_midi("None");
+        }
+    }
+
+    fn select_midi(&mut self, name: &str) {
+        self.midi_conn = None; // dropping closes the port
+        self.engine.all_notes_off();
+        self.midi_selected = name.to_string();
+        if name != "None" {
+            match midi_in::open_input(name, self.engine.clone()) {
+                Ok(c) => self.midi_conn = Some(c),
+                Err(e) => {
+                    self.midi_selected = "None".to_string();
+                    self.toast(e, RED);
+                }
+            }
+        }
+        self.settings.last_midi_device = self.midi_selected.clone();
+        self.settings.save();
+    }
+
+    fn save_preset(&mut self, key: usize) {
+        let names = self.active_names();
+        self.settings.presets.insert(key.to_string(), names);
+        self.settings.save();
+        self.toast(format!("Saved active stops to Preset {key}"), GREEN);
+    }
+
+    fn load_preset(&mut self, key: usize) {
+        let Some(names) = self.settings.presets.get(&key.to_string()).cloned() else {
+            return;
+        };
+        if names.is_empty() {
+            self.toast(format!("Preset {key} is empty (Shift+{key} to save)"), AMBER);
+            return;
+        }
+        for (i, s) in STOPS.iter().enumerate() {
+            self.stop_on[i] = names.iter().any(|n| n == s.name);
+        }
+        self.apply_stops();
+        self.toast(format!("Loaded Preset {key}"), ACCENT);
+    }
+
+    fn set_all_stops(&mut self, on: bool) {
+        for v in self.stop_on.iter_mut() {
+            *v = on;
+        }
+        self.apply_stops();
+    }
+
+    // ---------- background work ----------
+
+    fn start_load_dialog(&mut self, ctx: &egui::Context) {
+        if self.busy != Busy::Idle {
+            return;
+        }
+        self.busy = Busy::Dialog;
+        let tx = self.tx.clone();
+        let ctx = ctx.clone();
+        std::thread::spawn(move || {
+            let pick = rfd::FileDialog::new()
+                .set_title("Load MIDI")
+                .add_filter("MIDI files", &["mid", "midi"])
+                .pick_file();
+            let _ = tx.send(UiMsg::LoadPicked(pick));
+            ctx.request_repaint();
+        });
+    }
+
+    fn start_render(&mut self, path: PathBuf, ctx: &egui::Context) {
+        self.busy = Busy::Synth;
+        let engine = self.engine.clone();
+        let stops = self.active_ids();
+        let a4 = engine.a4();
+        let tx = self.tx.clone();
+        let ctx = ctx.clone();
+        std::thread::spawn(move || {
+            let r = engine::render_midi(&engine, &path, &stops, a4);
+            let _ = tx.send(UiMsg::RenderDone(r, path));
+            ctx.request_repaint();
+        });
+    }
+
+    fn start_export(&mut self, ctx: &egui::Context) {
+        if self.busy != Busy::Idle {
+            return;
+        }
+        self.busy = Busy::Dialog;
+        let engine = self.engine.clone();
+        let stops = self.active_ids();
+        let a4 = engine.a4();
+        let tx = self.tx.clone();
+        let ctx = ctx.clone();
+        std::thread::spawn(move || {
+            let Some(midi) = rfd::FileDialog::new()
+                .set_title("Choose MIDI to export")
+                .add_filter("MIDI files", &["mid", "midi"])
+                .pick_file()
+            else {
+                let _ = tx.send(UiMsg::ExportCancelled);
+                ctx.request_repaint();
+                return;
+            };
+            let Some(wav) = rfd::FileDialog::new()
+                .set_title("Save WAV")
+                .add_filter("WAV files", &["wav"])
+                .set_file_name("openorgel.wav")
+                .save_file()
+            else {
+                let _ = tx.send(UiMsg::ExportCancelled);
+                ctx.request_repaint();
+                return;
+            };
+            let _ = tx.send(UiMsg::ExportStarted);
+            ctx.request_repaint();
+            let result = engine::render_midi(&engine, &midi, &stops, a4)
+                .and_then(|r| engine::write_wav(&wav, &r.audio))
+                .map(|_| wav);
+            let _ = tx.send(UiMsg::ExportDone(result));
+            ctx.request_repaint();
+        });
+    }
+
+    fn start_import_dialog(&mut self, ctx: &egui::Context) {
+        if self.busy != Busy::Idle {
+            return;
+        }
+        self.busy = Busy::Dialog;
+        let tx = self.tx.clone();
+        let ctx = ctx.clone();
+        std::thread::spawn(move || {
+            let picks = rfd::FileDialog::new()
+                .set_title("Import Soundfonts & Samples")
+                .add_filter(
+                    "Sound Libraries",
+                    &["sf2", "sf3", "zip", "nkc", "nkr", "nkx", "ogi", "nki", "nicint"],
+                )
+                .pick_files()
+                .unwrap_or_default();
+            let _ = tx.send(UiMsg::ImportPicked(picks));
+            ctx.request_repaint();
+        });
+    }
+
+    fn pump_messages(&mut self, ctx: &egui::Context) {
+        while let Ok(msg) = self.rx.try_recv() {
+            match msg {
+                UiMsg::LoadPicked(Some(path)) => self.start_render(path, ctx),
+                UiMsg::LoadPicked(None) | UiMsg::ExportCancelled => self.busy = Busy::Idle,
+                UiMsg::RenderDone(result, path) => {
+                    self.busy = Busy::Idle;
+                    match result {
+                        Ok(r) => {
+                            self.engine.start_playback(r, path);
+                        }
+                        Err(e) => self.toast(e, RED),
+                    }
+                }
+                UiMsg::ExportStarted => self.busy = Busy::Export,
+                UiMsg::ExportDone(result) => {
+                    self.busy = Busy::Idle;
+                    match result {
+                        Ok(p) => self.toast(format!("Audio saved to {}", p.display()), GREEN),
+                        Err(e) => self.toast(format!("Export failed: {e}"), RED),
+                    }
+                }
+                UiMsg::ImportPicked(paths) => {
+                    self.busy = Busy::Idle;
+                    if !paths.is_empty() {
+                        // Honest status: the dialog works, the loaders are the next milestone.
+                        self.toast(
+                            format!(
+                                "{} file(s) selected, but sample-library loading is not implemented yet.",
+                                paths.len()
+                            ),
+                            AMBER,
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    fn pump_serial(&mut self) {
+        while let Ok(ev) = self.link.rx.try_recv() {
+            match ev {
+                SerialEvent::Volume(v) => {
+                    self.volume = v.clamp(0.0, 1.0);
+                    self.engine.set_volume(self.volume);
+                }
+                SerialEvent::Stop { ident, state } => {
+                    let mut changed = false;
+                    if ident == "ALL" {
+                        for v in self.stop_on.iter_mut() {
+                            *v = state;
+                        }
+                        changed = true;
+                    } else if let Some(i) = stops::index_of(&ident) {
+                        self.stop_on[i] = state;
+                        changed = true;
+                    } else if let Ok(n) = ident.parse::<usize>() {
+                        // legacy numeric fallback
+                        if let Some(&i) = self.ordered.get(n) {
+                            self.stop_on[i] = state;
+                            changed = true;
+                        }
+                    }
+                    if changed {
+                        self.apply_stops();
+                    }
+                }
+                SerialEvent::Connected(p) => self.toast(format!("Console connected on {p}"), GREEN),
+                SerialEvent::Disconnected => self.toast("Console connection lost, retrying...", AMBER),
+            }
+        }
+    }
+
+    fn handle_keys(&mut self, ctx: &egui::Context) {
+        use egui::{Event, Key};
+        let mut actions: Vec<(usize, bool)> = Vec::new(); // (preset, save?)
+        ctx.input(|i| {
+            for ev in &i.events {
+                if let Event::Key {
+                    key,
+                    physical_key,
+                    pressed: true,
+                    repeat: false,
+                    modifiers,
+                    ..
+                } = ev
+                {
+                    if modifiers.ctrl || modifiers.alt || modifiers.command {
+                        continue;
+                    }
+                    let k = physical_key.unwrap_or(*key);
+                    let n = match k {
+                        Key::Num1 => 1,
+                        Key::Num2 => 2,
+                        Key::Num3 => 3,
+                        Key::Num4 => 4,
+                        Key::Num5 => 5,
+                        Key::Num6 => 6,
+                        Key::Num7 => 7,
+                        Key::Num8 => 8,
+                        Key::Num9 => 9,
+                        _ => continue,
+                    };
+                    actions.push((n, modifiers.shift));
+                }
+            }
+        });
+        for (n, save) in actions {
+            if save {
+                self.save_preset(n);
+            } else {
+                self.load_preset(n);
+            }
+        }
+    }
+
+    // ---------- drawing ----------
+
+    fn header(&mut self, ui: &mut egui::Ui) {
+        card(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.vertical(|ui| {
+                    ui.label(
+                        bold(
+                            format!(
+                                "OPENORGEL SYNTHESIS ENGINE  (v{})",
+                                env!("CARGO_PKG_VERSION")
+                            ),
+                            20.0,
+                        )
+                        .color(TEXT_FG),
+                    );
+                    ui.label(
+                        RichText::new(
+                            "High-Performance Physical Modeling & Dual-Layer RAM Resampled Organ Console",
+                        )
+                        .size(12.0)
+                        .color(TEXT_MUTED),
+                    );
+                });
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    badge(
+                        ui,
+                        &format!("C++ Engine v{}: Active", self.engine_version),
+                        GREEN,
+                    );
+                    if self.link.is_connected() {
+                        badge(ui, "Console: Connected", ACCENT);
+                    } else {
+                        badge(ui, "Console: Searching...", TEXT_MUTED);
+                    }
+                });
+            });
+        });
+    }
+
+    fn stops_panel(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        let mut changed = false;
+        card(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(bold("Console Stops & Pipe Registers", 15.0).color(ACCENT));
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    ui.label(
+                        RichText::new("Select active stops to adjust synthesis harmonic timbre")
+                            .size(12.0)
+                            .color(TEXT_MUTED),
+                    );
+                });
+            });
+            ui.add_space(8.0);
+
+            let n = self.groups.len();
+            let groups = self.groups.clone();
+            ui.columns(n, |cols| {
+                for (col, (group, idxs)) in cols.iter_mut().zip(groups.iter()) {
+                    inner_card(col, |ui| {
+                        ui.label(bold(group.title(), 13.0).color(ACCENT));
+                        ui.add_space(4.0);
+                        for &i in idxs {
+                            let name = STOPS[i].name;
+                            let r = ui.checkbox(
+                                &mut self.stop_on[i],
+                                RichText::new(name).size(13.0).color(TEXT_FG),
+                            );
+                            if r.changed() {
+                                changed = true;
+                            }
+                        }
+                    });
+                }
+            });
+
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                if pill_button(ui, "Select All Stops", CHIP, ACCENT_HOVER, Vec2::new(140.0, 32.0), true)
+                    .clicked()
+                {
+                    self.set_all_stops(true);
+                }
+                if pill_button(ui, "Clear All Stops", CHIP, ACCENT_HOVER, Vec2::new(140.0, 32.0), true)
+                    .clicked()
+                {
+                    self.set_all_stops(false);
+                }
+                ui.add_space(12.0);
+                ui.label(RichText::new("Presets").size(12.0).color(TEXT_MUTED));
+                for k in 1..=9usize {
+                    let filled = self
+                        .settings
+                        .presets
+                        .get(&k.to_string())
+                        .map(|v| !v.is_empty())
+                        .unwrap_or(false);
+                    let base = if filled { ACCENT } else { CHIP };
+                    let r = pill_button(ui, &k.to_string(), base, ACCENT_HOVER, Vec2::new(28.0, 28.0), true)
+                        .on_hover_text(format!(
+                            "Click or press {k} to load. Right-click or Shift+{k} to save."
+                        ));
+                    if r.clicked() {
+                        self.load_preset(k);
+                    }
+                    if r.secondary_clicked() {
+                        self.save_preset(k);
+                    }
+                }
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    if pill_button(ui, "Clear Audio Cache", CHIP, AMBER_HOVER, Vec2::new(150.0, 32.0), true)
+                        .clicked()
+                    {
+                        self.engine.clear_caches();
+                        self.toast("Audio RAM cache cleared successfully!", GREEN);
+                    }
+                    if pill_button(
+                        ui,
+                        "Import Samples",
+                        CHIP,
+                        GREEN,
+                        Vec2::new(140.0, 32.0),
+                        self.busy == Busy::Idle,
+                    )
+                    .clicked()
+                    {
+                        self.start_import_dialog(ctx);
+                    }
+                });
+            });
+        });
+        if changed {
+            self.apply_stops();
+        }
+    }
+
+    fn settings_col(&mut self, ui: &mut egui::Ui) {
+        card(ui, |ui| {
+            ui.label(bold("System Configuration", 15.0).color(ACCENT));
+            ui.add_space(6.0);
+
+            inner_card(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(bold("Master Tuning (A4):", 13.0).color(TEXT_FG));
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        let before = self.tuning;
+                        egui::ComboBox::from_id_salt("tuning")
+                            .selected_text(format!("{} Hz", self.tuning))
+                            .width(90.0)
+                            .show_ui(ui, |ui| {
+                                for t in TUNINGS {
+                                    ui.selectable_value(&mut self.tuning, t, format!("{t} Hz"));
+                                }
+                            });
+                        if before != self.tuning {
+                            self.engine.set_a4(self.tuning as f64);
+                            self.engine.refresh();
+                            self.settings.tuning = self.tuning;
+                            self.settings.save();
+                        }
+                    });
+                });
+            });
+            ui.add_space(6.0);
+
+            inner_card(ui, |ui| {
+                ui.label(bold("MIDI Input Device:", 13.0).color(TEXT_FG));
+                ui.add_space(2.0);
+                ui.horizontal(|ui| {
+                    let mut choice = self.midi_selected.clone();
+                    egui::ComboBox::from_id_salt("midi_dev")
+                        .selected_text(choice.clone())
+                        .width(ui.available_width() - 80.0)
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(&mut choice, "None".to_string(), "None");
+                            for d in self.midi_devices.clone() {
+                                ui.selectable_value(&mut choice, d.clone(), d);
+                            }
+                        });
+                    if choice != self.midi_selected {
+                        self.select_midi(&choice);
+                    }
+                    if pill_button(ui, "Refresh", ACCENT, ACCENT_HOVER, Vec2::new(68.0, 28.0), true)
+                        .clicked()
+                    {
+                        self.refresh_midi_devices();
+                    }
+                });
+            });
+            ui.add_space(6.0);
+
+            inner_card(ui, |ui| {
+                ui.label(bold("Master Volume:", 13.0).color(TEXT_FG));
+                ui.spacing_mut().slider_width = (ui.available_width() - 60.0).max(80.0);
+                let r = ui.add(
+                    egui::Slider::new(&mut self.volume, 0.0..=1.0)
+                        .show_value(true)
+                        .custom_formatter(|v, _| format!("{:.0}%", v * 100.0))
+                        .custom_parser(|s| s.trim_end_matches('%').parse::<f64>().ok().map(|v| v / 100.0)),
+                );
+                if r.changed() {
+                    self.engine.set_volume(self.volume);
+                }
+                if r.drag_stopped() {
+                    self.settings.volume = self.volume;
+                    self.settings.save();
+                }
+            });
+        });
+    }
+
+    fn visualizer_col(&mut self, ui: &mut egui::Ui) {
+        card(ui, |ui| {
+            ui.label(bold("Pitch Class Resonance", 15.0).color(ACCENT));
+            ui.add_space(6.0);
+            let size = 210.0;
+            ui.vertical_centered(|ui| {
+                let (resp, painter) = ui.allocate_painter(Vec2::splat(size), Sense::hover());
+                let center = resp.rect.center();
+                let radius = size / 2.0 - 28.0;
+                painter.rect_filled(resp.rect, CornerRadius::same(10), DARK_BG);
+                let pos = |i: usize, r: f32| -> Pos2 {
+                    let a = (i as f32 / 12.0) * std::f32::consts::TAU - std::f32::consts::FRAC_PI_2;
+                    Pos2::new(center.x + r * a.cos(), center.y + r * a.sin())
+                };
+                for i in 0..12 {
+                    painter.circle_filled(pos(i, radius), 3.0, Color32::from_rgb(0x4B, 0x55, 0x63));
+                    painter.text(
+                        pos(i, radius + 18.0),
+                        Align2::CENTER_CENTER,
+                        PITCH_NAMES[i],
+                        FontId::new(12.0, bold_family()),
+                        TEXT_MUTED,
+                    );
+                }
+                let active: Vec<usize> = (0..12).filter(|&i| self.pcs[i]).collect();
+                if active.len() >= 2 {
+                    let pts: Vec<Pos2> = active.iter().map(|&i| pos(i, radius)).collect();
+                    if pts.len() == 2 {
+                        painter.line_segment([pts[0], pts[1]], Stroke::new(2.0, ACCENT));
+                    } else {
+                        painter.add(Shape::closed_line(pts, Stroke::new(2.0, ACCENT)));
+                    }
+                }
+                for &i in &active {
+                    painter.circle_filled(pos(i, radius), 9.0, ACCENT.gamma_multiply(0.25));
+                    painter.circle_filled(pos(i, radius), 6.0, ACCENT);
+                }
+            });
+        });
+    }
+
+    fn playback_col(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+        card(ui, |ui| {
+            ui.label(bold("Playback & Export", 15.0).color(ACCENT));
+            ui.add_space(6.0);
+
+            let idle = self.busy == Busy::Idle;
+            let load_label = match self.busy {
+                Busy::Synth => "Synthesizing... Please Wait",
+                Busy::Dialog => "Waiting for file...",
+                _ => "Load & Play MIDI",
+            };
+            let export_label = if self.busy == Busy::Export {
+                "Exporting..."
+            } else {
+                "Export WAV"
+            };
+            let w = (ui.available_width() - 8.0) / 2.0;
+            ui.horizontal(|ui| {
+                if pill_button(ui, load_label, ACCENT, ACCENT_HOVER, Vec2::new(w, 38.0), idle).clicked() {
+                    self.start_load_dialog(ctx);
+                }
+                if pill_button(ui, export_label, GREEN, GREEN_HOVER, Vec2::new(w, 38.0), idle).clicked() {
+                    self.start_export(ctx);
+                }
+            });
+            ui.add_space(8.0);
+            let w3 = (ui.available_width() - 16.0) / 3.0;
+            ui.horizontal(|ui| {
+                if pill_button(ui, "Pause", AMBER, AMBER_HOVER, Vec2::new(w3, 34.0), true).clicked() {
+                    self.engine.pause();
+                }
+                if pill_button(ui, "Resume", GREEN, GREEN_HOVER, Vec2::new(w3, 34.0), true).clicked() {
+                    self.engine.resume();
+                }
+                if pill_button(ui, "Stop", RED, RED_HOVER, Vec2::new(w3, 34.0), true).clicked() {
+                    self.engine.stop_playback();
+                }
+            });
+            ui.add_space(10.0);
+
+            let (pos, total) = self.engine.progress();
+            let frac = if total > 0.0 { (pos / total).clamp(0.0, 1.0) } else { 0.0 };
+            let (rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 8.0), Sense::hover());
+            ui.painter().rect_filled(rect, CornerRadius::same(4), BORDER);
+            let mut fill = rect;
+            fill.set_width(rect.width() * frac);
+            ui.painter().rect_filled(fill, CornerRadius::same(4), ACCENT);
+            ui.add_space(4.0);
+            let state = if self.engine.is_playing() {
+                if self.engine.is_paused() { "Paused" } else { "Playing" }
+            } else {
+                "Stopped"
+            };
+            let mut line = format!("{state}   {} / {}", fmt_time(pos), fmt_time(total));
+            if self.engine.is_rendering() {
+                line.push_str("   (re-rendering with new stops...)");
+            }
+            ui.label(RichText::new(line).size(12.0).color(TEXT_MUTED));
+        });
+    }
+
+    fn status_bar(&mut self, ui: &mut egui::Ui) {
+        ui.horizontal(|ui| {
+            if let Some((msg, at, color)) = &self.toast {
+                if at.elapsed() < Duration::from_secs(5) {
+                    ui.label(RichText::new(msg.clone()).size(13.0).color(*color));
+                }
+            }
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| match &self.audio {
+                Ok(a) => {
+                    ui.label(
+                        RichText::new(format!(
+                            "Audio: {} Hz out (engine {} Hz)  |  Keys: 1-9 load preset, Shift+1-9 save",
+                            a.device_rate, SAMPLE_RATE
+                        ))
+                        .size(11.0)
+                        .color(TEXT_MUTED),
+                    );
+                }
+                Err(e) => {
+                    ui.label(RichText::new(format!("Audio error: {e}")).size(12.0).color(RED));
+                }
+            });
+        });
+    }
+}
+
+fn badge(ui: &mut egui::Ui, text: &str, color: Color32) {
+    egui::Frame::new()
+        .fill(DARK_BG)
+        .corner_radius(CornerRadius::same(8))
+        .inner_margin(Margin::symmetric(10, 5))
+        .show(ui, |ui| {
+            ui.label(bold(text, 12.0).color(color));
+        });
+}
+
+fn fmt_time(s: f32) -> String {
+    let s = s.max(0.0) as u32;
+    format!("{}:{:02}", s / 60, s % 60)
+}
+
+impl eframe::App for OrgelApp {
+    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.pump_messages(ctx);
+        self.pump_serial();
+        self.handle_keys(ctx);
+
+        // visualizer + A4 servo
+        let (pcs, a4) = self.engine.visual_state();
+        self.pcs = pcs;
+        if a4 != self.last_a4 {
+            self.last_a4 = a4;
+            self.link.send_line(if a4 { "A4_1\n" } else { "A4_0\n" });
+        }
+        if self.engine.song_finished.swap(false, std::sync::atomic::Ordering::SeqCst) {
+            self.toast("Playback finished", TEXT_MUTED);
+        }
+        ctx.request_repaint_after(Duration::from_millis(50));
+    }
+
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
+        egui::Frame::new()
+            .fill(DARK_BG)
+            .inner_margin(Margin::same(18))
+            .show(ui, |ui| {
+                egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+                    self.header(ui);
+                    ui.add_space(10.0);
+                    self.stops_panel(ui, &ctx);
+                    ui.add_space(10.0);
+                    ui.columns(3, |cols| {
+                        self.settings_col(&mut cols[0]);
+                        self.visualizer_col(&mut cols[1]);
+                        self.playback_col(&mut cols[2], &ctx);
+                    });
+                    ui.add_space(10.0);
+                    self.status_bar(ui);
+                });
+            });
+    }
+}
+
+fn setup_fonts(ctx: &egui::Context) {
+    let mut fonts = FontDefinitions::default();
+    let load = |path: &str| std::fs::read(path).ok();
+
+    if let Some(regular) = load("C:\\Windows\\Fonts\\segoeui.ttf") {
+        fonts
+            .font_data
+            .insert("segoeui".into(), Arc::new(FontData::from_owned(regular)));
+        fonts
+            .families
+            .entry(FontFamily::Proportional)
+            .or_default()
+            .insert(0, "segoeui".into());
+    }
+    if let Some(sym) = load("C:\\Windows\\Fonts\\seguisym.ttf") {
+        fonts
+            .font_data
+            .insert("seguisym".into(), Arc::new(FontData::from_owned(sym)));
+        fonts
+            .families
+            .entry(FontFamily::Proportional)
+            .or_default()
+            .push("seguisym".into());
+    }
+    // bold family: Segoe UI Bold when present, otherwise fall back to the regular stack
+    let mut bold_stack: Vec<String> = Vec::new();
+    if let Some(b) = load("C:\\Windows\\Fonts\\segoeuib.ttf") {
+        fonts
+            .font_data
+            .insert("segoeuib".into(), Arc::new(FontData::from_owned(b)));
+        bold_stack.push("segoeuib".into());
+    }
+    let prop = fonts
+        .families
+        .get(&FontFamily::Proportional)
+        .cloned()
+        .unwrap_or_default();
+    bold_stack.extend(prop);
+    fonts.families.insert(bold_family(), bold_stack);
+    ctx.set_fonts(fonts);
+}
+
+fn setup_visuals(ctx: &egui::Context) {
+    let mut v = egui::Visuals::dark();
+    v.panel_fill = DARK_BG;
+    v.window_fill = DARK_BG;
+    v.extreme_bg_color = DARK_BG;
+    v.faint_bg_color = PANEL_BG;
+    v.override_text_color = None;
+    v.selection.bg_fill = ACCENT;
+    v.selection.stroke = Stroke::new(1.0, Color32::WHITE);
+    v.widgets.noninteractive.bg_fill = PANEL_BG;
+    v.widgets.noninteractive.fg_stroke = Stroke::new(1.0, TEXT_FG);
+    v.widgets.inactive.bg_fill = CHIP;
+    v.widgets.inactive.weak_bg_fill = CHIP;
+    v.widgets.inactive.corner_radius = CornerRadius::same(6);
+    v.widgets.hovered.bg_fill = ACCENT_HOVER;
+    v.widgets.hovered.weak_bg_fill = ACCENT_HOVER;
+    v.widgets.hovered.corner_radius = CornerRadius::same(6);
+    v.widgets.active.bg_fill = ACCENT;
+    v.widgets.active.weak_bg_fill = ACCENT;
+    v.widgets.active.corner_radius = CornerRadius::same(6);
+    v.widgets.open.corner_radius = CornerRadius::same(6);
+    ctx.set_visuals(v);
+    let _ = StrokeKind::Inside;
+}

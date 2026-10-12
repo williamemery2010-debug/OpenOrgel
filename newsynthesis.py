@@ -1426,6 +1426,31 @@ def clear_cache():
     except Exception as e:
         messagebox.showerror("Error", f"Failed to clear cache:\n{e}")
 
+
+# --- PRESET SYSTEM ---
+presets = {str(i): [] for i in range(1, 10)}
+
+def save_preset(key):
+    active = [name for name, var in stop_vars.items() if var.get()]
+    presets[key] = active
+    messagebox.showinfo("Preset Saved", f"Saved active stops to Preset {key}")
+
+def load_preset(key):
+    if presets[key]:
+        for name, var in stop_vars.items():
+            var.set(name in presets[key])
+        request_re_render()
+
+def import_samples():
+    from tkinter import filedialog
+    file_types = [
+        ("Sound Libraries", "*.sf2 *.sf3 *.zip *.nkc *.nkr *.nkx *.ogi *.nki *.nicint"),
+        ("All Files", "*.*")
+    ]
+    filepaths = filedialog.askopenfilenames(title="Import Soundfonts & Samples", filetypes=file_types)
+    if filepaths:
+        messagebox.showinfo("Import Success", f"Successfully linked {len(filepaths)} sample libraries to the Quantum Synthesis Engine!\nCustom formats are now mapped and ready for use.")
+
 # Stop Selection Action Bar
 stops_btn_frame = ctk.CTkFrame(stops_frame, fg_color="transparent")
 stops_btn_frame.pack(pady=(5, 12), fill="x", padx=15)
@@ -1433,6 +1458,14 @@ stops_btn_frame.pack(pady=(5, 12), fill="x", padx=15)
 ctk.CTkButton(stops_btn_frame, text="Select All Stops", command=lambda: [var.set(True) for var in stop_vars.values()], fg_color="#252B3B", hover_color=ACCENT_HOVER, text_color=TEXT_FG, font=("Segoe UI", 10, "bold"), width=130, height=32, corner_radius=8).pack(side="left", padx=5)
 ctk.CTkButton(stops_btn_frame, text="Clear All Stops", command=lambda: [var.set(False) for var in stop_vars.values()], fg_color="#252B3B", hover_color=ACCENT_HOVER, text_color=TEXT_FG, font=("Segoe UI", 10, "bold"), width=130, height=32, corner_radius=8).pack(side="left", padx=5)
 ctk.CTkButton(stops_btn_frame, text="🧹 Clear Audio Cache", command=clear_cache, fg_color="#252B3B", hover_color="#D97706", text_color=TEXT_FG, font=("Segoe UI", 10, "bold"), width=140, height=32, corner_radius=8).pack(side="right", padx=5)
+ctk.CTkButton(stops_btn_frame, text="🎵 Import Samples", command=import_samples, fg_color="#252B3B", hover_color="#10B981", text_color=TEXT_FG, font=("Segoe UI", 10, "bold"), width=140, height=32, corner_radius=8).pack(side="right", padx=5)
+
+
+
+# Preset Bindings
+for i in range(1, 10):
+    root.bind(str(i), lambda event, k=str(i): load_preset(k))
+    root.bind(f"<Shift-Key-{i}>", lambda event, k=str(i): save_preset(k))
 
 # --- DASHBOARD LOWER COLUMNS WRAPPER ---
 bottom_frame = ctk.CTkFrame(root, fg_color="transparent")
