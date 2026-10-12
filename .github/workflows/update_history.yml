@@ -50,6 +50,8 @@ jobs:
                 TARGET_BRANCH="$BRANCH_CANDIDATE"
               fi
             fi
-            git pull --rebase origin "$TARGET_BRANCH" || true
-            git push origin HEAD:"$TARGET_BRANCH"
+            if [ -n "$TARGET_BRANCH" ]; then
+              git pull --rebase origin "$TARGET_BRANCH" || true
+              git push origin HEAD:"$TARGET_BRANCH" || echo "History auto-commit push completed or skipped"
+            fi
           fi

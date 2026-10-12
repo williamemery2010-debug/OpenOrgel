@@ -12,6 +12,7 @@ mod ffi;
 mod midi_in;
 mod serial;
 mod settings;
+pub mod classifier;
 pub mod soundfont;
 mod stops;
 

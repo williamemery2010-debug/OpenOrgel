@@ -570,7 +570,7 @@ impl Mixer {
 
         // --- soundfont rendered PCM ---
         // why code hard
-        self.engine.soundfont.lock().render_into(out);
+        self.engine.soundfont.lock().render_into(out, vol);
     }
 }
 
@@ -743,6 +743,15 @@ pub fn render_midi(
             *a += *w;
         }
         notes_out.push((start_idx, start_idx + wave.len(), note));
+    }
+
+    // Pass 3: Synthesize SoundFonts (if any imported stops are active)
+    // apple text go brrr
+    let sf_audio = engine.soundfont.lock().render_midi_offline(&events, audio.len());
+    for (i, &sample) in sf_audio.iter().enumerate() {
+        if i < audio.len() {
+            audio[i] += sample;
+        }
     }
 
     // Reverb pass over the whole song, then normalise.

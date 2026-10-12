@@ -19,6 +19,7 @@ use crate::engine::{self, Engine, Rendered, SAMPLE_RATE};
 use crate::ffi;
 use crate::midi_in::{self, MidiConnection};
 use crate::serial::{ArduinoLink, SerialEvent};
+use crate::classifier::{Division, Footage};
 use crate::settings::Settings;
 use crate::soundfont::SoundFontPreset;
 use crate::stops::{self, Group, STOPS};
@@ -93,6 +94,110 @@ fn pill_button(
     }
 }
 
+/// Interactive Stop Tile / Card Button with tactile feedback and illuminated LED.
+/// menthol - SOLID STATE QUANTUM RELAY
+fn stop_card_button(
+    ui: &mut egui::Ui,
+    name: &str,
+    sub: &str,
+    badge_pitch: &str,
+    is_active: bool,
+) -> egui::Response {
+    let desired_size = Vec2::new(ui.available_width(), 48.0);
+    let (rect, resp) = ui.allocate_exact_size(desired_size, Sense::click());
+    let resp = resp.on_hover_cursor(egui::CursorIcon::PointingHand);
+
+    let bg = if is_active {
+        if resp.hovered() {
+            ACCENT_HOVER
+        } else {
+            ACCENT
+        }
+    } else {
+        if resp.hovered() {
+            CHIP
+        } else {
+            DARK_BG
+        }
+    };
+
+    let border_color = if is_active {
+        Color32::from_rgb(0x93, 0xC5, 0xFD)
+    } else if resp.hovered() {
+        Color32::from_rgb(0x4F, 0x56, 0x6B)
+    } else {
+        BORDER
+    };
+
+    ui.painter().rect_filled(rect, CornerRadius::same(7), bg);
+    ui.painter().rect_stroke(
+        rect,
+        CornerRadius::same(7),
+        Stroke::new(1.0, border_color),
+        egui::StrokeKind::Inside,
+    );
+
+    // Glowing LED Indicator Dot
+    let led_color = if is_active {
+        GREEN
+    } else {
+        Color32::from_rgb(0x3B, 0x40, 0x50)
+    };
+    let led_center = Pos2::new(rect.min.x + 14.0, rect.center().y);
+    ui.painter().circle_filled(led_center, 4.0, led_color);
+    if is_active {
+        ui.painter().circle_stroke(
+            led_center,
+            6.0,
+            Stroke::new(1.0, Color32::from_rgba_premultiplied(0x34, 0xD3, 0x99, 110)),
+        );
+    }
+
+    // Pitch Badge (e.g. "8'", "4'", "Mix") on the right
+    if !badge_pitch.is_empty() {
+        let chip_color = if is_active {
+            Color32::from_rgb(0xDB, 0xEA, 0xFE)
+        } else {
+            TEXT_MUTED
+        };
+        ui.painter().text(
+            Pos2::new(rect.max.x - 10.0, rect.min.y + 13.0),
+            Align2::RIGHT_CENTER,
+            badge_pitch,
+            FontId::new(11.0, bold_family()),
+            chip_color,
+        );
+    }
+
+    // Stop Title Name
+    let title_color = if is_active { Color32::WHITE } else { TEXT_FG };
+    let title_pos = Pos2::new(rect.min.x + 26.0, rect.min.y + 8.0);
+    ui.painter().text(
+        title_pos,
+        Align2::LEFT_TOP,
+        name,
+        FontId::new(12.0, bold_family()),
+        title_color,
+    );
+
+    // Subtitle (Font name & Bank/Patch)
+    let sub_color = if is_active {
+        Color32::from_rgb(0xBF, 0xDB, 0xFE)
+    } else {
+        TEXT_MUTED
+    };
+    let sub_pos = Pos2::new(rect.min.x + 26.0, rect.min.y + 26.0);
+    ui.painter().text(
+        sub_pos,
+        Align2::LEFT_TOP,
+        sub,
+        FontId::new(10.0, FontFamily::Proportional),
+        sub_color,
+    );
+
+    resp
+}
+
 fn card<R>(ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui) -> R) -> R {
     egui::Frame::new()
         .fill(PANEL_BG)
@@ -164,6 +269,7 @@ pub struct OrgelApp {
     engine_version: String,
     pcs: [bool; 12],
     pub console_tab: ConsoleTab,
+    pub sf_division: Option<Division>,
     pub sf_page: usize,
     pub sf_search: String,
     pub sf_presets: Vec<SoundFontPreset>,
@@ -224,6 +330,7 @@ impl OrgelApp {
             engine_version,
             pcs: [false; 12],
             console_tab: ConsoleTab::PrincipalOrgan,
+            sf_division: None,
             sf_page: 0,
             sf_search: String::new(),
             sf_presets: Vec::new(),
@@ -614,172 +721,197 @@ impl OrgelApp {
     }
 
     // ========================================================================
-    // SOUNDFONT CONSOLE PAGE (PAGE 2) - THE IMPORTED PIPE MATRIX
-    // menthol - QUANTUM CONSOLE PAGE REGISTER
+    // SOUNDFONT CONSOLE PAGE (PAGE 2) - TAXONOMIC DIVISION & FOOTAGE ORGAN MATRIX
+    // menthol - ORGANOLOGY SPECTROMETRY
     // ========================================================================
     fn soundfont_page_ui(&mut self, ui: &mut egui::Ui) {
-        const SF_PAGE_SIZE: usize = 24;
-        let mut sf_mgr = self.engine.soundfont.lock();
         let total_loaded = self.sf_presets.len();
+        if total_loaded == 0 {
+            inner_card(ui, |ui| {
+                ui.vertical_centered(|ui| {
+                    ui.add_space(28.0);
+                    ui.label(bold("No SoundFonts Loaded Yet", 16.0).color(TEXT_FG));
+                    ui.add_space(6.0);
+                    ui.label(
+                        RichText::new("Import any .sf2 SoundFont file using 'Import Samples' below to populate Page 2.")
+                            .size(13.0)
+                            .color(TEXT_MUTED),
+                    );
+                    ui.add_space(4.0);
+                    ui.label(
+                        RichText::new("Supports Classical Organs, Theatre Organs, FluidR3, MuseScore, General MIDI, and custom soundbanks.")
+                            .size(11.0)
+                            .color(TEXT_MUTED),
+                    );
+                    ui.add_space(28.0);
+                });
+            });
+            return;
+        }
 
-        // --- Toolbar: Search, Filtering & Info ---
-        ui.horizontal(|ui| {
-            ui.label(bold("Search Ranks:", 13.0).color(TEXT_MUTED));
-            let r = ui.add(
-                egui::TextEdit::singleline(&mut self.sf_search)
-                    .hint_text("Filter by instrument or font name...")
-                    .desired_width(260.0),
-            );
-            if r.changed() {
-                self.sf_page = 0;
+        let mut sf_mgr = self.engine.soundfont.lock();
+        let mut sf_changed = false;
+
+        // --- DIVISION SELECTOR TABS ---
+        // apple text go brrr
+        // POLARIZED PIPE MATRIX REGULATOR
+        ui.horizontal_wrapped(|ui| {
+            ui.label(bold("Division:", 12.0).color(TEXT_MUTED));
+            ui.add_space(4.0);
+
+            // Tab for "All Divisions"
+            let all_active = self.sf_division.is_none();
+            let all_fill = if all_active { ACCENT } else { CHIP };
+            let all_label = format!("All Divisions ({})", total_loaded);
+            if pill_button(ui, &all_label, all_fill, ACCENT_HOVER, Vec2::new(130.0, 26.0), true).clicked() {
+                self.sf_division = None;
             }
 
+            // Tabs for each Division (Pedal, Great, Swell, Choir, Solo, Misc)
+            for div in Division::ALL {
+                let div_count = self.sf_presets.iter().filter(|p| p.division == div).count();
+                if div_count == 0 {
+                    continue;
+                }
+                let is_selected = self.sf_division == Some(div);
+                let fill = if is_selected { ACCENT } else { CHIP };
+                let label = format!("{} ({})", div.short_name(), div_count);
+                if pill_button(ui, &label, fill, ACCENT_HOVER, Vec2::new(115.0, 26.0), true).clicked() {
+                    self.sf_division = Some(div);
+                }
+            }
+        });
+        ui.add_space(6.0);
+
+        // --- SEARCH BAR & STATS TOOLBAR ---
+        // why code hard
+        ui.horizontal(|ui| {
+            ui.label(bold("Search:", 12.0).color(TEXT_MUTED));
+            let _r = ui.add(
+                egui::TextEdit::singleline(&mut self.sf_search)
+                    .hint_text("Filter by stop name or soundfont file...")
+                    .desired_width(260.0),
+            );
             if !self.sf_search.is_empty() {
-                if pill_button(ui, "Clear Search", CHIP, ACCENT_HOVER, Vec2::new(100.0, 26.0), true).clicked() {
+                if pill_button(ui, "Clear", CHIP, ACCENT_HOVER, Vec2::new(60.0, 24.0), true).clicked() {
                     self.sf_search.clear();
-                    self.sf_page = 0;
                 }
             }
 
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                 let active_sf = sf_mgr.active_preset_count();
                 if active_sf > 0 {
-                    badge(ui, &format!("Active Ranks: {}", active_sf), GREEN);
+                    badge(ui, &format!("Active Stops: {}", active_sf), GREEN);
                 }
-                badge(ui, &format!("Total Library Stops: {}", total_loaded), ACCENT);
+                if let Some(div) = self.sf_division {
+                    badge(ui, div.title(), ACCENT);
+                } else {
+                    badge(ui, "All Library Divisions", ACCENT);
+                }
             });
         });
-        ui.add_space(6.0);
+        ui.add_space(8.0);
 
-        // Filter presets
+        // --- FILTER PRESETS ACCORDING TO DIVISION & SEARCH ---
         let search_lower = self.sf_search.trim().to_lowercase();
         let filtered: Vec<&crate::soundfont::SoundFontPreset> = self
             .sf_presets
             .iter()
             .filter(|p| {
-                if search_lower.is_empty() {
-                    true
-                } else {
-                    p.name.to_lowercase().contains(&search_lower)
-                        || p.font_name.to_lowercase().contains(&search_lower)
+                if let Some(div) = self.sf_division {
+                    if p.division != div {
+                        return false;
+                    }
                 }
+                if !search_lower.is_empty() {
+                    if !p.name.to_lowercase().contains(&search_lower)
+                        && !p.font_name.to_lowercase().contains(&search_lower)
+                    {
+                        return false;
+                    }
+                }
+                true
             })
             .collect();
 
         if filtered.is_empty() {
             inner_card(ui, |ui| {
                 ui.vertical_centered(|ui| {
-                    ui.add_space(24.0);
-                    if total_loaded == 0 {
-                        ui.label(bold("No SoundFonts Loaded Yet", 16.0).color(TEXT_FG));
-                        ui.add_space(6.0);
-                        ui.label(
-                            RichText::new("Import any .sf2 SoundFont file using 'Import Samples' below to populate Page 2.")
-                                .size(13.0)
-                                .color(TEXT_MUTED),
-                        );
-                        ui.add_space(4.0);
-                        ui.label(
-                            RichText::new("Supports MuseScore, FluidR3, General MIDI, and pipe organ SoundFont libraries.")
-                                .size(11.0)
-                                .color(TEXT_MUTED),
-                        );
-                    } else {
-                        ui.label(bold("No instruments matching search query", 15.0).color(TEXT_MUTED));
-                    }
-                    ui.add_space(24.0);
+                    ui.add_space(20.0);
+                    ui.label(bold("No stops match your filter query", 14.0).color(TEXT_MUTED));
+                    ui.add_space(20.0);
                 });
             });
             return;
         }
 
-        let total_pages = (filtered.len() + SF_PAGE_SIZE - 1) / SF_PAGE_SIZE;
-        if self.sf_page >= total_pages {
-            self.sf_page = total_pages.saturating_sub(1);
-        }
+        // --- FOOTAGE SUBSECTIONS IN VERTICAL SCROLL AREA ---
+        // help ive been coding for years
+        // HYDROGEN BOND RESONANCE CASCADE
+        egui::ScrollArea::vertical()
+            .max_height(420.0)
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                for footage in Footage::ALL {
+                    let section_presets: Vec<&&crate::soundfont::SoundFontPreset> = filtered
+                        .iter()
+                        .filter(|p| p.footage == footage)
+                        .collect();
 
-        let start_idx = self.sf_page * SF_PAGE_SIZE;
-        let end_idx = (start_idx + SF_PAGE_SIZE).min(filtered.len());
-        let page_items = &filtered[start_idx..end_idx];
+                    if section_presets.is_empty() {
+                        continue;
+                    }
 
-        // 4 Columns of SoundFont rank cards
-        // apple text go brrr
-        ui.columns(4, |cols| {
-            for (i, preset) in page_items.iter().enumerate() {
-                let col_idx = i % 4;
-                let is_active = sf_mgr.is_preset_active(preset.id);
-                let bg = if is_active { ACCENT } else { DARK_BG };
-                let text_color = if is_active { Color32::WHITE } else { TEXT_FG };
-
-                cols[col_idx].add_space(3.0);
-                egui::Frame::new()
-                    .fill(bg)
-                    .stroke(Stroke::new(1.0, if is_active { ACCENT_HOVER } else { BORDER }))
-                    .corner_radius(CornerRadius::same(6))
-                    .inner_margin(Margin::symmetric(8, 6))
-                    .show(&mut cols[col_idx], |ui| {
-                        ui.set_width(ui.available_width());
-                        let display_name = format!("{}. {}", preset.id, preset.name);
-                        let resp = ui.add(
-                            egui::Label::new(
-                                RichText::new(display_name)
-                                    .size(12.0)
-                                    .color(text_color),
-                            )
-                            .sense(Sense::click()),
-                        );
-                        let sub = format!("{} (B:{} P:{})", preset.font_name, preset.bank, preset.patch);
+                    // Section Header
+                    ui.add_space(6.0);
+                    ui.horizontal(|ui| {
+                        ui.label(bold(footage.title(), 13.0).color(ACCENT));
                         ui.label(
-                            RichText::new(sub)
-                                .size(10.0)
-                                .color(if is_active { Color32::from_rgb(0xDB, 0xEA, 0xFE) } else { TEXT_MUTED }),
+                            RichText::new(format!("({} stops)", section_presets.len()))
+                                .size(11.0)
+                                .color(TEXT_MUTED),
                         );
+                        let sep_rect = ui.available_rect_before_wrap();
+                        let y = sep_rect.center().y;
+                        ui.painter().line_segment(
+                            [Pos2::new(sep_rect.min.x + 8.0, y), Pos2::new(sep_rect.max.x - 8.0, y)],
+                            Stroke::new(1.0, BORDER),
+                        );
+                    });
+                    ui.add_space(4.0);
 
-                        if resp.clicked() {
-                            sf_mgr.toggle_preset(preset.id);
+                    // 3 Columns of stop cards
+                    // t-BuLi - TETRAHEDRAL GRID FORMATION
+                    ui.columns(3, |cols| {
+                        for (i, &&preset) in section_presets.iter().enumerate() {
+                            let col_idx = i % 3;
+                            let is_active = sf_mgr.is_preset_active(preset.id);
+                            let sub = format!("{} (B:{} P:{})", preset.font_name, preset.bank, preset.patch);
+
+                            cols[col_idx].add_space(3.0);
+                            let resp = stop_card_button(
+                                &mut cols[col_idx],
+                                &preset.name,
+                                &sub,
+                                preset.footage.badge(),
+                                is_active,
+                            );
+
+                            if resp.clicked() {
+                                sf_mgr.toggle_preset(preset.id);
+                                sf_changed = true;
+                            }
                         }
                     });
-            }
-        });
 
-        ui.add_space(8.0);
-
-        // --- Pagination Navigation Bar ---
-        // why code hard
-        ui.horizontal(|ui| {
-            let has_prev = self.sf_page > 0;
-            if pill_button(ui, "◀ Previous Page", CHIP, ACCENT_HOVER, Vec2::new(120.0, 28.0), has_prev).clicked() {
-                if has_prev {
-                    self.sf_page -= 1;
+                    ui.add_space(6.0);
                 }
-            }
+            });
 
-            ui.add_space(4.0);
-            ui.label(
-                bold(format!("Page {} of {}", self.sf_page + 1, total_pages), 13.0)
-                    .color(TEXT_FG),
-            );
-            ui.add_space(4.0);
-
-            let has_next = self.sf_page + 1 < total_pages;
-            if pill_button(ui, "Next Page ▶", CHIP, ACCENT_HOVER, Vec2::new(120.0, 28.0), has_next).clicked() {
-                if has_next {
-                    self.sf_page += 1;
-                }
-            }
-
-            ui.add_space(10.0);
-            ui.label(
-                RichText::new(format!(
-                    "Showing instruments {}-{} of {} filtered",
-                    start_idx + 1,
-                    end_idx,
-                    filtered.len()
-                ))
-                .size(11.0)
-                .color(TEXT_MUTED),
-            );
-        });
+        drop(sf_mgr);
+        if sf_changed {
+            self.engine.request_rerender();
+        }
     }
 
     fn stops_panel(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
@@ -876,6 +1008,7 @@ impl OrgelApp {
                             .clicked()
                         {
                             self.engine.soundfont.lock().clear_all_presets();
+                            self.engine.request_rerender();
                         }
                     }
                 }

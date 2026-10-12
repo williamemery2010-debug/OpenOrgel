@@ -1,10 +1,10 @@
 //! SOUNDFONT ENGINE & SAMPLE PARSER
 //!
 //! Loads SF2 SoundFont banks into memory and translates them into playable ranks.
-//! menthol
+//! menthol - QUANTUM RESONANCE SOUNDFONT EXTRACTION APPARATUS
 //! why code hard
-//! QUANTUM RESONANCE SOUNDFONT EXTRACTION APPARATUS
 
+use crate::classifier::{classify_division, classify_footage, Division, Footage};
 use rustysynth::{SoundFont, Synthesizer, SynthesizerSettings};
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
@@ -23,6 +23,8 @@ pub struct SoundFontPreset {
     pub name: String,
     pub bank: i32,
     pub patch: i32,
+    pub division: Division,
+    pub footage: Footage,
 }
 
 pub struct LoadedFont {
@@ -32,7 +34,7 @@ pub struct LoadedFont {
     pub sound_font: Arc<SoundFont>,
     pub presets: Vec<SoundFontPreset>,
     pub synth: Synthesizer,
-    /// Channel map for currently active presets in this font: preset_id -> channel (0..15)
+    /// Channel map for currently active presets in this font: preset_id -> channel (0..15, skipping 9)
     pub active_channels: HashMap<usize, i32>,
     pub free_channels: Vec<i32>,
 }
@@ -86,23 +88,34 @@ impl SoundFontManager {
         for p in sf.get_presets() {
             let pid = self.next_preset_id;
             self.next_preset_id += 1;
+            let name = p.get_name().trim().to_string();
+            let division = classify_division(&name);
+            let footage = classify_footage(&name);
             discovered.push(SoundFontPreset {
                 id: pid,
                 font_id,
                 font_name: font_name.clone(),
-                name: p.get_name().trim().to_string(),
+                name,
                 bank: p.get_bank_number(),
                 patch: p.get_patch_number(),
+                division,
+                footage,
             });
         }
 
-        // Sort presets alphabetically for the console UI
-        discovered.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        // Sort presets: Division first, then Footage, then Name
+        discovered.sort_by(|a, b| {
+            a.division
+                .cmp(&b.division)
+                .then(a.footage.cmp(&b.footage))
+                .then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+        });
 
         let synth = Synthesizer::new(&sf, &self.settings)
             .map_err(|e| format!("Failed to create synthesizer: {e:?}"))?;
 
-        let free_channels = (0..16).rev().collect(); // Channels 0 through 15
+        // 16 channels, excluding channel 9 (GM Percussion) so pitched stops don't become drums!
+        let free_channels = (0..16).filter(|&c| c != 9).rev().collect();
 
         let loaded = LoadedFont {
             id: font_id,
@@ -159,13 +172,27 @@ impl SoundFontManager {
         }
         for font in &mut self.fonts {
             if let Some(preset) = font.presets.iter().find(|p| p.id == preset_id) {
-                if let Some(chan) = font.free_channels.pop() {
-                    // Set bank and program via MIDI Control Change & Program Change
-                    font.synth.process_midi_message(chan, 0xB0, 0x00, preset.bank);
-                    font.synth.process_midi_message(chan, 0xC0, preset.patch, 0);
-                    font.active_channels.insert(preset_id, chan);
-                    self.active_presets.insert(preset_id);
-                }
+                // If all free channels are exhausted, recycle the oldest one
+                let chan = if let Some(c) = font.free_channels.pop() {
+                    c
+                } else if let Some((&first_id, &c)) = font.active_channels.iter().next() {
+                    font.synth.note_off_all_channel(c, true);
+                    font.active_channels.remove(&first_id);
+                    self.active_presets.remove(&first_id);
+                    c
+                } else {
+                    0
+                };
+
+                // Set bank and program via MIDI Control Change & Program Change
+                font.synth.process_midi_message(chan, 0xB0, 0x00, preset.bank);
+                font.synth.process_midi_message(chan, 0xC0, preset.patch, 0);
+                // Set Volume and Expression to 127 (maximum audible gain)
+                font.synth.process_midi_message(chan, 0xB0, 0x07, 127);
+                font.synth.process_midi_message(chan, 0xB0, 0x0B, 127);
+
+                font.active_channels.insert(preset_id, chan);
+                self.active_presets.insert(preset_id);
                 break;
             }
         }
@@ -211,7 +238,7 @@ impl SoundFontManager {
         }
         for font in &mut self.fonts {
             for &chan in font.active_channels.values() {
-                font.synth.note_on(chan, key as i32, velocity as i32);
+                font.synth.note_on(chan, key as i32, velocity.max(1) as i32);
             }
         }
     }
@@ -235,7 +262,7 @@ impl SoundFontManager {
 
     /// Render synthesized audio and add it directly into `out` (mono).
     /// menthol - SUBLIMATED STEREO TO MONO COLLAPSE
-    pub fn render_into(&mut self, out: &mut [f32]) {
+    pub fn render_into(&mut self, out: &mut [f32], master_volume: f32) {
         if self.active_presets.is_empty() {
             return;
         }
@@ -247,6 +274,8 @@ impl SoundFontManager {
         let left = &mut self.temp_left[..frames];
         let right = &mut self.temp_right[..frames];
 
+        let gain = master_volume * 0.85;
+
         for font in &mut self.fonts {
             if font.active_channels.is_empty() {
                 continue;
@@ -257,8 +286,73 @@ impl SoundFontManager {
 
             for i in 0..frames {
                 // Average left and right for mono mix bus
-                out[i] += (left[i] + right[i]) * 0.5 * 0.45;
+                out[i] += (left[i] + right[i]) * 0.5 * gain;
             }
         }
+    }
+
+    /// Synthesizes MIDI song events offline with all currently active SoundFont stops,
+    /// returning a mono PCM buffer of length `total_frames`.
+    pub fn render_midi_offline(&self, events: &[(f64, bool, u8)], total_frames: usize) -> Vec<f32> {
+        if self.active_presets.is_empty() || events.is_empty() || total_frames == 0 {
+            return vec![0.0; total_frames];
+        }
+
+        let mut output = vec![0.0f32; total_frames];
+        let mut left_block = vec![0.0f32; 64];
+        let mut right_block = vec![0.0f32; 64];
+
+        for font in &self.fonts {
+            if font.active_channels.is_empty() {
+                continue;
+            }
+
+            // Create a dedicated offline synthesizer instance for this font
+            let Ok(mut synth) = Synthesizer::new(&font.sound_font, &self.settings) else {
+                continue;
+            };
+
+            // Set up all active presets on their assigned channels
+            for (&preset_id, &chan) in &font.active_channels {
+                if let Some(preset) = font.presets.iter().find(|p| p.id == preset_id) {
+                    synth.process_midi_message(chan, 0xB0, 0x00, preset.bank);
+                    synth.process_midi_message(chan, 0xC0, preset.patch, 0);
+                    synth.process_midi_message(chan, 0xB0, 0x07, 127);
+                    synth.process_midi_message(chan, 0xB0, 0x0B, 127);
+                }
+            }
+
+            let mut event_idx = 0;
+            let mut current_frame = 0;
+            let sample_rate = SAMPLE_RATE as f64;
+
+            while current_frame < total_frames {
+                let current_time = current_frame as f64 / sample_rate;
+
+                // Trigger all events scheduled up to the current timestamp
+                while event_idx < events.len() && events[event_idx].0 <= current_time {
+                    let (_, on, note) = events[event_idx];
+                    for &chan in font.active_channels.values() {
+                        if on {
+                            synth.note_on(chan, note as i32, 100);
+                        } else {
+                            synth.note_off(chan, note as i32);
+                        }
+                    }
+                    event_idx += 1;
+                }
+
+                // Render in small 64-sample blocks
+                let block_len = 64.min(total_frames - current_frame);
+                synth.render(&mut left_block[..block_len], &mut right_block[..block_len]);
+
+                for i in 0..block_len {
+                    output[current_frame + i] += (left_block[i] + right_block[i]) * 0.5 * 0.85;
+                }
+                current_frame += block_len;
+            }
+        }
+
+        output
     }
 }
