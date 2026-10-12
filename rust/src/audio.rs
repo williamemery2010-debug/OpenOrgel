@@ -60,7 +60,9 @@ impl Resampler {
 
 pub struct AudioOutput {
     _stream: cpal::Stream,
+    #[allow(dead_code)]
     pub device_name: String,
+    #[allow(dead_code)]
     pub device_rate: u32,
 }
 

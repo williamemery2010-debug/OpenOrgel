@@ -13,6 +13,12 @@ pub struct Settings {
     pub tuning: u32,
     pub volume: f32,
     pub last_midi_device: String,
+    #[serde(default = "default_temperament")]
+    pub temperament: String,
+}
+
+fn default_temperament() -> String {
+    "Equal Temperament (12-EDO)".to_string()
 }
 
 impl Default for Settings {
@@ -22,6 +28,7 @@ impl Default for Settings {
             tuning: 440,
             volume: 1.0,
             last_midi_device: "None".to_string(),
+            temperament: default_temperament(),
         }
     }
 }

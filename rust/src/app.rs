@@ -23,6 +23,7 @@ use crate::classifier::{Division, Footage};
 use crate::settings::Settings;
 use crate::soundfont::SoundFontPreset;
 use crate::stops::{self, Group, STOPS};
+use crate::temperament::Temperament;
 
 // ---- palette (carried over from the legacy console) ----
 const DARK_BG: Color32 = Color32::from_rgb(0x0B, 0x0E, 0x14);
@@ -273,6 +274,7 @@ pub struct OrgelApp {
     pub sf_page: usize,
     pub sf_search: String,
     pub sf_presets: Vec<SoundFontPreset>,
+    pub temperament: Temperament,
 }
 
 impl OrgelApp {
@@ -295,8 +297,10 @@ impl OrgelApp {
         } else {
             440
         };
+        let temperament = Temperament::from_str_name(&settings.temperament);
         let volume = settings.volume.clamp(0.0, 1.0);
         engine.set_a4(tuning as f64);
+        engine.set_temperament(temperament);
         engine.set_volume(volume);
 
         let audio = AudioOutput::start(engine.clone());
@@ -317,6 +321,7 @@ impl OrgelApp {
             groups: stops::grouped(),
             ordered: stops::ordered_indices(),
             tuning,
+            temperament,
             volume,
             midi_devices: Vec::new(),
             midi_selected: "None".to_string(),
@@ -466,10 +471,11 @@ impl OrgelApp {
         let engine = self.engine.clone();
         let stops = self.active_ids();
         let a4 = engine.a4();
+        let temp = engine.temperament();
         let tx = self.tx.clone();
         let ctx = ctx.clone();
         std::thread::spawn(move || {
-            let r = engine::render_midi(&engine, &path, &stops, a4);
+            let r = engine::render_midi(&engine, &path, &stops, a4, temp);
             let _ = tx.send(UiMsg::RenderDone(r, path));
             ctx.request_repaint();
         });
@@ -511,7 +517,8 @@ impl OrgelApp {
             };
             let _ = tx.send(UiMsg::ExportStarted);
             ctx.request_repaint();
-            let result = engine::render_midi(&engine, &midi, &stops, a4)
+            let temp = engine.temperament();
+            let result = engine::render_midi(&engine, &midi, &stops, a4, temp)
                 .and_then(|r| engine::write_wav(&wav, &r.audio))
                 .map(|_| wav);
             let _ = tx.send(UiMsg::ExportDone(result));
@@ -1108,6 +1115,33 @@ impl OrgelApp {
                             self.engine.refresh();
                             self.settings.tuning = self.tuning;
                             self.settings.save();
+                        }
+                    });
+                });
+            });
+            ui.add_space(6.0);
+
+            // Historical Temperament selector
+            // menthol - MICROTONAL CHROMATOGRAPHY MATRIX
+            inner_card(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(bold("Temperament:", 13.0).color(TEXT_FG));
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        let before = self.temperament;
+                        egui::ComboBox::from_id_salt("temperament")
+                            .selected_text(self.temperament.short_name())
+                            .width(155.0)
+                            .show_ui(ui, |ui| {
+                                for &t in &Temperament::ALL {
+                                    ui.selectable_value(&mut self.temperament, t, t.name());
+                                }
+                            });
+                        if before != self.temperament {
+                            self.engine.set_temperament(self.temperament);
+                            self.engine.refresh();
+                            self.settings.temperament = self.temperament.name().to_string();
+                            self.settings.save();
+                            self.toast(format!("Temperament: {}", self.temperament.name()), GREEN);
                         }
                     });
                 });

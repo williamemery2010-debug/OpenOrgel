@@ -20,8 +20,9 @@ pub const ATTACK_SECONDS: f64 = 0.12;
 pub const RELEASE_SECONDS: f64 = 0.1;
 pub const LIVE_NOTE_LOW: u8 = 36;
 pub const LIVE_NOTE_HIGH: u8 = 96;
-pub const REVERB_ROOM: f32 = 0.86;
-pub const REVERB_WET: f32 = 0.40;
+// menthol - CALIBRATED CATHEDRAL ACOUSTICS
+pub const REVERB_ROOM: f32 = 0.81; // Down from 0.86 (~6% acoustic volume reduction)
+pub const REVERB_WET: f32 = 0.35;  // Down from 0.40 (down 5% absolute / 12.5% relative)
 /// Live output is scaled before the tanh soft limiter to dodge polyphonic crunch.
 const LIVE_PRE_LIMIT_GAIN: f32 = 0.35;
 /// Seconds the reverb is kept running after the last live voice dies.
@@ -30,8 +31,11 @@ const REVERB_TAIL_SECONDS: usize = 6;
 /// (start sample, end sample, midi note)
 pub type NoteSpan = (usize, usize, u8);
 
-pub fn midi_to_freq(a4: f64, note: u8) -> f64 {
-    a4 * 2f64.powf((note as f64 - 69.0) / 12.0)
+use crate::temperament::Temperament;
+
+#[allow(dead_code)]
+pub fn midi_to_freq(a4: f64, note: u8, temperament: Temperament) -> f64 {
+    temperament.midi_to_freq(a4, note)
 }
 
 // ---------------------------------------------------------------------------
@@ -156,6 +160,7 @@ pub struct Engine {
     pub playback: Mutex<PlaybackState>,
     stops: Mutex<Vec<i32>>,
     a4: Mutex<f64>,
+    temperament: Mutex<Temperament>,
     volume: AtomicU32,
     generation: AtomicU64,
     rendering: AtomicBool,
@@ -176,6 +181,7 @@ impl Engine {
             playback: Mutex::new(PlaybackState::default()),
             stops: Mutex::new(Vec::new()),
             a4: Mutex::new(440.0),
+            temperament: Mutex::new(Temperament::Equal),
             volume: AtomicU32::new(1.0f32.to_bits()),
             generation: AtomicU64::new(0),
             rendering: AtomicBool::new(false),
@@ -212,6 +218,14 @@ impl Engine {
         *self.a4.lock()
     }
 
+    pub fn set_temperament(&self, t: Temperament) {
+        *self.temperament.lock() = t;
+    }
+
+    pub fn temperament(&self) -> Temperament {
+        *self.temperament.lock()
+    }
+
     /// Stops or tuning changed: throw away stale live tones, rebuild in the
     /// background and, if a song is playing, re-render it with the new voices.
     pub fn refresh(self: &Arc<Self>) {
@@ -221,6 +235,7 @@ impl Engine {
         let me = self.clone();
         let stops = self.stops();
         let a4 = self.a4();
+        let temp = self.temperament();
         std::thread::spawn(move || {
             (LIVE_NOTE_LOW..=LIVE_NOTE_HIGH)
                 .into_par_iter()
@@ -231,7 +246,7 @@ impl Engine {
                     if me.live_tones.read().contains_key(&note) {
                         return;
                     }
-                    let tone = Arc::new(me.bank.live_tone(midi_to_freq(a4, note), &stops));
+                    let tone = Arc::new(me.bank.live_tone(temp.midi_to_freq(a4, note), &stops));
                     let mut w = me.live_tones.write();
                     if me.generation.load(Ordering::SeqCst) == gen {
                         w.insert(note, tone);
@@ -259,7 +274,8 @@ impl Engine {
                 None => {
                     let gen = self.generation.load(Ordering::SeqCst);
                     let a4 = self.a4();
-                    let t = Arc::new(self.bank.live_tone(midi_to_freq(a4, note), &stops));
+                    let temp = self.temperament();
+                    let t = Arc::new(self.bank.live_tone(temp.midi_to_freq(a4, note), &stops));
                     let mut w = self.live_tones.write();
                     if self.generation.load(Ordering::SeqCst) == gen {
                         w.insert(note, t.clone());
@@ -385,7 +401,8 @@ impl Engine {
                     me.silence_playback();
                 } else {
                     let a4 = me.a4();
-                    match render_midi(&me, &p, &stops, a4) {
+                    let temp = me.temperament();
+                    match render_midi(&me, &p, &stops, a4, temp) {
                         Ok(r) => me.swap_audio(r),
                         Err(e) => eprintln!("Background render failed: {e}"),
                     }
@@ -594,6 +611,14 @@ impl Mixer {
             }
         }
 
+        // --- soundfont rendered PCM (rendered directly into live bus for unified cathedral acoustics & matched volume) ---
+        // menthol - HOMOGENEOUS ACOUSTIC BUS COLLAPSE
+        // apple text go brrr
+        let sf_active = self.engine.soundfont.lock().render_into_live(live);
+        if sf_active {
+            any = true;
+        }
+
         if any {
             self.tail_left = REVERB_TAIL_SECONDS * SAMPLE_RATE as usize;
         }
@@ -604,10 +629,6 @@ impl Mixer {
                 out[i] += (live[i] * LIVE_PRE_LIMIT_GAIN).tanh() * vol;
             }
         }
-
-        // --- soundfont rendered PCM ---
-        // why code hard
-        self.engine.soundfont.lock().render_into(out, vol);
     }
 }
 
@@ -683,6 +704,7 @@ pub fn render_midi(
     path: &Path,
     stops: &[i32],
     a4: f64,
+    temperament: Temperament,
 ) -> Result<Rendered, String> {
     let bytes = std::fs::read(path).map_err(|e| format!("Could not read MIDI file: {e}"))?;
     let events = collect_events(&bytes)?;
@@ -727,7 +749,7 @@ pub fn render_midi(
                     note,
                     engine
                         .bank
-                        .summed_tone(midi_to_freq(a4, note), dur, stops),
+                        .summed_tone(temperament.midi_to_freq(a4, note), dur, stops),
                 )
             })
             .collect()

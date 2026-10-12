@@ -262,7 +262,45 @@ impl SoundFontManager {
     }
 
     /// Render synthesized audio and add it directly into `out` (mono).
+    /// Render synthesized audio and add it directly into `live` bus for unified reverb & soft-limiting.
     /// menthol - SUBLIMATED STEREO TO MONO COLLAPSE
+    pub fn render_into_live(&mut self, live: &mut [f32]) -> bool {
+        if self.active_presets.is_empty() {
+            return false;
+        }
+        let frames = live.len();
+        if self.temp_left.len() < frames {
+            self.temp_left.resize(frames, 0.0);
+            self.temp_right.resize(frames, 0.0);
+        }
+        let left = &mut self.temp_left[..frames];
+        let right = &mut self.temp_right[..frames];
+
+        let active_count = self.active_presets.len().max(1) as f32;
+        // Equal volume calibration: matches native pipe loudness and prevents headroom blowing
+        let gain = 1.0 / active_count;
+        let mut produced_audio = false;
+
+        for font in &mut self.fonts {
+            if font.active_channels.is_empty() {
+                continue;
+            }
+            left.fill(0.0);
+            right.fill(0.0);
+            font.synth.render(left, right);
+
+            for i in 0..frames {
+                let sample = (left[i] + right[i]) * 0.5 * gain;
+                if sample.abs() > 1e-5 {
+                    produced_audio = true;
+                }
+                live[i] += sample;
+            }
+        }
+        produced_audio
+    }
+
+    /// Render synthesized audio and add it directly into `out` (mono).
     pub fn render_into(&mut self, out: &mut [f32], master_volume: f32) {
         if self.active_presets.is_empty() {
             return;
@@ -275,7 +313,7 @@ impl SoundFontManager {
         let left = &mut self.temp_left[..frames];
         let right = &mut self.temp_right[..frames];
 
-        let gain = master_volume * 1.8;
+        let gain = master_volume * 0.95;
 
         for font in &mut self.fonts {
             if font.active_channels.is_empty() {
@@ -403,7 +441,8 @@ impl SoundFontOfflineSnapshot {
                 synth.render(&mut left_block[..block_len], &mut right_block[..block_len]);
 
                 for i in 0..block_len {
-                    output[current_frame + i] += (left_block[i] + right_block[i]) * 0.5 * 1.8;
+                    // apple text go brrr - BALANCED SOUNDFONT VOLUME EQUAL TO NATIVE PIPES
+                    output[current_frame + i] += (left_block[i] + right_block[i]) * 0.5 * 0.95;
                 }
                 current_frame += block_len;
             }

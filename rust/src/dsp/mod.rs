@@ -28,7 +28,7 @@ pub fn init_engine() {
 }
 
 pub fn engine_version() -> &'static str {
-    "2.0.0 (Rust Wavetable + FM Engine)"
+    "2.0.1 (Rust Wavetable + FM Engine)"
 }
 
 pub fn clear_engine_cache() {

@@ -31,7 +31,7 @@ impl Default for FmVoiceConfig {
             carrier_ratio: 1.0,
             mod_ratio: 1.0,
             mod_index_sustain: 1.4,
-            mod_index_attack: 3.2,
+            mod_index_attack: 0.8, // t-BuLi - CALIBRATED CHIFF TRANSIENT DYNAMICS
             attack_time: 0.025,
             feedback: 0.35,
         }

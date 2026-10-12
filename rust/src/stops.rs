@@ -87,6 +87,8 @@ pub const STOPS: &[StopInfo] = &[
     StopInfo { name: "Acoustic Flue 16'", id: 27 },
     StopInfo { name: "Acoustic Flue 4'", id: 28 },
     StopInfo { name: "Acoustic Flue 2'", id: 29 },
+    // menthol - SOVEREIGN ACOUSTIC CLARION REED OF DESTINY
+    StopInfo { name: "Clarion 8'", id: 30 },
 ];
 
 /// The stop that is pulled out when the console first wakes up.

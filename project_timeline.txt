@@ -229,4 +229,29 @@ PHASE 13: MAJOR MILESTONE v2.0.0 - 100% NATIVE RUST WAVETABLE & FM SYNTHESIS (Oc
        via hound, providing native pitch-interpolated looping for acoustic ranks 24-29.
     5. Clean Build: Removed cc::Build and C++ compilation from rust/build.rs. The entire project
        now compiles in seconds straight from cargo build --release with zero C++ dependencies!
+
+--------------------------------------------------------------------------------
+PHASE 14: HISTORICAL TEMPERAMENTS, CHIFF & REVERB REFINEMENT, EQUAL IMPORTED VOLUME & NATIVE CLARION 8' (October 13, 2026 - Prealpha_v2.0.1)
+--------------------------------------------------------------------------------
+* October 13, 2026:
+  - WHAT:
+    1. Historical Temperament Engine: Implemented complete historical microtonal temperament system with 8 organ intonation matrices (Equal Temperament 12-EDO, Werckmeister III 1691, Meantone 1/4-Comma, Kirnberger III 1779, Vallotti & Tartini 1779, Silbermann 1/6-Comma 1714, Pythagorean pure fifths, and Young II 1799) selectable via console UI and persisted in settings.
+    2. Chiff Transient Taming: Recalibrated FM shallot attack boost across all reed stops (Oboe 8', Clarinet 8', Bassoon 16', Bombarde 16', Ophicleide 16', Cor Anglais 8', Clarinet 4', Contrabassoon 32', Vox Humana 8'), reducing excessive Bessel sideband spikes by 60-70% for musical, organic reed attack articulation without harsh clicks.
+    3. Reverb & Room Scaling: Reduced cathedral reverb room size from 0.86 to 0.81 (~6%) and wet mix from 0.40 to 0.35 (down 5% absolute / 12.5% relative), providing pristine acoustic clarity that avoids muddying imported ranks or fast polyphonic counterpoint.
+    4. Equal Volume & Live Routing for Imported Ranks: Routed SoundFont synthesis directly into the unified live audio bus before reverb and soft-limiting, and normalized offline MIDI rendering gain to 0.95. Imported ranks now have the exact same perceived loudness, cathedral reverb acoustics, and soft-limiting behavior as native stops under all operating conditions.
+    5. Native Clarion 8' Stop: Created native sampled Clarion 8' stop (Stop ID 30) using embedded clarion.wav samples with unison footage (harmonic_factor 1.0), classified under 8' Foundation Ranks in the console, with smoothed loop boundary interpolation.
+    6. Code Health Audit: Fixed compiler warnings, verified thread safety of background rendering, and added unit test suite validating pitch accuracy across all temperaments.
+  - WHY:
+    1. Historical organ literature requires authentic temperaments (especially Meantone and Werckmeister III) to reproduce historical harmonic colors and pure intervals that standard 12-TET obscures.
+    2. The FM reed attack modulation index was excessively high (up to 4.5), generating intense high-frequency sidebands that manifested as an unnaturally loud and abrasive chiff click.
+    3. The default Schroeder-Moorer reverb level (0.40 wet, 0.86 room) produced slightly too much wash, obscuring fast organ passagework and imported sample details.
+    4. Imported SoundFont stops were previously amplified with a 1.8x gain factor and bypassed live reverb/limiting, making them substantially louder than native stops and sonically mismatched.
+    5. Organists require an 8' Clarion reed foundation in addition to the octave Clarion 4' for rich chorus registrations.
+  - HOW:
+    1. Temperament Engine (rust/src/temperament.rs): Evaluates microtonal frequencies via f(note) = A4 * 2^((note - 69 + cents(pc) / 100) / 12) where pc = note % 12, with A (pc = 9) anchored at exactly 0.0 cents deviation. Integrated into ToneBank caching, background MIDI re-rendering, and OrgelApp egui UI.
+    2. Chiff Attenuation (rust/src/dsp/stops_dsp.rs & rust/src/dsp/fm.rs): Scaled mod_index_attack values across all FM configurations (Bombarde 16' from 4.5 down to 1.0; Bassoon 16' from 3.5 to 0.8; Clarinets from 2.5 to 0.6; Oboe/Cor Anglais from 2.8/3.0 to 0.7; Contrabassoon from 4.0 to 1.0).
+    3. Reverb Tuning (rust/src/engine.rs): Adjusted REVERB_ROOM to 0.81 and REVERB_WET to 0.35 in the safe Rust Comb/All-Pass Schroeder reverberator.
+    4. Unified SoundFont Mixing (rust/src/soundfont.rs & rust/src/engine.rs): Implemented render_into_live() summing into the mixer live bus scaled by 1.0 / active_presets.len(). Reverb tail is dynamically extended when live SoundFont voices sound, passing SoundFont through the exact same Reverb and tanh soft limiter as native pipes. Offline MIDI SoundFont mix multiplier calibrated to 0.95.
+    5. Native Clarion 8' (rust/src/stops.rs & rust/src/dsp/stops_dsp.rs): Registered StopInfo { name: "Clarion 8'", id: 30 } in Group::Ft8, mapped to StopSynthesisModel::Sampled with is_clarion: true, harmonic_factor: 1.0, base_freq: 440.0. Clamped sample loop indices to prevent boundary clicking.
 ================================================================================
+

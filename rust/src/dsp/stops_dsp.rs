@@ -86,7 +86,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
             carrier_ratio: 1.0,
             mod_ratio: 1.0,
             mod_index_sustain: 1.6,
-            mod_index_attack: 2.8,
+            mod_index_attack: 0.7, // menthol - TAMED SHALLOT TRANSIENT
             attack_time: 0.02,
             feedback: 0.3,
         }),
@@ -99,7 +99,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
             carrier_ratio: 1.0,
             mod_ratio: 2.0, // Suppresses even harmonics (hollow woodwind)
             mod_index_sustain: 1.4,
-            mod_index_attack: 2.5,
+            mod_index_attack: 0.6,
             attack_time: 0.02,
             feedback: 0.2,
         }),
@@ -112,7 +112,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
             carrier_ratio: 0.5,
             mod_ratio: 1.0,
             mod_index_sustain: 1.7,
-            mod_index_attack: 3.5,
+            mod_index_attack: 0.8,
             attack_time: 0.03,
             feedback: 0.35,
         }),
@@ -125,7 +125,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
             carrier_ratio: 0.5,
             mod_ratio: 1.0,
             mod_index_sustain: 2.3, // Heavy brass buzz
-            mod_index_attack: 4.5,
+            mod_index_attack: 1.0,
             attack_time: 0.025,
             feedback: 0.5,
         }),
@@ -138,7 +138,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
             carrier_ratio: 0.5,
             mod_ratio: 1.5,
             mod_index_sustain: 1.9,
-            mod_index_attack: 3.8,
+            mod_index_attack: 0.9,
             attack_time: 0.028,
             feedback: 0.4,
         }),
@@ -161,7 +161,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
             carrier_ratio: 1.0,
             mod_ratio: 1.0,
             mod_index_sustain: 1.5,
-            mod_index_attack: 3.0,
+            mod_index_attack: 0.7,
             attack_time: 0.02,
             feedback: 0.3,
         }),
@@ -184,7 +184,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
             carrier_ratio: 2.0,
             mod_ratio: 4.0,
             mod_index_sustain: 1.4,
-            mod_index_attack: 2.5,
+            mod_index_attack: 0.6,
             attack_time: 0.015,
             feedback: 0.2,
         }),
@@ -210,7 +210,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
             carrier_ratio: 0.25,
             mod_ratio: 0.5,
             mod_index_sustain: 2.0,
-            mod_index_attack: 4.0,
+            mod_index_attack: 1.0,
             attack_time: 0.04,
             feedback: 0.4,
         }),
@@ -276,7 +276,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
             carrier_ratio: 1.0,
             mod_ratio: 1.0,
             mod_index_sustain: 1.4,
-            mod_index_attack: 2.2,
+            mod_index_attack: 0.5,
             attack_time: 0.02,
             feedback: 0.3,
         }),
@@ -411,6 +411,16 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
             base_freq: 220.0,
         },
     },
+    // 30: Clarion 8'
+    StopDefinition {
+        name: "Clarion 8'",
+        id: 30,
+        model: StopSynthesisModel::Sampled {
+            is_clarion: true,
+            harmonic_factor: 1.0,
+            base_freq: 440.0,
+        },
+    },
 ];
 
 /// Render a single stop's contribution into `out_buffer` using the optimal DSP engine.
@@ -487,17 +497,18 @@ pub fn render_stop_into(
 
             for (n, out_sample) in out.iter_mut().enumerate() {
                 let mut pos = n as f64 * step;
-                if pos >= len as f64 {
+                if pos >= loop_end as f64 {
                     let rem = pos - loop_start as f64;
                     pos = loop_start as f64 + (rem % loop_len as f64);
                 }
                 let i0 = pos as usize;
-                let mut i1 = i0 + 1;
-                if i1 >= len {
-                    i1 = loop_start;
-                }
+                let i1 = if i0 + 1 >= loop_end {
+                    loop_start
+                } else {
+                    (i0 + 1).min(len.saturating_sub(1))
+                };
                 let frac = (pos - pos.floor()) as f32;
-                let sample_val = (1.0 - frac) * pcm[i0] + frac * pcm[i1];
+                let sample_val = (1.0 - frac) * pcm[i0.min(len.saturating_sub(1))] + frac * pcm[i1];
                 *out_sample += sample_val;
             }
         }
