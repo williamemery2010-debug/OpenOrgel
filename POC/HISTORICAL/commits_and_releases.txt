@@ -1,9 +1,9 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-12 13:49:59
-Total Commits  : 69
-Total Releases : 18
+Updated At     : 2026-10-12 14:11:29
+Total Commits  : 70
+Total Releases : 19
 ================================================================================
 
 🚀 RELEASES / TAGS
@@ -27,6 +27,11 @@ Version : Prealpha_v1.7.3
 Date    : 2026-10-12
 Commit  : 916aebf
 Details : Release Prealpha_v1.7.3: Non-blocking re-synthesis snapshot, seamless playback without pausing, pure SoundFont playback without fallback bleed
+--------------------------------------------------------------------------------
+Version : Prealpha_v1.7.4
+Date    : 2026-10-12
+Commit  : b6a81c4
+Details : Release Prealpha_v1.7.4: Refuse playback without stops, pure SoundFont playback, non-blocking synthesis
 --------------------------------------------------------------------------------
 Version : Prealpha_v1.6.0
 Date    : 2026-10-08
@@ -108,7 +113,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-1111dac  | 2026-10-12 | williamemery2010-deb | Enforce strict active stops requirement, eliminate C++ fallback flue pipe bleed, and optimize SoundFont timeline synthesis
+52be34e  | 2026-10-12 | williamemery2010-deb | Count samples equally as active organ ranks, add comprehensive architecture documentation, release v1.7.5
+b6a81c4  | 2026-10-12 | williamemery2010-deb | Enforce strict active stops requirement, eliminate C++ fallback flue pipe bleed, and optimize SoundFont timeline synthesis
 916aebf  | 2026-10-12 | williamemery2010-deb | Non-blocking high-speed offline re-synthesis and pure sample playback - Prealpha_v1.7.3
 96d79d7  | 2026-10-12 | williamemery2010-deb | Organ stop taxonomic taxonomy and soundfont engine restructuring - Prealpha_v1.7.2
 9a0d6dc  | 2026-10-12 | williamemery2010-deb | Synchronize release history files

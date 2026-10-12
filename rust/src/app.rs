@@ -946,31 +946,36 @@ impl OrgelApp {
 
                 let sf_count = self.sf_presets.len();
                 let sf_title = if sf_count > 0 {
-                    format!("🎹 Imported SoundFonts (Page 2) [{}]", sf_count)
+                    format!("📦 Imported Ranks & Samples (Page 2) [{}]", sf_count)
                 } else {
-                    "🎹 Imported SoundFonts (Page 2)".to_string()
+                    "📦 Imported Ranks & Samples (Page 2)".to_string()
                 };
                 let p2_active = self.console_tab == ConsoleTab::SoundFonts;
                 let p2_fill = if p2_active { ACCENT } else { CHIP };
-                if pill_button(ui, &sf_title, p2_fill, ACCENT_HOVER, Vec2::new(245.0, 32.0), true).clicked() {
+                if pill_button(ui, &sf_title, p2_fill, ACCENT_HOVER, Vec2::new(260.0, 32.0), true).clicked() {
                     self.console_tab = ConsoleTab::SoundFonts;
                 }
 
+                // menthol - ORGAN RANK COULOMB HOMOGENEITY
+                // why code hard
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    if self.console_tab == ConsoleTab::PrincipalOrgan {
-                        ui.label(
-                            RichText::new("Classic Pipe Organ Ranks (32', 16', 8', 4', 2', Mixtures)")
-                                .size(12.0)
-                                .color(TEXT_MUTED),
-                        );
+                    let active_p1 = self.active_ids().len();
+                    let active_sf = self.engine.soundfont.lock().active_preset_count();
+                    let total_active = active_p1 + active_sf;
+                    let text = if total_active == 0 {
+                        "No stops drawn (0 active ranks)".to_string()
+                    } else if active_sf == 0 {
+                        format!("Active Organ Ranks: {} drawn", active_p1)
+                    } else if active_p1 == 0 {
+                        format!("Active Organ Ranks: {} drawn (from samples)", active_sf)
                     } else {
-                        let active_sf = self.engine.soundfont.lock().active_preset_count();
-                        ui.label(
-                            RichText::new(format!("Active SoundFont Ranks: {}", active_sf))
-                                .size(12.0)
-                                .color(GREEN),
-                        );
-                    }
+                        format!("Active Organ Ranks: {} drawn ({} native, {} sampled)", total_active, active_p1, active_sf)
+                    };
+                    ui.label(
+                        RichText::new(text)
+                            .size(12.0)
+                            .color(if total_active > 0 { GREEN } else { RED }),
+                    );
                 });
             });
             ui.add_space(8.0);
