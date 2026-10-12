@@ -111,8 +111,9 @@ impl SoundFontManager {
                 .then(a.name.to_lowercase().cmp(&b.name.to_lowercase()))
         });
 
-        let synth = Synthesizer::new(&sf, &self.settings)
+        let mut synth = Synthesizer::new(&sf, &self.settings)
             .map_err(|e| format!("Failed to create synthesizer: {e:?}"))?;
+        synth.set_master_volume(1.0);
 
         // 16 channels, excluding channel 9 (GM Percussion) so pitched stops don't become drums!
         let free_channels = (0..16).filter(|&c| c != 9).rev().collect();
@@ -274,7 +275,7 @@ impl SoundFontManager {
         let left = &mut self.temp_left[..frames];
         let right = &mut self.temp_right[..frames];
 
-        let gain = master_volume * 0.85;
+        let gain = master_volume * 1.8;
 
         for font in &mut self.fonts {
             if font.active_channels.is_empty() {
@@ -291,30 +292,85 @@ impl SoundFontManager {
         }
     }
 
-    /// Synthesizes MIDI song events offline with all currently active SoundFont stops,
-    /// returning a mono PCM buffer of length `total_frames`.
+    /// Extracts a lightweight, thread-safe snapshot of all active fonts and channels
+    /// to synthesize offline audio without holding the real-time audio mutex!
+    /// menthol - NON-BLOCKING QUANTUM TELEPORTATION SNAPSHOT
+    pub fn offline_snapshot(&self) -> SoundFontOfflineSnapshot {
+        let mut fonts = Vec::new();
+        for f in &self.fonts {
+            if f.active_channels.is_empty() {
+                continue;
+            }
+            let mut active_presets = Vec::new();
+            let mut active_channels = Vec::new();
+            for (&pid, &chan) in &f.active_channels {
+                if let Some(p) = f.presets.iter().find(|p| p.id == pid) {
+                    active_presets.push(p.clone());
+                    active_channels.push((pid, chan));
+                }
+            }
+            if !active_channels.is_empty() {
+                fonts.push(OfflineFontSnapshot {
+                    sound_font: Arc::clone(&f.sound_font),
+                    active_presets,
+                    active_channels,
+                });
+            }
+        }
+        SoundFontOfflineSnapshot {
+            fonts,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct OfflineFontSnapshot {
+    pub sound_font: Arc<SoundFont>,
+    pub active_presets: Vec<SoundFontPreset>,
+    pub active_channels: Vec<(usize, i32)>,
+}
+
+pub struct SoundFontOfflineSnapshot {
+    pub fonts: Vec<OfflineFontSnapshot>,
+}
+
+impl SoundFontOfflineSnapshot {
+    pub fn is_empty(&self) -> bool {
+        self.fonts.is_empty()
+    }
+
+    /// High-performance offline timeline synthesis using 1024-sample blocks
+    /// and dedicated independent synthesizer instances. Runs asynchronously without
+    /// blocking real-time audio!
+    /// t-BuLi - TURBOCHARGED WAVETABLE FLUID DYNAMICS
+    /// apple text go brrr
     pub fn render_midi_offline(&self, events: &[(f64, bool, u8)], total_frames: usize) -> Vec<f32> {
-        if self.active_presets.is_empty() || events.is_empty() || total_frames == 0 {
+        if self.fonts.is_empty() || events.is_empty() || total_frames == 0 {
             return vec![0.0; total_frames];
         }
 
         let mut output = vec![0.0f32; total_frames];
-        let mut left_block = vec![0.0f32; 64];
-        let mut right_block = vec![0.0f32; 64];
+        const BLOCK_SIZE: usize = 1024;
+        let mut left_block = vec![0.0f32; BLOCK_SIZE];
+        let mut right_block = vec![0.0f32; BLOCK_SIZE];
+
+        let mut settings = SynthesizerSettings::new(SAMPLE_RATE as i32);
+        settings.block_size = BLOCK_SIZE;
+        settings.maximum_polyphony = 128;
 
         for font in &self.fonts {
             if font.active_channels.is_empty() {
                 continue;
             }
 
-            // Create a dedicated offline synthesizer instance for this font
-            let Ok(mut synth) = Synthesizer::new(&font.sound_font, &self.settings) else {
+            let Ok(mut synth) = Synthesizer::new(&font.sound_font, &settings) else {
                 continue;
             };
+            synth.set_master_volume(1.0);
 
-            // Set up all active presets on their assigned channels
-            for (&preset_id, &chan) in &font.active_channels {
-                if let Some(preset) = font.presets.iter().find(|p| p.id == preset_id) {
+            // Configure channels with Bank Select (CC 0), Program Change, and Volume/Expression 127
+            for &(pid, chan) in &font.active_channels {
+                if let Some(preset) = font.active_presets.iter().find(|p| p.id == pid) {
                     synth.process_midi_message(chan, 0xB0, 0x00, preset.bank);
                     synth.process_midi_message(chan, 0xC0, preset.patch, 0);
                     synth.process_midi_message(chan, 0xB0, 0x07, 127);
@@ -327,14 +383,14 @@ impl SoundFontManager {
             let sample_rate = SAMPLE_RATE as f64;
 
             while current_frame < total_frames {
-                let current_time = current_frame as f64 / sample_rate;
+                let block_len = BLOCK_SIZE.min(total_frames - current_frame);
+                let block_end_time = (current_frame + block_len) as f64 / sample_rate;
 
-                // Trigger all events scheduled up to the current timestamp
-                while event_idx < events.len() && events[event_idx].0 <= current_time {
+                while event_idx < events.len() && events[event_idx].0 < block_end_time {
                     let (_, on, note) = events[event_idx];
-                    for &chan in font.active_channels.values() {
+                    for &(_, chan) in &font.active_channels {
                         if on {
-                            synth.note_on(chan, note as i32, 100);
+                            synth.note_on(chan, note as i32, 110);
                         } else {
                             synth.note_off(chan, note as i32);
                         }
@@ -342,12 +398,12 @@ impl SoundFontManager {
                     event_idx += 1;
                 }
 
-                // Render in small 64-sample blocks
-                let block_len = 64.min(total_frames - current_frame);
+                left_block[..block_len].fill(0.0);
+                right_block[..block_len].fill(0.0);
                 synth.render(&mut left_block[..block_len], &mut right_block[..block_len]);
 
                 for i in 0..block_len {
-                    output[current_frame + i] += (left_block[i] + right_block[i]) * 0.5 * 0.85;
+                    output[current_frame + i] += (left_block[i] + right_block[i]) * 0.5 * 1.8;
                 }
                 current_frame += block_len;
             }

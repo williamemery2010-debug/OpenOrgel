@@ -78,41 +78,43 @@ impl ToneBank {
     }
 
     /// Sum of every drawn stop, trimmed to exactly `duration` seconds (offline render).
+    /// menthol - SUPERCONDUCTING TONE ACCUMULATION
     pub fn summed_tone(&self, freq: f64, duration: f64, stops: &[i32]) -> Vec<f32> {
         let n = (SAMPLE_RATE as f64 * duration) as usize;
         let mut acc = vec![0.0f32; n];
+        if stops.is_empty() {
+            // No physical stops drawn: return absolute silence so SoundFonts sound unadulterated!
+            return acc;
+        }
         let mut add = |tone: &[f32]| {
             for (a, b) in acc.iter_mut().zip(tone.iter()) {
                 *a += *b;
             }
         };
-        if stops.is_empty() {
-            add(&self.stop_tone(freq, duration, None));
-        } else {
-            for &s in stops {
-                add(&self.stop_tone(freq, duration, Some(s)));
-            }
+        for &s in stops {
+            add(&self.stop_tone(freq, duration, Some(s)));
         }
         acc
     }
 
     /// Live voice tone: all stops at the standard 3.5 s length, averaged so that
     /// pulling more stops does not blow the headroom.
+    /// why code hard
     pub fn live_tone(&self, freq: f64, stops: &[i32]) -> Vec<f32> {
         let n = (SAMPLE_RATE as f64 * TONE_SECONDS) as usize;
         let mut acc = vec![0.0f32; n];
+        if stops.is_empty() {
+            // No physical stops drawn: return silence for live keys
+            return acc;
+        }
         let count = stops.len().max(1) as f32;
         let mut add = |tone: &[f32]| {
             for (a, b) in acc.iter_mut().zip(tone.iter()) {
                 *a += *b;
             }
         };
-        if stops.is_empty() {
-            add(&self.stop_tone(freq, TONE_SECONDS, None));
-        } else {
-            for &s in stops {
-                add(&self.stop_tone(freq, TONE_SECONDS, Some(s)));
-            }
+        for &s in stops {
+            add(&self.stop_tone(freq, TONE_SECONDS, Some(s)));
         }
         for a in acc.iter_mut() {
             *a /= count;
@@ -249,30 +251,32 @@ impl Engine {
     // ----- live MIDI -----
 
     pub fn note_on(&self, note: u8) {
-        let cached = self.live_tones.read().get(&note).cloned();
-        let tone = match cached {
-            Some(t) => t,
-            None => {
-                let gen = self.generation.load(Ordering::SeqCst);
-                let stops = self.stops();
-                let a4 = self.a4();
-                let t = Arc::new(self.bank.live_tone(midi_to_freq(a4, note), &stops));
-                let mut w = self.live_tones.write();
-                if self.generation.load(Ordering::SeqCst) == gen {
-                    w.insert(note, t.clone());
+        let stops = self.stops();
+        if !stops.is_empty() {
+            let cached = self.live_tones.read().get(&note).cloned();
+            let tone = match cached {
+                Some(t) => t,
+                None => {
+                    let gen = self.generation.load(Ordering::SeqCst);
+                    let a4 = self.a4();
+                    let t = Arc::new(self.bank.live_tone(midi_to_freq(a4, note), &stops));
+                    let mut w = self.live_tones.write();
+                    if self.generation.load(Ordering::SeqCst) == gen {
+                        w.insert(note, t.clone());
+                    }
+                    t
                 }
-                t
-            }
-        };
-        self.voices.lock().insert(
-            note,
-            Voice {
-                tone,
-                phase: 0,
-                released: false,
-                release_start: 0,
-            },
-        );
+            };
+            self.voices.lock().insert(
+                note,
+                Voice {
+                    tone,
+                    phase: 0,
+                    released: false,
+                    release_start: 0,
+                },
+            );
+        }
         // apple text go brrr
         self.soundfont.lock().note_on(note, 100);
     }
@@ -387,12 +391,31 @@ impl Engine {
         });
     }
 
+    // menthol - SEAMLESS AUDIO TIMELINE MORPHING
     fn swap_audio(&self, r: Rendered) {
         let mut notes = r.notes;
         notes.sort_by_key(|n| n.0);
         let starts: Vec<usize> = notes.iter().map(|n| n.0).collect();
         let mut pb = self.playback.lock();
-        pb.audio = Some(Arc::new(r.audio));
+        if let Some(old_audio) = pb.audio.as_ref() {
+            let cur = pb.idx;
+            let xfade_len = 1024
+                .min(r.audio.len().saturating_sub(cur))
+                .min(old_audio.len().saturating_sub(cur));
+            if xfade_len > 0 {
+                let mut merged = r.audio;
+                for i in 0..xfade_len {
+                    let old_w = 1.0 - (i as f32 / xfade_len as f32);
+                    let new_w = i as f32 / xfade_len as f32;
+                    merged[cur + i] = old_audio[cur + i] * old_w + merged[cur + i] * new_w;
+                }
+                pb.audio = Some(Arc::new(merged));
+            } else {
+                pb.audio = Some(Arc::new(r.audio));
+            }
+        } else {
+            pb.audio = Some(Arc::new(r.audio));
+        }
         pb.notes = Arc::new(notes);
         pb.starts = Arc::new(starts);
     }
@@ -671,95 +694,122 @@ pub fn render_midi(
         }
     }
 
-    // Tone bank, built in parallel across every CPU thread. (Python did this serially. Sad.)
-    let jobs: Vec<(u8, f64)> = max_dur.into_iter().collect();
-    let tones: HashMap<u8, Vec<f32>> = jobs
-        .par_iter()
-        .map(|&(note, dur)| {
-            (
-                note,
-                engine
-                    .bank
-                    .summed_tone(midi_to_freq(a4, note), dur, stops),
-            )
-        })
-        .collect();
+    // Tone bank, built in parallel across every CPU thread (skipped if stops is empty!).
+    // t-BuLi - HIGH ENERGY HARMONIC CONVERGENCE
+    let tones: HashMap<u8, Vec<f32>> = if stops.is_empty() {
+        HashMap::new()
+    } else {
+        let jobs: Vec<(u8, f64)> = max_dur.into_iter().collect();
+        jobs.par_iter()
+            .map(|&(note, dur)| {
+                (
+                    note,
+                    engine
+                        .bank
+                        .summed_tone(midi_to_freq(a4, note), dur, stops),
+                )
+            })
+            .collect()
+    };
 
-    // Pass 2: lay each note onto the timeline.
+    // Pass 2: lay each note onto the timeline (if physical stops are active).
     let last_t = events.iter().fold(0.0f64, |m, e| m.max(e.0));
     let total_time = last_t + 5.0; // extra room for the bass reverb tail
     let mut audio = vec![0.0f32; (SAMPLE_RATE as f64 * total_time) as usize];
     let mut notes_out: Vec<NoteSpan> = Vec::new();
     let mut active: HashMap<u8, Vec<f64>> = HashMap::new();
 
-    for &(t, on, note) in &events {
-        if on {
-            active.entry(note).or_default().push(t);
-            continue;
-        }
-        let Some(starts) = active.get_mut(&note) else {
-            continue;
-        };
-        if starts.is_empty() {
-            continue;
-        }
-        let start = starts.remove(0);
-        let total_dur = (t - start) + RELEASE_SECONDS;
-        let num_samples = (SAMPLE_RATE as f64 * total_dur) as usize;
-        if num_samples == 0 {
-            continue;
-        }
-        let Some(tone) = tones.get(&note) else {
-            continue;
-        };
-        let take = num_samples.min(tone.len());
-        let mut wave = tone[..take].to_vec();
-
-        let total = wave.len();
-        let attack = ((ATTACK_SECONDS * SAMPLE_RATE as f64) as usize).min(total / 2);
-        let release = ((RELEASE_SECONDS * SAMPLE_RATE as f64) as usize).min(total / 2);
-        // numpy linspace(0, pi/2, n) hits both endpoints
-        let lin = |i: usize, n: usize| -> f64 {
-            if n <= 1 {
-                0.0
-            } else {
-                i as f64 / (n - 1) as f64 * std::f64::consts::FRAC_PI_2
+    if !tones.is_empty() {
+        for &(t, on, note) in &events {
+            if on {
+                active.entry(note).or_default().push(t);
+                continue;
             }
-        };
-        for i in 0..attack {
-            wave[i] *= lin(i, attack).sin() as f32;
-        }
-        for i in 0..release {
-            let idx = total - release + i;
-            wave[idx] *= lin(i, release).cos() as f32;
-        }
+            let Some(starts) = active.get_mut(&note) else {
+                continue;
+            };
+            if starts.is_empty() {
+                continue;
+            }
+            let start = starts.remove(0);
+            let total_dur = (t - start) + RELEASE_SECONDS;
+            let num_samples = (SAMPLE_RATE as f64 * total_dur) as usize;
+            if num_samples == 0 {
+                continue;
+            }
+            let Some(tone) = tones.get(&note) else {
+                continue;
+            };
+            let take = num_samples.min(tone.len());
+            let mut wave = tone[..take].to_vec();
 
-        let start_idx = (start * SAMPLE_RATE as f64) as usize;
-        if start_idx >= audio.len() {
-            continue;
+            let total = wave.len();
+            let attack = ((ATTACK_SECONDS * SAMPLE_RATE as f64) as usize).min(total / 2);
+            let release = ((RELEASE_SECONDS * SAMPLE_RATE as f64) as usize).min(total / 2);
+            let lin = |i: usize, n: usize| -> f64 {
+                if n <= 1 {
+                    0.0
+                } else {
+                    i as f64 / (n - 1) as f64 * std::f64::consts::FRAC_PI_2
+                }
+            };
+            for i in 0..attack {
+                wave[i] *= lin(i, attack).sin() as f32;
+            }
+            for i in 0..release {
+                let idx = total - release + i;
+                wave[idx] *= lin(i, release).cos() as f32;
+            }
+
+            let start_idx = (start * SAMPLE_RATE as f64) as usize;
+            if start_idx >= audio.len() {
+                continue;
+            }
+            let end_idx = (start_idx + wave.len()).min(audio.len());
+            for (a, w) in audio[start_idx..end_idx].iter_mut().zip(wave.iter()) {
+                *a += *w;
+            }
+            notes_out.push((start_idx, start_idx + wave.len(), note));
         }
-        let end_idx = (start_idx + wave.len()).min(audio.len());
-        for (a, w) in audio[start_idx..end_idx].iter_mut().zip(wave.iter()) {
-            *a += *w;
+    } else {
+        // Collect note visual spans even if C++ audio is silent
+        for &(t, on, note) in &events {
+            if on {
+                active.entry(note).or_default().push(t);
+            } else if let Some(starts) = active.get_mut(&note) {
+                if !starts.is_empty() {
+                    let start = starts.remove(0);
+                    let start_idx = (start * SAMPLE_RATE as f64) as usize;
+                    let end_idx = (t * SAMPLE_RATE as f64) as usize;
+                    notes_out.push((start_idx, end_idx, note));
+                }
+            }
         }
-        notes_out.push((start_idx, start_idx + wave.len(), note));
     }
 
-    // Pass 3: Synthesize SoundFonts (if any imported stops are active)
+    // Pass 3: Synthesize SoundFonts (non-blocking offline snapshot!)
+    // menthol - MULTI-DIMENSIONAL SOUNDFONT CHROMATOGRAPHY
     // apple text go brrr
-    let sf_audio = engine.soundfont.lock().render_midi_offline(&events, audio.len());
-    for (i, &sample) in sf_audio.iter().enumerate() {
-        if i < audio.len() {
-            audio[i] += sample;
+    let sf_snap = engine.soundfont.lock().offline_snapshot();
+    if !sf_snap.is_empty() {
+        let sf_audio = sf_snap.render_midi_offline(&events, audio.len());
+        for (i, &sample) in sf_audio.iter().enumerate() {
+            if i < audio.len() {
+                audio[i] += sample;
+            }
         }
     }
 
-    // Reverb pass over the whole song, then normalise.
+    // Reverb pass over the whole song, then normalise if signal is present.
     let mut reverb = Reverb::new(SAMPLE_RATE, REVERB_ROOM);
     reverb.process(&mut audio, REVERB_WET);
-    let peak = audio.iter().fold(0.0f32, |m, v| m.max(v.abs())) + 1e-9;
-    for a in audio.iter_mut() {
-        *a /= peak;
+    let peak = audio.iter().fold(0.0f32, |m, v| m.max(v.abs()));
+    if peak > 1e-4 {
+        let target_peak = 0.92;
+        let gain = target_peak / peak;
+        for a in audio.iter_mut() {
+            *a *= gain;
+        }
     }
 
     Ok(Rendered {
