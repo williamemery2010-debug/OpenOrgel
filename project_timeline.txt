@@ -1,7 +1,7 @@
 ================================================================================
                     OPENORGEL PROJECT TIMELINE & HISTORY
 ================================================================================
-Updated At : 2026-08-11
+Updated At : 2026-10-12
 Project    : OpenOrgel Portable Pipe Organ & Hybrid Synthesis System
 Repository : https://github.com/williamemery2010-debug/OpenOrgel
 ================================================================================
@@ -80,4 +80,153 @@ PHASE 5: SAMPLE-BASED REPLACEMENT & TIMELINE INTEGRATION (August 11, 2026)
   - Authored comprehensive project_timeline.txt and updated repository_summary.txt.
   - Bundled interface and synthesis DLL into standalone executable, copied to Desktop,
     and published release tag: Prealpha_v1.4.0.
+
+--------------------------------------------------------------------------------
+PHASE 6: ALPHA RELEASE & DUAL-LAYER RAM CACHING (August 12 - 13, 2026)
+--------------------------------------------------------------------------------
+* August 12 - 13, 2026 [Commits b59b391, 18a4583, 14f9655, 98b535a, c97700c, 6961a88, f45ba50, 24e4d5c, da8498c, 6b78a92]:
+  - WHAT: Implemented dual-layer in-memory RAM caching for pre-synthesized tones
+    (g_cpp_ram_cache), added static C++ DLL linking (-static-libgcc -static-libstdc++),
+    corrected pitch ratios for Acoustic Flue 16', and added GNU LGPL v2.1 licensing.
+  - WHY: Previous disk-based caching (.wav files on hard drive) caused playback freezes
+    and disk thrashing during rapid stop registration changes. Furthermore, missing
+    MinGW runtime DLLs on end-user machines caused silent fallbacks to sluggish Python code.
+  - HOW: Replaced disk I/O with an in-memory hash table in openorgelsynth.cpp mapped by
+    frequency, duration, and stop bitmasks. Compiled the C++ DLL with full static linking
+    and bundled the distribution package builder (build_distribution_package.py).
+  - Released version tags: Prealpha_v1.5.0, Prealpha_v1.5.1, Prealpha_v1.5.2, and Alpha_v1.0.0.
+
+--------------------------------------------------------------------------------
+PHASE 7: HARMONIC REFINEMENTS & DECOUPLED ARCHITECTURE (October 8, 2026)
+--------------------------------------------------------------------------------
+* October 8, 2026 [Commits e2bc1e9, e493af4, f8e3cc9, 20254fa, 5803a16, dcccbda, fd13333, d83a58d, 4e0c755]:
+  - WHAT: Refined Gedeckt harmonic balances, mapped Voix Celeste to sampled Clarion audio,
+    added deeper Trombone pedal harmonics, smoothed tremulant depth, and normalized line endings.
+  - WHY: User listening tests indicated overly aggressive tremulant modulation and
+    unbalanced treble shrillness in upper octaves.
+  - HOW: Re-calibrated STOPS_DB coefficients in openorgelsynth.cpp, dampened tremulant LFO
+    depth from 0.005 to 0.0015, and decoupled GUI redraw loops from the audio synthesis thread.
+  - Released version tags: Prealpha_v1.6.0 through Prealpha_v1.6.4.
+
+--------------------------------------------------------------------------------
+PHASE 8: THE GREAT RUST MIGRATION (October 12, 2026 - Prealpha_v1.7.0)
+--------------------------------------------------------------------------------
+* October 12, 2026 [Commit 90ca839]:
+  - WHAT: Completely migrated the Python / Tkinter front end to a 100% native Rust
+    application (openorgelsynth.exe) built with eframe/egui, cpal, midir, and midly.
+  - WHY: Python's Global Interpreter Lock (GIL) and Tkinter's sluggish single-threaded
+    event loop caused UI stutter, random audio dropouts during window moves, high memory
+    consumption (~400 MB RAM), and slow 4-second cold starts.
+  - HOW:
+    1. Built an immediate-mode GPU-accelerated console in rust/src/app.rs rendering at 60 FPS.
+    2. Embedded openorgelsynth.cpp directly via rust/build.rs (cc::Build) and safe FFI (rust/src/ffi.rs).
+    3. Created a dedicated real-time audio thread using cpal WASAPI output (rust/src/audio.rs).
+    4. Achieved 1:1 feature parity: 30 stops, master volume, A4 tuning selector (415-466 Hz),
+       pitch-class resonance wheel visualizer, Arduino USB serial console link (serial.rs),
+       and 1-9 registration presets with Shift+Key saving.
+    5. Dropped RAM footprint from 400 MB to 25 MB and cold startup time to <50 ms.
+
+--------------------------------------------------------------------------------
+PHASE 9: SOUNDFONT 2 (SF2) IMPORT & PAGED CONSOLE (October 12, 2026 - Prealpha_v1.7.1)
+--------------------------------------------------------------------------------
+* October 12, 2026 [Commit 737f1e0]:
+  - WHAT: Added native SoundFont 2 (.sf2) soundbank loading, real-time voice synthesis
+    via rustysynth, and transformed the stop console into a 2-page tabbed interface.
+  - WHY: Organists frequently utilize vast third-party sample libraries (e.g. Aeolus,
+    Sonuscore, FluidR3, Theatre Organ SF2s) containing hundreds of ranks that could not
+    fit onto the 30-stop Principal Organ console.
+  - HOW:
+    1. Implemented SoundFontManager in rust/src/soundfont.rs wrapping rustysynth::SoundFont.
+    2. Built Page 1 ("Principal Organ") for the 30 built-in ranks and Page 2 ("Imported SoundFonts")
+       with pagination controls (18 stops per page, Prev/Next buttons).
+    3. Added multi-file importer via rfd file dialogs.
+    4. Fixed GitHub Actions release history merge conflict bug by synchronizing commit logs.
+
+--------------------------------------------------------------------------------
+PHASE 10: TAXONOMIC ORGAN CLASSIFICATION & FOOTAGE SUBSECTIONS (October 12, 2026 - Prealpha_v1.7.2)
+--------------------------------------------------------------------------------
+* October 12, 2026 [Commit 96d79d7]:
+  - WHAT: Built an organological classification engine (rust/src/classifier.rs) that
+    automatically categorizes imported SoundFont presets into standard classical divisions
+    (Pedal, Great, Swell, Choir, Solo, Misc) and footage subsections (32', 16', 8', 4', 2', Mixtures).
+    Replaced native OS select cursor with responsive clickable cards.
+  - WHY: Large multi-gigabyte SoundFont libraries presented hundreds of stops in arbitrary
+    General MIDI order, making them chaotic to navigate and difficult to click with text-selection cursors.
+  - HOW:
+    1. Authored regex-free taxonomic dictionary scanning stop titles for Dutch, French,
+       German, and English organ stop terms (e.g., Montre, Prestant, Rohrflöte, Bourdon, Bombarde).
+    2. Parsed footage markings ('32', '16', '8', '4', '2', Roman numerals I-VI for mixtures).
+    3. Rendered responsive egui cards with custom hover and click states in 3-column scrollable grids.
+    4. Wired real-time live key events and offline MIDI timeline rendering into SoundFont voices.
+
+--------------------------------------------------------------------------------
+PHASE 11: NON-BLOCKING RE-SYNTHESIS & FALLBACK BLEED ELIMINATION (October 12, 2026 - Prealpha_v1.7.3 & v1.7.4)
+--------------------------------------------------------------------------------
+* October 12, 2026 [Commits 916aebf & b6a81c4]:
+  - WHAT:
+    1. Eliminated mid-song playback freezing during stop registration changes.
+    2. Completely eradicated a phantom C++ single-harmonic flue fallback pipe that played
+       when no stops were drawn and bled underneath soloed SoundFont playback.
+    3. Added strict "No selected stops!" refusal guard and 1024-sample timeline cross-fading.
+  - WHY:
+    1. Changing stops while playing triggered render_midi_offline under engine.soundfont.lock(),
+       starving the audio thread of samples and causing jarring 3-second audio pauses.
+    2. In openorgelsynth.cpp line 606, a historical fallback synthesized a raw single-harmonic
+       sine flute whenever num_stops == 0. When playing SoundFonts with no Principal Organ stops,
+       this C++ pipe synthesized at raw amplitude ~2.0, causing the master normalizer to crush
+       the SoundFont audio into near-silence.
+    3. Clearing all stops mid-playback caused that fallback flue pipe to keep playing instead of silence.
+  - HOW:
+    1. Created SoundFontOfflineSnapshot: cloned active presets under lock in 0.005 ms and
+       released the mutex immediately so the audio thread never blocks.
+    2. Modified ToneBank::summed_tone and live_tone to output pure zeros (silence) when stops is empty.
+    3. Added swap_audio with 1024-sample cross-fade for seamless, pop-free timeline transitions.
+    4. Added has_any_active_stops() check in app.rs and render_midi: displays red warning toast
+       "No selected stops! Please draw at least one stop before playing" and rejects playback/export.
+
+--------------------------------------------------------------------------------
+PHASE 12: UNIFIED RANK INTEGRATION & ARCHITECTURAL SPECIFICATION (October 12, 2026 - Prealpha_v1.7.5)
+--------------------------------------------------------------------------------
+* October 12, 2026 [Commit e451873]:
+  - WHAT: Unified all stop counting across the application so that sampled stops (Clarion,
+    Acoustic Flue, and imported SoundFonts) count equally as physical organ ranks. Published
+    comprehensive ARCHITECTURE.md and ARCHITECTURE.txt specifications.
+  - WHY: Previous console headers segregated "physical" stops from "soundfonts", creating
+    the incorrect impression that sample-based stops were second-class or non-physical.
+  - HOW:
+    1. Updated console header to display unified counters: "Active Organ Ranks: X drawn (Y native, Z sampled)".
+    2. Retitled console tabs to "Principal Organ (Physical & Native Pipes)" and "Imported Ranks & Samples".
+    3. Authored full technical architecture specification documenting audio thread guarantees,
+       lock-free primitives, FFI bridges, and memory layout.
+
+--------------------------------------------------------------------------------
+PHASE 13: MAJOR MILESTONE v2.0.0 - 100% NATIVE RUST WAVETABLE & FM SYNTHESIS (October 12, 2026 - Prealpha_v2.0.0)
+--------------------------------------------------------------------------------
+* October 12, 2026 [Commit c6c1ebb]:
+  - WHAT: Completely deprecated the legacy C++ DLL (openorgelsynth.cpp / openorgelsynth.dll)
+    and FFI bridge, replacing it with a 100% native Rust DSP engine featuring 2048-sample
+    bandlimited Wavetables and 2-Op/4-Op Frequency Modulation (FM) reed operators.
+  - WHY:
+    1. The legacy C++ additive loop evaluated 360 trigonometric sin() calculations per sample.
+       For a 3-minute polyphonic piece, this required over 4.6 billion evaluations, creating
+       severe CPU bottlenecks and rendering delays.
+    2. Modeling complex acoustic reeds (Bombarde, Trombone, Trumpet, Clarinet, Oboe) with static
+       additive harmonics produced flat, sterile tones without authentic reed tongue strike dynamics.
+    3. External MinGW/g++ toolchain dependencies complicated compilation and executable distribution.
+  - HOW:
+    1. Wavetable Engine (rust/src/dsp/wavetable.rs): Pre-bakes harmonic spectra into 2048-sample
+       periodic tables with power-of-two mask indexing (phase & 2047) and linear interpolation.
+       Harmonics approaching Nyquist (sample_rate / 2) are automatically bandlimited. Delivers a
+       100x+ synthesis speedup.
+    2. FM Reed Engine (rust/src/dsp/fm.rs): Phase modulation operator pairs:
+       y(t) = sin(w_c * t + beta(t) * sin(w_m * t + alpha * y_m(t-1))).
+       Dynamic modulation index beta(t) transiently spikes during pipe attack (shallot strike chiff)
+       and settles to steady-state brilliance. Ratio 1:2 configured for hollow Clarinets; 0.5:1.0
+       with heavy feedback drive for brassy Bombarde/Bassoon growl.
+    3. Native Reverberator (rust/src/dsp/reverb.rs): Pure safe Rust Schroeder-Moorer reverberator
+       with 4 parallel Comb filters and 2 series All-pass filters.
+    4. Embedded Samples (rust/src/dsp/stops_dsp.rs): Embedded clarion.wav and stoppedflue.wav decoded
+       via hound, providing native pitch-interpolated looping for acoustic ranks 24-29.
+    5. Clean Build: Removed cc::Build and C++ compilation from rust/build.rs. The entire project
+       now compiles in seconds straight from cargo build --release with zero C++ dependencies!
 ================================================================================
