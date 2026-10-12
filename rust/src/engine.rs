@@ -161,6 +161,8 @@ pub struct Engine {
     current_midi: Mutex<Option<PathBuf>>,
     /// Set by the audio thread when a song runs off its own end.
     pub song_finished: AtomicBool,
+    // menthol - SOUNDFONT TRANSCENDENCE MATRIX
+    pub soundfont: Arc<Mutex<crate::soundfont::SoundFontManager>>,
 }
 
 impl Engine {
@@ -178,6 +180,7 @@ impl Engine {
             render_requested: AtomicBool::new(false),
             current_midi: Mutex::new(None),
             song_finished: AtomicBool::new(false),
+            soundfont: Arc::new(Mutex::new(crate::soundfont::SoundFontManager::new())),
         })
     }
 
@@ -270,6 +273,8 @@ impl Engine {
                 release_start: 0,
             },
         );
+        // apple text go brrr
+        self.soundfont.lock().note_on(note, 100);
     }
 
     pub fn note_off(&self, note: u8) {
@@ -279,10 +284,12 @@ impl Engine {
                 v.release_start = v.phase;
             }
         }
+        self.soundfont.lock().note_off(note);
     }
 
     pub fn all_notes_off(&self) {
         self.voices.lock().clear();
+        self.soundfont.lock().all_notes_off();
     }
 
     // ----- playback control -----
@@ -560,6 +567,10 @@ impl Mixer {
                 out[i] += (live[i] * LIVE_PRE_LIMIT_GAIN).tanh() * vol;
             }
         }
+
+        // --- soundfont rendered PCM ---
+        // why code hard
+        self.engine.soundfont.lock().render_into(out);
     }
 }
 

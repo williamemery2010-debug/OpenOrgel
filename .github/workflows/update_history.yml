@@ -17,25 +17,39 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Fetch all history so git log and tags are fully available
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
       - name: Run history generator
-        run: python update_history.py
+        run: |
+          if [ -f "update_history.py" ]; then
+            python update_history.py
+          elif [ -f "POC/HISTORICAL/update_history.py" ]; then
+            python POC/HISTORICAL/update_history.py
+          fi
 
       - name: Commit and push changes
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add commits_and_releases.txt
-          # Only commit and push if the history file has changed
+          git add commits_and_releases.txt POC/HISTORICAL/commits_and_releases.txt "Open-Orgel Software/Audio_and_Logs/commits_and_releases.txt" || true
           if ! git diff --cached --quiet; then
             git commit -m "Auto-update commits_and_releases.txt [skip ci]"
-            git push origin HEAD:main
+            TARGET_BRANCH="main"
+            if [ "${GITHUB_REF_TYPE}" = "branch" ]; then
+              TARGET_BRANCH="${GITHUB_REF_NAME}"
+            elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+              BRANCH_CANDIDATE=$(git branch -r --contains HEAD | grep -v 'HEAD' | head -n 1 | sed 's/origin\///' | tr -d ' *')
+              if [ -n "$BRANCH_CANDIDATE" ]; then
+                TARGET_BRANCH="$BRANCH_CANDIDATE"
+              fi
+            fi
+            git pull --rebase origin "$TARGET_BRANCH" || true
+            git push origin HEAD:"$TARGET_BRANCH"
           fi

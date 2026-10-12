@@ -20,6 +20,7 @@ use crate::ffi;
 use crate::midi_in::{self, MidiConnection};
 use crate::serial::{ArduinoLink, SerialEvent};
 use crate::settings::Settings;
+use crate::soundfont::SoundFontPreset;
 use crate::stops::{self, Group, STOPS};
 
 // ---- palette (carried over from the legacy console) ----
@@ -135,6 +136,13 @@ enum Busy {
     Export,
 }
 
+// menthol - THE MULTI-DIMENSIONAL CONSOLE TABULATOR
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+pub enum ConsoleTab {
+    PrincipalOrgan,
+    SoundFonts,
+}
+
 pub struct OrgelApp {
     engine: Arc<Engine>,
     audio: Result<AudioOutput, String>,
@@ -155,6 +163,10 @@ pub struct OrgelApp {
     rx: Receiver<UiMsg>,
     engine_version: String,
     pcs: [bool; 12],
+    pub console_tab: ConsoleTab,
+    pub sf_page: usize,
+    pub sf_search: String,
+    pub sf_presets: Vec<SoundFontPreset>,
 }
 
 impl OrgelApp {
@@ -190,6 +202,7 @@ impl OrgelApp {
         let link = ArduinoLink::spawn(move || ctx.request_repaint());
 
         let (tx, rx) = unbounded();
+        // apple text go brrr
         let mut app = OrgelApp {
             engine,
             audio,
@@ -210,6 +223,10 @@ impl OrgelApp {
             rx,
             engine_version,
             pcs: [false; 12],
+            console_tab: ConsoleTab::PrincipalOrgan,
+            sf_page: 0,
+            sf_search: String::new(),
+            sf_presets: Vec::new(),
         };
         app.apply_stops();
         app.refresh_midi_devices();
@@ -386,9 +403,10 @@ impl OrgelApp {
         std::thread::spawn(move || {
             let picks = rfd::FileDialog::new()
                 .set_title("Import Soundfonts & Samples")
+                .add_filter("SoundFont 2 (*.sf2)", &["sf2"])
                 .add_filter(
-                    "Sound Libraries",
-                    &["sf2", "sf3", "zip", "nkc", "nkr", "nkx", "ogi", "nki", "nicint"],
+                    "All Sound Libraries",
+                    &["sf2", "sf3", "zip", "sfz", "nkc", "nkr", "nkx", "ogi", "nki", "nicint"],
                 )
                 .pick_files()
                 .unwrap_or_default();
@@ -422,14 +440,56 @@ impl OrgelApp {
                 UiMsg::ImportPicked(paths) => {
                     self.busy = Busy::Idle;
                     if !paths.is_empty() {
-                        // Honest status: the dialog works, the loaders are the next milestone.
-                        self.toast(
-                            format!(
-                                "{} file(s) selected, but sample-library loading is not implemented yet.",
-                                paths.len()
-                            ),
-                            AMBER,
-                        );
+                        let mut loaded_count = 0;
+                        let mut total_presets = 0;
+                        let mut last_name = String::new();
+                        let mut non_sf2 = 0;
+
+                        for p in &paths {
+                            let ext = p
+                                .extension()
+                                .and_then(|s| s.to_str())
+                                .unwrap_or("")
+                                .to_lowercase();
+                            if ext == "sf2" {
+                                let res = self.engine.soundfont.lock().load_sf2(p);
+                                match res {
+                                    Ok((count, name)) => {
+                                        loaded_count += 1;
+                                        total_presets += count;
+                                        last_name = name;
+                                    }
+                                    Err(e) => {
+                                        self.toast(format!("Error loading {}: {e}", p.display()), RED);
+                                    }
+                                }
+                            } else {
+                                non_sf2 += 1;
+                            }
+                        }
+
+                        self.sf_presets = self.engine.soundfont.lock().all_presets();
+
+                        if loaded_count > 0 {
+                            self.console_tab = ConsoleTab::SoundFonts;
+                            self.sf_page = 0;
+                            if loaded_count == 1 {
+                                self.toast(
+                                    format!("Loaded {} ranks from '{}' onto Page 2!", total_presets, last_name),
+                                    GREEN,
+                                );
+                            } else {
+                                self.toast(
+                                    format!("Loaded {} ranks across {} soundfonts onto Page 2!", total_presets, loaded_count),
+                                    GREEN,
+                                );
+                            }
+                        } else if non_sf2 > 0 {
+                            self.toast(
+                                format!("Selected {} file(s). Note: Only SF2 SoundFonts are directly synthesized; other formats require SF2 conversion.", non_sf2),
+                                AMBER,
+                            );
+                        }
                     }
                 }
             }
@@ -553,54 +613,273 @@ impl OrgelApp {
         });
     }
 
+    // ========================================================================
+    // SOUNDFONT CONSOLE PAGE (PAGE 2) - THE IMPORTED PIPE MATRIX
+    // menthol - QUANTUM CONSOLE PAGE REGISTER
+    // ========================================================================
+    fn soundfont_page_ui(&mut self, ui: &mut egui::Ui) {
+        const SF_PAGE_SIZE: usize = 24;
+        let mut sf_mgr = self.engine.soundfont.lock();
+        let total_loaded = self.sf_presets.len();
+
+        // --- Toolbar: Search, Filtering & Info ---
+        ui.horizontal(|ui| {
+            ui.label(bold("Search Ranks:", 13.0).color(TEXT_MUTED));
+            let r = ui.add(
+                egui::TextEdit::singleline(&mut self.sf_search)
+                    .hint_text("Filter by instrument or font name...")
+                    .desired_width(260.0),
+            );
+            if r.changed() {
+                self.sf_page = 0;
+            }
+
+            if !self.sf_search.is_empty() {
+                if pill_button(ui, "Clear Search", CHIP, ACCENT_HOVER, Vec2::new(100.0, 26.0), true).clicked() {
+                    self.sf_search.clear();
+                    self.sf_page = 0;
+                }
+            }
+
+            ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                let active_sf = sf_mgr.active_preset_count();
+                if active_sf > 0 {
+                    badge(ui, &format!("Active Ranks: {}", active_sf), GREEN);
+                }
+                badge(ui, &format!("Total Library Stops: {}", total_loaded), ACCENT);
+            });
+        });
+        ui.add_space(6.0);
+
+        // Filter presets
+        let search_lower = self.sf_search.trim().to_lowercase();
+        let filtered: Vec<&crate::soundfont::SoundFontPreset> = self
+            .sf_presets
+            .iter()
+            .filter(|p| {
+                if search_lower.is_empty() {
+                    true
+                } else {
+                    p.name.to_lowercase().contains(&search_lower)
+                        || p.font_name.to_lowercase().contains(&search_lower)
+                }
+            })
+            .collect();
+
+        if filtered.is_empty() {
+            inner_card(ui, |ui| {
+                ui.vertical_centered(|ui| {
+                    ui.add_space(24.0);
+                    if total_loaded == 0 {
+                        ui.label(bold("No SoundFonts Loaded Yet", 16.0).color(TEXT_FG));
+                        ui.add_space(6.0);
+                        ui.label(
+                            RichText::new("Import any .sf2 SoundFont file using 'Import Samples' below to populate Page 2.")
+                                .size(13.0)
+                                .color(TEXT_MUTED),
+                        );
+                        ui.add_space(4.0);
+                        ui.label(
+                            RichText::new("Supports MuseScore, FluidR3, General MIDI, and pipe organ SoundFont libraries.")
+                                .size(11.0)
+                                .color(TEXT_MUTED),
+                        );
+                    } else {
+                        ui.label(bold("No instruments matching search query", 15.0).color(TEXT_MUTED));
+                    }
+                    ui.add_space(24.0);
+                });
+            });
+            return;
+        }
+
+        let total_pages = (filtered.len() + SF_PAGE_SIZE - 1) / SF_PAGE_SIZE;
+        if self.sf_page >= total_pages {
+            self.sf_page = total_pages.saturating_sub(1);
+        }
+
+        let start_idx = self.sf_page * SF_PAGE_SIZE;
+        let end_idx = (start_idx + SF_PAGE_SIZE).min(filtered.len());
+        let page_items = &filtered[start_idx..end_idx];
+
+        // 4 Columns of SoundFont rank cards
+        // apple text go brrr
+        ui.columns(4, |cols| {
+            for (i, preset) in page_items.iter().enumerate() {
+                let col_idx = i % 4;
+                let is_active = sf_mgr.is_preset_active(preset.id);
+                let bg = if is_active { ACCENT } else { DARK_BG };
+                let text_color = if is_active { Color32::WHITE } else { TEXT_FG };
+
+                cols[col_idx].add_space(3.0);
+                egui::Frame::new()
+                    .fill(bg)
+                    .stroke(Stroke::new(1.0, if is_active { ACCENT_HOVER } else { BORDER }))
+                    .corner_radius(CornerRadius::same(6))
+                    .inner_margin(Margin::symmetric(8, 6))
+                    .show(&mut cols[col_idx], |ui| {
+                        ui.set_width(ui.available_width());
+                        let display_name = format!("{}. {}", preset.id, preset.name);
+                        let resp = ui.add(
+                            egui::Label::new(
+                                RichText::new(display_name)
+                                    .size(12.0)
+                                    .color(text_color),
+                            )
+                            .sense(Sense::click()),
+                        );
+                        let sub = format!("{} (B:{} P:{})", preset.font_name, preset.bank, preset.patch);
+                        ui.label(
+                            RichText::new(sub)
+                                .size(10.0)
+                                .color(if is_active { Color32::from_rgb(0xDB, 0xEA, 0xFE) } else { TEXT_MUTED }),
+                        );
+
+                        if resp.clicked() {
+                            sf_mgr.toggle_preset(preset.id);
+                        }
+                    });
+            }
+        });
+
+        ui.add_space(8.0);
+
+        // --- Pagination Navigation Bar ---
+        // why code hard
+        ui.horizontal(|ui| {
+            let has_prev = self.sf_page > 0;
+            if pill_button(ui, "◀ Previous Page", CHIP, ACCENT_HOVER, Vec2::new(120.0, 28.0), has_prev).clicked() {
+                if has_prev {
+                    self.sf_page -= 1;
+                }
+            }
+
+            ui.add_space(4.0);
+            ui.label(
+                bold(format!("Page {} of {}", self.sf_page + 1, total_pages), 13.0)
+                    .color(TEXT_FG),
+            );
+            ui.add_space(4.0);
+
+            let has_next = self.sf_page + 1 < total_pages;
+            if pill_button(ui, "Next Page ▶", CHIP, ACCENT_HOVER, Vec2::new(120.0, 28.0), has_next).clicked() {
+                if has_next {
+                    self.sf_page += 1;
+                }
+            }
+
+            ui.add_space(10.0);
+            ui.label(
+                RichText::new(format!(
+                    "Showing instruments {}-{} of {} filtered",
+                    start_idx + 1,
+                    end_idx,
+                    filtered.len()
+                ))
+                .size(11.0)
+                .color(TEXT_MUTED),
+            );
+        });
+    }
+
     fn stops_panel(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
         let mut changed = false;
         card(ui, |ui| {
+            // --- CONSOLE TAB SWITCHER (PAGE 1 vs PAGE 2) ---
             ui.horizontal(|ui| {
-                ui.label(bold("Console Stops & Pipe Registers", 15.0).color(ACCENT));
+                let p1_active = self.console_tab == ConsoleTab::PrincipalOrgan;
+                let p1_fill = if p1_active { ACCENT } else { CHIP };
+                if pill_button(ui, "🏛️ Principal Organ (Page 1)", p1_fill, ACCENT_HOVER, Vec2::new(210.0, 32.0), true).clicked() {
+                    self.console_tab = ConsoleTab::PrincipalOrgan;
+                }
+
+                let sf_count = self.sf_presets.len();
+                let sf_title = if sf_count > 0 {
+                    format!("🎹 Imported SoundFonts (Page 2) [{}]", sf_count)
+                } else {
+                    "🎹 Imported SoundFonts (Page 2)".to_string()
+                };
+                let p2_active = self.console_tab == ConsoleTab::SoundFonts;
+                let p2_fill = if p2_active { ACCENT } else { CHIP };
+                if pill_button(ui, &sf_title, p2_fill, ACCENT_HOVER, Vec2::new(245.0, 32.0), true).clicked() {
+                    self.console_tab = ConsoleTab::SoundFonts;
+                }
+
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                    ui.label(
-                        RichText::new("Select active stops to adjust synthesis harmonic timbre")
-                            .size(12.0)
-                            .color(TEXT_MUTED),
-                    );
+                    if self.console_tab == ConsoleTab::PrincipalOrgan {
+                        ui.label(
+                            RichText::new("Classic Pipe Organ Ranks (32', 16', 8', 4', 2', Mixtures)")
+                                .size(12.0)
+                                .color(TEXT_MUTED),
+                        );
+                    } else {
+                        let active_sf = self.engine.soundfont.lock().active_preset_count();
+                        ui.label(
+                            RichText::new(format!("Active SoundFont Ranks: {}", active_sf))
+                                .size(12.0)
+                                .color(GREEN),
+                        );
+                    }
                 });
             });
             ui.add_space(8.0);
 
-            let n = self.groups.len();
-            let groups = self.groups.clone();
-            ui.columns(n, |cols| {
-                for (col, (group, idxs)) in cols.iter_mut().zip(groups.iter()) {
-                    inner_card(col, |ui| {
-                        ui.label(bold(group.title(), 13.0).color(ACCENT));
-                        ui.add_space(4.0);
-                        for &i in idxs {
-                            let name = STOPS[i].name;
-                            let r = ui.checkbox(
-                                &mut self.stop_on[i],
-                                RichText::new(name).size(13.0).color(TEXT_FG),
-                            );
-                            if r.changed() {
-                                changed = true;
-                            }
+            // --- PAGE CONTENT ---
+            match self.console_tab {
+                ConsoleTab::PrincipalOrgan => {
+                    let n = self.groups.len();
+                    let groups = self.groups.clone();
+                    ui.columns(n, |cols| {
+                        for (col, (group, idxs)) in cols.iter_mut().zip(groups.iter()) {
+                            inner_card(col, |ui| {
+                                ui.label(bold(group.title(), 13.0).color(ACCENT));
+                                ui.add_space(4.0);
+                                for &i in idxs {
+                                    let name = STOPS[i].name;
+                                    let r = ui.checkbox(
+                                        &mut self.stop_on[i],
+                                        RichText::new(name).size(13.0).color(TEXT_FG),
+                                    );
+                                    if r.changed() {
+                                        changed = true;
+                                    }
+                                }
+                            });
                         }
                     });
                 }
-            });
+                ConsoleTab::SoundFonts => {
+                    self.soundfont_page_ui(ui);
+                }
+            }
 
             ui.add_space(8.0);
+
+            // --- CONSOLE ACTION BAR & PRESETS ---
             ui.horizontal(|ui| {
-                if pill_button(ui, "Select All Stops", CHIP, ACCENT_HOVER, Vec2::new(140.0, 32.0), true)
-                    .clicked()
-                {
-                    self.set_all_stops(true);
+                match self.console_tab {
+                    ConsoleTab::PrincipalOrgan => {
+                        if pill_button(ui, "Select All Stops", CHIP, ACCENT_HOVER, Vec2::new(140.0, 32.0), true)
+                            .clicked()
+                        {
+                            self.set_all_stops(true);
+                        }
+                        if pill_button(ui, "Clear All Stops", CHIP, ACCENT_HOVER, Vec2::new(140.0, 32.0), true)
+                            .clicked()
+                        {
+                            self.set_all_stops(false);
+                        }
+                    }
+                    ConsoleTab::SoundFonts => {
+                        let sf_active_any = self.engine.soundfont.lock().active_preset_count() > 0;
+                        if pill_button(ui, "Clear SoundFont Stops", CHIP, ACCENT_HOVER, Vec2::new(170.0, 32.0), sf_active_any)
+                            .clicked()
+                        {
+                            self.engine.soundfont.lock().clear_all_presets();
+                        }
+                    }
                 }
-                if pill_button(ui, "Clear All Stops", CHIP, ACCENT_HOVER, Vec2::new(140.0, 32.0), true)
-                    .clicked()
-                {
-                    self.set_all_stops(false);
-                }
+
                 ui.add_space(12.0);
                 ui.label(RichText::new("Presets").size(12.0).color(TEXT_MUTED));
                 for k in 1..=9usize {

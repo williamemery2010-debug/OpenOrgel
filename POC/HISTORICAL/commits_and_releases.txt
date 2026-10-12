@@ -1,7 +1,7 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-12 11:41:05
+Updated At     : 2026-10-12 12:05:38
 Total Commits  : 63
 Total Releases : 15
 ================================================================================
@@ -10,7 +10,7 @@ Total Releases : 15
 --------------------------------------------------------------------------------
 Version : Prealpha_v1.7.0
 Date    : 2026-10-12
-Commit  : 72eaa4c
+Commit  : 90ca839
 Details : Release Prealpha v1.7.0: Native Rust GUI and embedded C++ synthesis engine
 --------------------------------------------------------------------------------
 Version : Prealpha_v1.6.0
@@ -93,7 +93,7 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-72eaa4c  | 2026-10-12 | williamemery2010-deb | Migrate OpenOrgel GUI to native Rust application with embedded C++ synthesis
+90ca839  | 2026-10-12 | williamemery2010-deb | Migrate OpenOrgel GUI to native Rust application with embedded C++ synthesis
 20254fa  | 2026-10-08 | williamemery2010-deb | Update version and tags
 f8e3cc9  | 2026-10-08 | williamemery2010-deb | Implement requested sound improvements (Gedeckt, Voix Celeste as clarion, Trombones, less tremulant)
 e493af4  | 2026-10-08 | williamemery2010-deb | Implement requested sound improvements (Gedeckt, Voix Celeste as clarion, Trombones, less tremulant)

@@ -12,6 +12,7 @@ mod ffi;
 mod midi_in;
 mod serial;
 mod settings;
+pub mod soundfont;
 mod stops;
 
 fn main() -> eframe::Result<()> {
