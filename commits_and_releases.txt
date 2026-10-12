@@ -1,12 +1,17 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-13 09:31:51
-Total Commits  : 73
-Total Releases : 21
+Updated At     : 2026-10-13 09:33:00
+Total Commits  : 74
+Total Releases : 22
 ================================================================================
 
 🚀 RELEASES / TAGS
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.1
+Date    : 2026-10-13
+Commit  : 8122a1f
+Details : Release Prealpha_v2.0.1: Historical temperaments, native Clarion 8' stop, tamed chiff transients, equalized imported stop volume, and tuned reverb
 --------------------------------------------------------------------------------
 Version : Prealpha_v1.7.0
 Date    : 2026-10-12
@@ -123,7 +128,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-ac0f81f  | 2026-10-13 | williamemery2010-deb | feat: add historical temperaments, native Clarion 8' stop, tame chiff attack, equalize imported stop volume, and tune reverb
+0e8f741  | 2026-10-13 | williamemery2010-deb | docs: record Prealpha_v2.0.1 release in project history
+8122a1f  | 2026-10-13 | williamemery2010-deb | feat: add historical temperaments, native Clarion 8' stop, tame chiff attack, equalize imported stop volume, and tune reverb
 dc6098c  | 2026-10-12 | williamemery2010-deb | docs: bring project timeline up to date through Phase 13 and mandate comprehensive WHAT/WHY/HOW timeline logging in AGENTS.md
 c6c1ebb  | 2026-10-12 | williamemery2010-deb | Major Release v2.0.0: Transition to 100% native Rust Wavetable & FM synthesis engine, deprecate C++ DLL and FFI
 e451873  | 2026-10-12 | williamemery2010-deb | Count samples equally as active organ ranks, add comprehensive architecture documentation, release v1.7.5
