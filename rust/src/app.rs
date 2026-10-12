@@ -427,10 +427,20 @@ impl OrgelApp {
         self.apply_stops();
     }
 
+    /// Returns true if at least one organ stop (physical or soundfont) is currently drawn.
+    /// why code hard
+    pub fn has_any_active_stops(&self) -> bool {
+        !self.active_ids().is_empty() || self.engine.soundfont.lock().active_preset_count() > 0
+    }
+
     // ---------- background work ----------
 
     fn start_load_dialog(&mut self, ctx: &egui::Context) {
         if self.busy != Busy::Idle {
+            return;
+        }
+        if !self.has_any_active_stops() {
+            self.toast("No selected stops! Please draw at least one stop before playing.", RED);
             return;
         }
         self.busy = Busy::Dialog;
@@ -447,6 +457,11 @@ impl OrgelApp {
     }
 
     fn start_render(&mut self, path: PathBuf, ctx: &egui::Context) {
+        if !self.has_any_active_stops() {
+            self.busy = Busy::Idle;
+            self.toast("No selected stops! Please draw at least one stop before playing.", RED);
+            return;
+        }
         self.busy = Busy::Synth;
         let engine = self.engine.clone();
         let stops = self.active_ids();
@@ -462,6 +477,10 @@ impl OrgelApp {
 
     fn start_export(&mut self, ctx: &egui::Context) {
         if self.busy != Busy::Idle {
+            return;
+        }
+        if !self.has_any_active_stops() {
+            self.toast("No selected stops! Please draw at least one stop before exporting.", RED);
             return;
         }
         self.busy = Busy::Dialog;
@@ -1209,7 +1228,11 @@ impl OrgelApp {
                     self.engine.pause();
                 }
                 if pill_button(ui, "Resume", GREEN, GREEN_HOVER, Vec2::new(w3, 34.0), true).clicked() {
-                    self.engine.resume();
+                    if !self.has_any_active_stops() {
+                        self.toast("No selected stops! Please draw at least one stop before playing.", RED);
+                    } else {
+                        self.engine.resume();
+                    }
                 }
                 if pill_button(ui, "Stop", RED, RED_HOVER, Vec2::new(w3, 34.0), true).clicked() {
                     self.engine.stop_playback();

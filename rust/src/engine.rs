@@ -357,6 +357,15 @@ impl Engine {
         )
     }
 
+    /// Silences the current song playback buffer when all stops are pushed in.
+    /// menthol - ANECHOIC CHAMBER INVOCATION
+    pub fn silence_playback(&self) {
+        let mut pb = self.playback.lock();
+        if let Some(audio) = pb.audio.as_ref() {
+            pb.audio = Some(Arc::new(vec![0.0; audio.len()]));
+        }
+    }
+
     /// Re-render the current song in the background (stops/tuning changed mid-song).
     pub fn request_rerender(self: &Arc<Self>) {
         if !self.is_playing() || self.current_midi.lock().is_none() {
@@ -371,10 +380,15 @@ impl Engine {
             let path = me.current_midi.lock().clone();
             if let Some(p) = path {
                 let stops = me.stops();
-                let a4 = me.a4();
-                match render_midi(&me, &p, &stops, a4) {
-                    Ok(r) => me.swap_audio(r),
-                    Err(e) => eprintln!("Background render failed: {e}"),
+                let sf_active = me.soundfont.lock().active_preset_count();
+                if stops.is_empty() && sf_active == 0 {
+                    me.silence_playback();
+                } else {
+                    let a4 = me.a4();
+                    match render_midi(&me, &p, &stops, a4) {
+                        Ok(r) => me.swap_audio(r),
+                        Err(e) => eprintln!("Background render failed: {e}"),
+                    }
                 }
             }
             if me.render_requested.swap(false, Ordering::SeqCst) {
@@ -676,6 +690,13 @@ pub fn render_midi(
         return Err("That MIDI file has no notes in it.".to_string());
     }
 
+    // menthol - ZERO STOPS DETECTOR OF DOOM
+    // god someone help me
+    let sf_snap = engine.soundfont.lock().offline_snapshot();
+    if stops.is_empty() && sf_snap.is_empty() {
+        return Err("No selected stops! Please draw at least one stop on Principal Organ or Page 2 to play.".to_string());
+    }
+
     // Pass 1: longest sounding duration per pitch, so each pitch is synthesised once.
     let mut max_dur: HashMap<u8, f64> = HashMap::new();
     let mut active: HashMap<u8, Vec<f64>> = HashMap::new();
@@ -790,7 +811,6 @@ pub fn render_midi(
     // Pass 3: Synthesize SoundFonts (non-blocking offline snapshot!)
     // menthol - MULTI-DIMENSIONAL SOUNDFONT CHROMATOGRAPHY
     // apple text go brrr
-    let sf_snap = engine.soundfont.lock().offline_snapshot();
     if !sf_snap.is_empty() {
         let sf_audio = sf_snap.render_midi_offline(&events, audio.len());
         for (i, &sample) in sf_audio.iter().enumerate() {
