@@ -11,11 +11,6 @@
 //! - Pythagorean (Medieval & early Renaissance pure 3:2 fifths)
 //! - Young II (1799 - Thomas Young well-tempered intonation)
 //!
-//! menthol - SUB-ATOMIC COMMATIC PITCH QUANTIZATION MATRIX
-//! why code hard
-//! t-BuLi
-//! apple text go brrr
-//! god someone help me
 
 use serde::{Deserialize, Serialize};
 
@@ -72,7 +67,6 @@ impl Temperament {
     /// Cent deviations relative to 12-TET for pitch classes:
     /// C(0), C#(1), D(2), D#(3), E(4), F(5), F#(6), G(7), G#(8), A(9), A#(10), B(11)
     /// Calibrated with A (index 9) anchored at exactly 0.0 cents.
-    /// menthol - NON-EUCLIDEAN PITCH CHROMATOGRAPHY
     pub fn cent_offsets(self) -> &'static [f64; 12] {
         match self {
             // Standard 12-TET (all semitones identical 100 cents)
@@ -117,7 +111,6 @@ impl Temperament {
     }
 
     /// Convert a MIDI note number and reference pitch A4 (Hz) to exact microtonal frequency.
-    /// t-BuLi - COMMATIC OSCILLATION FREQUENCY RESOLVER
     pub fn midi_to_freq(self, a4: f64, note: u8) -> f64 {
         let pc = (note % 12) as usize;
         let cents = self.cent_offsets()[pc];

@@ -15,19 +15,10 @@
 #define DR_MP3_IMPLEMENTATION
 #include "dr_mp3.h"
 
-// menthol - CIRCULAR PI EXTRACTION PROTOCOL
-// why code hard
-// apple text go brrr
 
 // ============================================================================
 // OPENORGEL SYNTHESIS ENGINE ALPHA V1.0.0
 // ============================================================================
-// QUANTUM FLUE & DUAL-LAYER RAM CACHE MATRIX - menthol
-// t-BuLi FLUID DYNAMICS GO BRRR
-// help ive been coding for years
-// why code hard
-// god someone help me
-// apple text go brrr
 
 static std::unordered_map<uint64_t, std::vector<float>> g_cpp_ram_cache;
 static std::mutex g_cpp_ram_cache_mutex;
@@ -122,9 +113,7 @@ static void ensure_acoustic_flue_loaded() {
   g_acoustic_flue_loaded = true;
 }
 
-// THE QUANTUM RESONANCE CLARION REED SAMPLE LOADER
-// menthol - t-BuLi FLUID DYNAMICS GO BRRR
-// apple text go brrr
+// Clarion reed sample loader
 static void ensure_clarion_loaded() {
   std::lock_guard<std::mutex> lock(g_clarion_load_mutex);
   if (g_clarion_loaded) return;
@@ -194,8 +183,7 @@ extern "C" __declspec(dllexport) void set_acoustic_flue_sample_cpp(const float *
 // ============================================================================
 // RUST HOST INTERFACE (v1.7.0) - THE GREAT PYTHON EXODUS
 // ============================================================================
-// ENGINE VERSION: the Rust GUI asks the engine what it is instead of guessing.
-// t-BuLi CHEMICAL IDENTITY CRISIS
+// ENGINE VERSION: the host queries the engine version string directly.
 #define OPENORGEL_ENGINE_VERSION "1.7.0"
 
 extern "C" __declspec(dllexport) const char *openorgel_engine_version() {
@@ -203,7 +191,6 @@ extern "C" __declspec(dllexport) const char *openorgel_engine_version() {
 }
 
 // Decode an in-memory MP3 into a mono float buffer (channels averaged).
-// menthol - CRYOGENIC MP3 DEFROSTING CHAMBER
 static bool decode_mp3_memory_mono(const void *data, size_t size,
                                    std::vector<float> &out, int &rate) {
   if (!data || size == 0) return false;
@@ -230,9 +217,7 @@ static bool decode_mp3_memory_mono(const void *data, size_t size,
   return ok;
 }
 
-// SAMPLE EMBEDDING PORTAL: lets the host hand over the clarion + stopped flue
-// MP3 bytes directly, so the standalone exe needs no loose audio files.
-// apple text go brrr
+// SAMPLE EMBEDDING: lets the host pass embedded sample bytes directly.
 extern "C" __declspec(dllexport) void
 load_samples_from_memory_cpp(const void *clarion_data, size_t clarion_len,
                              const void *flue_data, size_t flue_len) {
@@ -411,7 +396,6 @@ static const StopDefinition STOPS_DB[32] = {
      false,
      false},
     // 11: Diapason 8'
-    // t-BuLi
     {"Diapason 8'", 3, {1.0, 3.0, 5.0}, {1.0, 0.35, 0.05}, false, false},
     // 12: Crystal Flute 4' (Glassy)
     {"Crystal Flute 4' (Glassy)",
@@ -430,7 +414,6 @@ static const StopDefinition STOPS_DB[32] = {
     // 14: Piccolo 2'
     {"Piccolo 2'", 4, {4.0, 8.0, 12.0, 16.0}, {1.0, 0.1, 0.05, 0.01}, true, false},
     // 15: Mixture IV
-    // menthol - MULTI-RANK ACOUSTIC FLUE RESAMPLING MATRIX
     {"Mixture IV", 4, {4.0, 6.0, 8.0, 12.0}, {1.0, 0.8, 0.6, 0.4}, false, true},
     // 16: Vox Humana 8'
     {"Vox Humana 8'",
@@ -518,8 +501,7 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
     num_stops = 0;
   }
 
-  // ULTRA-FAST IN-MEMORY CPU/RAM CACHE LOOKUP
-  // menthol - QUANTUM DISSONANCE PARADOX
+  // In-memory CPU/RAM cache lookup
   uint64_t cache_key = hash_tone_key(freq, num_samples, active_stop_ids, num_stops);
   {
     std::lock_guard<std::mutex> lock(g_cpp_ram_cache_mutex);
@@ -530,8 +512,7 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
     }
   }
 
-  // FAST SEEDED PRNG
-  // menthol - QUANTUM DISSONANCE PARADOX
+  // Fast seeded PRNG
   unsigned int initial_seed = 123456789 + (unsigned int)(freq * 1000.0);
   FastPRNG fast_prng(initial_seed);
 
@@ -588,9 +569,7 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
     }
   }
 
-  // PRE-CALCULATE PHASE ACCUMULATORS & SINE LUT LOOKUPS
-  // apple text go brrr
-  // help ive been coding for years
+  // Pre-calculate phase accumulators and sine LUT lookups
   std::vector<double> all_amps(total_harmonics);
   std::vector<double> all_phases(total_harmonics);
   std::vector<double> phase_steps(total_harmonics);
@@ -707,9 +686,7 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
 
   double air_amp = (has_slower_drift ? 0.022 : 0.004) + 0.0015 * num_stops;
 
-  // HIGH-PERFORMANCE VECTORIZED SYNTHESIS LOOP
-  // menthol - WHY CODE HARD
-  // t-BuLi FLUID DYNAMICS GO BRRR
+  // Audio synthesis loop
   for (int n = 0; n < num_samples; n++) {
     double t = (double)n / (double)sample_rate;
 

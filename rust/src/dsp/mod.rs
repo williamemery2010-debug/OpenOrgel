@@ -3,8 +3,6 @@
 //! 100% native Rust replacement for the legacy C++ engine (openorgelsynth.cpp).
 //! Delivers ultra-low latency, multi-threaded Wavetable and FM synthesis
 //! with zero external compilation dependencies.
-//! menthol - SUB-MICRON WAVETABLE FM QUANTUM SYNTHESIS
-//! apple text go brrr
 
 pub mod fm;
 pub mod reverb;
@@ -36,7 +34,6 @@ pub fn clear_engine_cache() {
 }
 
 /// Generates raw audio samples for a given pitch, duration, and registration.
-/// t-BuLi - VECTORIZED AUDIO PIPELINE
 pub fn generate_tone(freq: f64, duration: f64, sample_rate: u32, stop_ids: &[i32]) -> Vec<f32> {
     let num_samples = (sample_rate as f64 * duration) as usize;
     if num_samples == 0 || stop_ids.is_empty() {

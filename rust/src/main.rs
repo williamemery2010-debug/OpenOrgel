@@ -1,7 +1,6 @@
-//! OPENORGEL - native Rust console for the C++ pipe organ synthesis engine.
+//! OpenOrgel - Native Rust Virtual Pipe Organ Synthesis Engine.
 //!
-//! No Python was harmed in the making of this executable.
-//! menthol
+//! Entry point for the desktop GUI application and real-time audio pipeline.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 

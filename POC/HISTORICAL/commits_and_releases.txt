@@ -1,8 +1,8 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-13 09:59:54
-Total Commits  : 76
+Updated At     : 2026-10-13 10:16:57
+Total Commits  : 77
 Total Releases : 23
 ================================================================================
 
@@ -15,8 +15,8 @@ Details : Release Prealpha_v2.0.1: Historical temperaments, native Clarion 8' st
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.2
 Date    : 2026-10-13
-Commit  : 8a558e4
-Details : Release Prealpha_v2.0.2: Physically modeled Melbourne architectural reverberation (Hamer Hall, St. Paul's Cathedral, Ian Potter Theatre, Grand Exhibition Building)
+Commit  : 2d9cef8
+Details : Prealpha v2.0.2: Physical acoustic venue reverb (Hamer Hall default, St Pauls Cathedral, Ian Potter, Grand Exhibition Building)
 --------------------------------------------------------------------------------
 Version : Prealpha_v1.7.0
 Date    : 2026-10-12
@@ -133,7 +133,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-6334628  | 2026-10-13 | williamemery2010-deb | docs: record Prealpha_v2.0.2 physical reverb release in history
+e0b8a63  | 2026-10-13 | williamemery2010-deb | refactor: enforce academic code standards and clean informal comments for VCAA folio review
+2d9cef8  | 2026-10-13 | williamemery2010-deb | docs: record Prealpha_v2.0.2 physical reverb release in history
 8a558e4  | 2026-10-13 | williamemery2010-deb | feat: physically modeled Melbourne architectural venue reverberation (Hamer Hall, St. Paul's Cathedral, Ian Potter Theatre, Grand Exhibition Building)
 f08c6bd  | 2026-10-13 | williamemery2010-deb | docs: record Prealpha_v2.0.1 release in project history
 8122a1f  | 2026-10-13 | williamemery2010-deb | feat: add historical temperaments, native Clarion 8' stop, tame chiff attack, equalize imported stop volume, and tune reverb

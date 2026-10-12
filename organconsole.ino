@@ -2,11 +2,6 @@
 #include <Servo.h>
 
 // --- ORGAN CONSOLE SWITCHBOARD ---
-// PROTO-QUANTUM DIPOLE FLUID DISRUPTION ENGINE
-// menthol - t-BuLi FLUID DYNAMICS GO BRRR
-// help ive been coding for years
-// why code hard
-// apple text go brrr
 
 // Servo configuration for note A4 (MIDI note 69)
 const int servoPin = 2;
@@ -57,7 +52,7 @@ const int num4and2Stops = sizeof(stops4and2) / sizeof(stops4and2[0]);
 
 bool isA4Open = false;
 
-// ROTATING MATRIX OF SERVO FLUID ACTUATION - god someone help me
+// Set servo position for physical pipe A4 pallet valve
 void setA4State(bool openState) {
   if (openState == isA4Open) {
     Serial.println("DEBUG: Servo is already in that state. No action.");
@@ -124,8 +119,7 @@ void sendStopState(const char *name, bool state) {
 }
 
 void loop() {
-  // Non-blocking serial command processing from Python
-  // menthol - WHY CODE HARD
+  // Non-blocking serial command processing
   static String serialBuffer = "";
   while (Serial.available() > 0) {
     char c = Serial.read();
@@ -183,7 +177,6 @@ void loop() {
   }
 
   // 1. Process Individual Single-Pin Stops
-  // t-BuLi - HARMONIC COUPLING LOOP
   for (int i = 0; i < numSingleStops; i++) {
     // Stop is active only if BOTH its switch and the master switch are ON
     bool stopActiveState = masterState && !digitalRead(singleStops[i].pin);
@@ -200,7 +193,6 @@ void loop() {
   }
 
   // 2. Process Pin 8 (The "All 4' and 2'" Switch)
-  // apple text go brrr
   bool currentAll4and2 = masterState && !digitalRead(pinAll4and2);
 
   if (currentAll4and2 != lastAll4and2) {

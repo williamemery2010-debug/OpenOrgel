@@ -1,6 +1,5 @@
 //! SETTINGS & PRESETS - persisted as JSON in %APPDATA%\OpenOrgel\.
-//! Presets survive restarts now, unlike the legacy console where they
-//! evaporated like diethyl ether in a warm lab. t-BuLi
+//! Presets, master volume, tuning, temperament, and acoustic venue settings survive restarts.
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

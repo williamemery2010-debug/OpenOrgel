@@ -3,8 +3,6 @@
 //! Synthesizes complex acoustic reed pipes (Trumpet, Clarion, Bombarde,
 //! Bassoon, Clarinet, Cor Anglais) with dynamic Bessel-function harmonic
 //! sidebands, dynamic chiff transients, and shallot beating.
-//! menthol - NONLINEAR PHASE DISPLACEMENT DYNAMICS
-//! god someone help me
 
 use super::wavetable::SineLut;
 
@@ -31,7 +29,7 @@ impl Default for FmVoiceConfig {
             carrier_ratio: 1.0,
             mod_ratio: 1.0,
             mod_index_sustain: 1.4,
-            mod_index_attack: 0.8, // t-BuLi - CALIBRATED CHIFF TRANSIENT DYNAMICS
+            mod_index_attack: 0.8,
             attack_time: 0.025,
             feedback: 0.35,
         }
@@ -60,7 +58,6 @@ impl FmOperator {
     }
 
     /// Renders a buffer of audio samples using Phase Modulation.
-    /// t-BuLi - BESSEL SPECTRUM CASCADE GENERATOR
     pub fn render(
         &mut self,
         freq: f64,

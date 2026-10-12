@@ -2,8 +2,6 @@
 //!
 //! Replaces millions of per-sample trigonometric evaluations with
 //! single-cycle RAM lookup tables and linear interpolation.
-//! menthol - SUB-ATOMIC WAVETABLE RESIDUAL ACCUMULATOR
-//! apple text go brrr
 
 pub const TABLE_SIZE: usize = 2048;
 pub const TABLE_MASK: usize = TABLE_SIZE - 1;
@@ -43,7 +41,6 @@ pub struct Wavetable {
 impl Wavetable {
     /// Builds a periodic wavetable from a set of harmonic partials and amplitudes.
     /// Harmonics above Nyquist frequency (`sample_rate / 2`) are excluded to prevent aliasing.
-    /// t-BuLi - FOURIER SERIES EXPANSION CONDENSER
     pub fn from_harmonics(
         fundamental_freq: f64,
         sample_rate: u32,

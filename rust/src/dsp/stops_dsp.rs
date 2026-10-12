@@ -2,8 +2,6 @@
 //!
 //! Maps each of the 30 console stops to either a high-speed Wavetable profile,
 //! an FM Reed Operator, or a high-fidelity Acoustic Sample.
-//! menthol - MULTI-SPECTRAL ORGAN REGISTER MATRIX
-//! why code hard
 
 use std::io::Cursor;
 use std::sync::OnceLock;
@@ -76,7 +74,6 @@ pub struct StopDefinition {
     pub model: StopSynthesisModel,
 }
 
-// t-BuLi - ENUMERATION OF THE SACRED RANKS
 pub const STOP_DEFINITIONS: &[StopDefinition] = &[
     // 0: Oboe 8' (Legacy)
     StopDefinition {
@@ -86,7 +83,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
             carrier_ratio: 1.0,
             mod_ratio: 1.0,
             mod_index_sustain: 1.6,
-            mod_index_attack: 0.7, // menthol - TAMED SHALLOT TRANSIENT
+            mod_index_attack: 0.7,
             attack_time: 0.02,
             feedback: 0.3,
         }),
@@ -424,7 +421,6 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
 ];
 
 /// Render a single stop's contribution into `out_buffer` using the optimal DSP engine.
-/// menthol - PARALLEL POLYPHONIC PIPE DISPATCHER
 pub fn render_stop_into(
     stop_id: i32,
     freq: f64,

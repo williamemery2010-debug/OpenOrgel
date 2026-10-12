@@ -1,8 +1,4 @@
-//! FFI SHIM - the thin, slightly terrified bridge to the C++ synthesis engine.
-//!
-//! `openorgelsynth.cpp` is compiled straight into this executable by build.rs,
-//! so there is no loose DLL to lose. Safe wrappers live at the bottom.
-//! t-BuLi PYROPHORIC POINTER HANDLING
+//! FFI SHIM - legacy compatibility bridge to the C++ synthesis engine.
 
 use std::ffi::{c_char, c_int, c_void, CStr};
 
@@ -28,7 +24,7 @@ extern "C" {
     fn openorgel_engine_version() -> *const c_char;
 }
 
-/// Samples baked into the exe so no loose mp3 files are needed. apple text go brrr
+/// Embedded audio assets compiled directly into binary.
 static CLARION_MP3: &[u8] = include_bytes!("../../clarion.mp3");
 static FLUE_MP3: &[u8] = include_bytes!("../../stoppedflue.mp3");
 

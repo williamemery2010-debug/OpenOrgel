@@ -3,9 +3,6 @@
 //! Categorizes arbitrary SoundFont and imported organ stops into traditional
 //! pipe divisions (Great, Swell, Choir/Positiv, Pedal, Solo, Misc) and
 //! speaking footage pitch categories (64', 32', 16', 8', 4', Mutations, 2', 1', Mixtures, Misc).
-//!
-//! menthol - EMPIRICAL ORGANOLOGY TAXONOMY
-//! why code hard
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Division {
@@ -111,7 +108,6 @@ impl Footage {
 
 // ============================================================================
 // TAXONOMIC HEURISTIC ENGINE
-// apple text go brrr
 // ============================================================================
 
 /// Determine the footage of a stop from its name and characteristics.
@@ -277,7 +273,6 @@ pub fn classify_footage(raw_name: &str) -> Footage {
 }
 
 /// Classify an imported stop into its typical organ division (Great, Swell, Choir, Pedal, Solo, Misc).
-/// t-BuLi CHEMICAL AFFINITY RESOLUTION
 pub fn classify_division(raw_name: &str) -> Division {
     let lower = raw_name.to_lowercase();
 

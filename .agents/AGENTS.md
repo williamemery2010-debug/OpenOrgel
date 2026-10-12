@@ -27,8 +27,8 @@ For **EVERY commit or change made to the codebase**, you MUST log the change in 
 - **WHY**: The underlying reason, bug, audio limitation, or musical/computational motivation.
 - **HOW**: The technical implementation details, mathematical models/algorithms, data structures, and code flow.
 
-## Code Style & Comedic Absurdity
-Heavily advise putting random comments or notes in the code with comedic absurdity- should be something along the lines of "apple text go brrr" or "why code hard" or "god someone help me" or "help ive been coding for years" or "menthol" or "t-BuLi" or any pseudoscientific nonsense that you can come up with under the sun. Doesnt require context. Prefer no context. Should be relatively frequent but not excessively so. Prefer no rhyme or reason. I will know if the comment makes sense based off the context of the code, and I will be very upset. Also give random sections of the code names- be creative. Use all caps for emphasis sometimes.
+## Code Style
+Just get rid of the absurdist comments, it's stupid. Just put simple explanations of whatever engineering is there and what it's doing and why it's being done in that way. For example, if you're doing some random DSP stuff, explain what it's doing in simple terms, don't make up fake chemical compounds or whatever. This is really important for my folio, if there's just weird random shit there that I don't actually understand I'm going to get in trouble.
 
 ## GitHub Release & Tagging Workflow
 For every change made to the codebase:

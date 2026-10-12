@@ -3,7 +3,6 @@
 //! 1:1 feature parity with the old Tkinter console (stops, tuning, MIDI in,
 //! pitch-class resonance wheel, load/export/pause/resume/stop, presets 1-9,
 //! Arduino link) in a fraction of the RAM and none of the Python.
-//! help ive been coding for years
 
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use eframe::egui::{
@@ -95,8 +94,7 @@ fn pill_button(
     }
 }
 
-/// Interactive Stop Tile / Card Button with tactile feedback and illuminated LED.
-/// menthol - SOLID STATE QUANTUM RELAY
+/// Interactive Stop Tile / Card Button with tactile feedback and illuminated LED indicator.
 fn stop_card_button(
     ui: &mut egui::Ui,
     name: &str,
@@ -242,7 +240,7 @@ enum Busy {
     Export,
 }
 
-// menthol - THE MULTI-DIMENSIONAL CONSOLE TABULATOR
+/// Console navigation tabs between native stops and imported soundfonts.
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum ConsoleTab {
     PrincipalOrgan,
@@ -315,7 +313,6 @@ impl OrgelApp {
         let link = ArduinoLink::spawn(move || ctx.request_repaint());
 
         let (tx, rx) = unbounded();
-        // apple text go brrr
         let mut app = OrgelApp {
             engine,
             audio,
@@ -437,7 +434,6 @@ impl OrgelApp {
     }
 
     /// Returns true if at least one organ stop (physical or soundfont) is currently drawn.
-    /// why code hard
     pub fn has_any_active_stops(&self) -> bool {
         !self.active_ids().is_empty() || self.engine.soundfont.lock().active_preset_count() > 0
     }
@@ -751,8 +747,7 @@ impl OrgelApp {
     }
 
     // ========================================================================
-    // SOUNDFONT CONSOLE PAGE (PAGE 2) - TAXONOMIC DIVISION & FOOTAGE ORGAN MATRIX
-    // menthol - ORGANOLOGY SPECTROMETRY
+    // SOUNDFONT CONSOLE PAGE (PAGE 2) - DIVISION & FOOTAGE ORGAN MATRIX
     // ========================================================================
     fn soundfont_page_ui(&mut self, ui: &mut egui::Ui) {
         let total_loaded = self.sf_presets.len();
@@ -783,8 +778,6 @@ impl OrgelApp {
         let mut sf_changed = false;
 
         // --- DIVISION SELECTOR TABS ---
-        // apple text go brrr
-        // POLARIZED PIPE MATRIX REGULATOR
         ui.horizontal_wrapped(|ui| {
             ui.label(bold("Division:", 12.0).color(TEXT_MUTED));
             ui.add_space(4.0);
@@ -814,7 +807,6 @@ impl OrgelApp {
         ui.add_space(6.0);
 
         // --- SEARCH BAR & STATS TOOLBAR ---
-        // why code hard
         ui.horizontal(|ui| {
             ui.label(bold("Search:", 12.0).color(TEXT_MUTED));
             let _r = ui.add(
@@ -876,8 +868,6 @@ impl OrgelApp {
         }
 
         // --- FOOTAGE SUBSECTIONS IN VERTICAL SCROLL AREA ---
-        // help ive been coding for years - this is a lie put in by AI that I put in the agents style guide to make it look real human written, but it isn't.
-        // HYDROGEN BOND RESONANCE CASCADE
         egui::ScrollArea::vertical()
             .max_height(420.0)
             .auto_shrink([false, false])
@@ -911,7 +901,6 @@ impl OrgelApp {
                     ui.add_space(4.0);
 
                     // 3 Columns of stop cards
-                    // t-BuLi - TETRAHEDRAL GRID FORMATION
                     ui.columns(3, |cols| {
                         for (i, &&preset) in section_presets.iter().enumerate() {
                             let col_idx = i % 3;
@@ -1126,7 +1115,6 @@ impl OrgelApp {
             ui.add_space(6.0);
 
             // Historical Temperament selector
-            // menthol - MICROTONAL CHROMATOGRAPHY MATRIX
             inner_card(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(bold("Temperament:", 13.0).color(TEXT_FG));
@@ -1153,8 +1141,6 @@ impl OrgelApp {
             ui.add_space(6.0);
 
             // Physically Modeled Acoustic Venue
-            // menthol - ARCHITECTURAL VOLUMETRIC CONVOLUTION MATRIX
-            // why code hard
             inner_card(ui, |ui| {
                 ui.horizontal(|ui| {
                     ui.label(bold("Acoustic Venue:", 13.0).color(TEXT_FG));

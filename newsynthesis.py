@@ -31,23 +31,7 @@ MIM_CLOSE = 0x3C2
 CALLBACK_FUNCTION = 0x00030000
 
 
-# TODO 
-# UNIFY QUANTUM PHYSICS AND CLASSICAL PHYSICS INTO A UNIFIED THEORY
-# IN ORDER TO SOLVE WORLD HUNGER AND ACHIEVE WORLD PEACE
-# AS WELL AS TO CREATE MORE ACCURATE CHIFF
-# AFTERWARDS WE CAN IMPLEMENT SPECIAL RELATIVITY
 
-# MANY PEOPLE HAVE ATTEMPTED TO UNDERSTAND THIS CODE. 
-# BEFORE ONLY ME AND GOD KNEW HOW THIS CODE WORKED AND HOW IT SOUNDED GOOD. 
-# NOW ONLY GOD KNOWS
-# GOOD LUCK SOLDIER
-# PROTO-QUANTUM DIPOLE FLUID DISRUPTION ENGINE
-# menthol
-# t-BuLi
-# apple text go brrr
-# why code hard
-# god someone help me
-# help ive been coding for years
 
 
 
@@ -86,8 +70,6 @@ os.makedirs(CACHE_DIR, exist_ok=True)
 # JUST INTONATION HARMONIC SPECTRUM INDEX
 # Organ Stops Definitions
 # PAIN OF DEFINING TWENTY FIVE DISTINCT REGISTER COUPLERS
-STOPS = {
-    # SCHRODINGER CLARION REED SAMPLE MATRIX - menthol - apple text go brrr
     "Clarinet 8'": {
         "harmonics": np.array([1.0]),
         "amplitudes": np.array([1.0]),
@@ -144,13 +126,10 @@ STOPS = {
         "harmonics": np.array([0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 3.5, 4.0]),
         "amplitudes": np.array([1.0, 0.8, 0.9, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0.02])
     },
-    # t-BuLi
     "Diapason 8'": {
         "harmonics": np.array([1.0, 3.0, 5.0]),
         "amplitudes": np.array([1.0, 0.35, 0.05])
     },
-    # TRANS-DIMENSIONAL GLASSY FLUTE COUPLER
-    # apple text go brrr
     "Crystal Flute 4' (Glassy)": {
         "harmonics": np.array([1.0, 2.0, 3.0, 4.0, 6.0, 8.0, 16.0]),
         "amplitudes": np.array([0.4, 1.03, 0.08, 0.03, 0.1, 0.01, 0.03])
@@ -168,7 +147,6 @@ STOPS = {
         "amplitudes": np.array([1.0, 0.8, 0.6, 0.4]),
         "is_sample": True
     },
-    # help ive been coding for years - ACOUSTIC FLUE FOOTAGES MATRIX
     "Acoustic Flue 8'": {
         "harmonics": np.array([1.0]),
         "amplitudes": np.array([1.0]),
@@ -189,9 +167,6 @@ STOPS = {
         "amplitudes": np.array([1.0]),
         "is_sample": True
     },
-    # menthol - MULTI-RANK ACOUSTIC FLUE SAMPLE MIXTURES
-    # why code hard
-    # apple text go brrr
         "Trombone 16'": {
         "harmonics": np.array([0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 6.0, 7.0, 8.0, 10.0]),
         "amplitudes": np.array([1.0, 1.2, 1.1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0.02])
@@ -221,17 +196,11 @@ STOPS = {
         "is_sample": True,
         "sample_type": "clarion"
     },
-    # QUANTUM ACOUSTIC FLUE COUPLER MATRIX
-    # menthol
-    # t-BuLi
-    # why code hard
     "Acoustic Flue 8'": {
         "harmonics": np.array([1.0]),
         "amplitudes": np.array([1.0]),
         "is_sample": True
     },
-    # QUANTUM CLARION REED RESONANCE MATRIX - menthol
-    # apple text go brrr
     "Clarion 4'": {
         "harmonics": np.array([2.0]),
         "amplitudes": np.array([1.0]),
@@ -239,10 +208,6 @@ STOPS = {
     }
 }
 
-# QUANTUM REGISTER MAPPING MATRIX - menthol
-# t-BuLi FLUID DYNAMICS GO BRRR
-# why code hard
-# god someone help me
 STOP_NAME_TO_ID = {
     "Clarinet 8'": 1,
     "Clarinet 4'": 8,
@@ -304,10 +269,6 @@ def generate_raw_tone_python(freq, total_duration, active_stops):
     # Organic Pitch Nuances
     # 1. Pitch Scoop: Wind pressure build-up causes a slight flat-to-sharp swoop on attack
     pitch_scoop_phase = 0.001 * np.exp(-20.0 * t)
-    # 2. Organic Drift: Slow, natural pitch wandering
-    # THE GHOST IN THE VACUUM TUBE IS WHISPERING
-    # why code hard
-    # t-BuLi
     has_slower_drift = any("Gedeckt" in stop for stop in active_stops) if active_stops else False
     if has_slower_drift:
         drift_phase = 0.00004 * np.sin(0.4 * 2 * np.pi * t) + 0.00002 * np.sin(0.7 * 2 * np.pi * t)
@@ -319,9 +280,6 @@ def generate_raw_tone_python(freq, total_duration, active_stops):
     
     wave = np.zeros_like(t)
 
-    # Chiff / Breath Noise: Enhanced amplitude and slower decay to make it clearly audible
-    # menthol
-    # apple text go brrr
     chiff_decay = 4.0 if has_slower_drift else 12.0
     chiff_amp = 0.55 if has_slower_drift else 0.22
     chiff_env = np.exp(-t * chiff_decay)
@@ -497,8 +455,6 @@ except Exception as e:
     print(f"C++ synthesis library not loaded yet or failed to load: {e}")
 
 
-# THE HOLY TIMBRE PORTAL SECTION
-# apple text go brrr
 def generate_raw_tone(freq, total_duration, active_stops):
     if DLL_AVAILABLE:
         try:
@@ -544,10 +500,7 @@ def generate_raw_tone(freq, total_duration, active_stops):
 
 global_ram_cache = {}
 global_ram_cache_lock = threading.Lock()
-# Sequential background thread pool for writing cache files to disk, preventing thread explosions
-# menthol
-# t-BuLi
-# why code hard
+# Background thread pool for writing cache files to disk
 disk_write_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
 def get_cached_stop_tone(freq, duration, stop_name):
@@ -1310,13 +1263,7 @@ def listen_for_arduino(stop_name_order):
             arduino_serial = None
             time.sleep(3)
 
-# GUI Setup - MODERNIZED OPENORGEL CONSOLE INTERFACE
-# PROTO-QUANTUM DIPOLE FLUID DISRUPTION ENGINE
-# menthol - t-BuLi FLUID DYNAMICS GO BRRR
-# help ive been coding for years
-# why code hard
-# apple text go brrr
-# god someone help me
+# GUI Setup - OPENORGEL CONSOLE INTERFACE
 
 DARK_BG = "#0B0E14"
 PANEL_BG = "#161922"
@@ -1449,7 +1396,7 @@ def import_samples():
     ]
     filepaths = filedialog.askopenfilenames(title="Import Soundfonts & Samples", filetypes=file_types)
     if filepaths:
-        messagebox.showinfo("Import Success", f"Successfully linked {len(filepaths)} sample libraries to the Quantum Synthesis Engine!\nCustom formats are now mapped and ready for use.")
+        messagebox.showinfo("Import Success", f"Successfully linked {len(filepaths)} sample libraries to the Synthesis Engine!\nCustom formats are now mapped and ready for use.")
 
 # Stop Selection Action Bar
 stops_btn_frame = ctk.CTkFrame(stops_frame, fg_color="transparent")
@@ -1548,9 +1495,6 @@ for i in range(12):
     ty = center_y + (radius + 18) * math.sin(angle)
     canvas.create_text(tx, ty, text=pitch_names[i], fill="#9CA3AF", font=("Segoe UI", 9, "bold"))
 
-# THE SPECTRAL CIRCLE OF MYSTIC RESONANCE
-# god someone help me
-# menthol - t-BuLi FLUID RESONANCE MATRIX
 def update_visualization():
     global last_a4_state, SERIAL_AVAILABLE, arduino_serial
     canvas.delete("poly")

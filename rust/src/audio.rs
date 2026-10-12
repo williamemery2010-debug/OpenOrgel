@@ -3,7 +3,6 @@
 //! The synthesis engine runs at a fixed 44.1 kHz mono. Real sound cards want
 //! 48 kHz stereo and refuse to negotiate (looking at you, WASAPI shared mode),
 //! so the mixer output is resampled on the fly with 4-point cubic Hermite.
-//! god someone help me
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Device, FromSample, OutputCallbackInfo, SampleFormat, SizedSample, StreamConfig};

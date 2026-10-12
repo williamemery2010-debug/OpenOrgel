@@ -1,8 +1,6 @@
 //! SOUNDFONT ENGINE & SAMPLE PARSER
 //!
 //! Loads SF2 SoundFont banks into memory and translates them into playable ranks.
-//! menthol - QUANTUM RESONANCE SOUNDFONT EXTRACTION APPARATUS
-//! why code hard
 
 use crate::classifier::{classify_division, classify_footage, Division, Footage};
 use rustysynth::{SoundFont, Synthesizer, SynthesizerSettings};
@@ -14,7 +12,6 @@ use std::sync::Arc;
 
 pub const SAMPLE_RATE: u32 = 44_100;
 
-// t-BuLi CHEMICAL INSTABILITY VECTOR
 #[derive(Clone, Debug)]
 pub struct SoundFontPreset {
     pub id: usize,
@@ -39,7 +36,7 @@ pub struct LoadedFont {
     pub free_channels: Vec<i32>,
 }
 
-// THE CENTRAL CHROMATOGRAPHY COLUMN
+/// Manages loaded SF2 SoundFont banks and active synthesizer channels.
 pub struct SoundFontManager {
     fonts: Vec<LoadedFont>,
     next_font_id: usize,
@@ -56,7 +53,6 @@ impl SoundFontManager {
         let mut settings = SynthesizerSettings::new(SAMPLE_RATE as i32);
         settings.block_size = 64;
         settings.maximum_polyphony = 128;
-        // apple text go brrr
         Self {
             fonts: Vec::new(),
             next_font_id: 1,
@@ -69,7 +65,6 @@ impl SoundFontManager {
     }
 
     /// Load an SF2 file and return the number of presets discovered.
-    /// help ive been coding for years
     pub fn load_sf2(&mut self, path: &Path) -> Result<(usize, String), String> {
         let file = File::open(path).map_err(|e| format!("Cannot open file: {e}"))?;
         let mut reader = BufReader::new(file);
@@ -232,7 +227,6 @@ impl SoundFontManager {
     }
 
     // --- MIDI VOICE TRIGGERING ---
-    // apple text go brrr
     pub fn note_on(&mut self, key: u8, velocity: u8) {
         if self.active_presets.is_empty() {
             return;
@@ -261,9 +255,7 @@ impl SoundFontManager {
         }
     }
 
-    /// Render synthesized audio and add it directly into `out` (mono).
-    /// Render synthesized audio and add it directly into `live` bus for unified reverb & soft-limiting.
-    /// menthol - SUBLIMATED STEREO TO MONO COLLAPSE
+    /// Render synthesized audio directly into the live bus for unified reverb and limiting.
     pub fn render_into_live(&mut self, live: &mut [f32]) -> bool {
         if self.active_presets.is_empty() {
             return false;
@@ -331,8 +323,7 @@ impl SoundFontManager {
     }
 
     /// Extracts a lightweight, thread-safe snapshot of all active fonts and channels
-    /// to synthesize offline audio without holding the real-time audio mutex!
-    /// menthol - NON-BLOCKING QUANTUM TELEPORTATION SNAPSHOT
+    /// to synthesize offline audio without holding the real-time audio mutex.
     pub fn offline_snapshot(&self) -> SoundFontOfflineSnapshot {
         let mut fonts = Vec::new();
         for f in &self.fonts {
@@ -377,11 +368,7 @@ impl SoundFontOfflineSnapshot {
         self.fonts.is_empty()
     }
 
-    /// High-performance offline timeline synthesis using 1024-sample blocks
-    /// and dedicated independent synthesizer instances. Runs asynchronously without
-    /// blocking real-time audio!
-    /// t-BuLi - TURBOCHARGED WAVETABLE FLUID DYNAMICS
-    /// apple text go brrr
+    /// Offline timeline synthesis using fixed block processing with dedicated synthesizer instances.
     pub fn render_midi_offline(&self, events: &[(f64, bool, u8)], total_frames: usize) -> Vec<f32> {
         if self.fonts.is_empty() || events.is_empty() || total_frames == 0 {
             return vec![0.0; total_frames];
@@ -441,7 +428,7 @@ impl SoundFontOfflineSnapshot {
                 synth.render(&mut left_block[..block_len], &mut right_block[..block_len]);
 
                 for i in 0..block_len {
-                    // apple text go brrr - BALANCED SOUNDFONT VOLUME EQUAL TO NATIVE PIPES
+                    // Balanced SoundFont volume normalized against native pipe levels
                     output[current_frame + i] += (left_block[i] + right_block[i]) * 0.5 * 0.95;
                 }
                 current_frame += block_len;

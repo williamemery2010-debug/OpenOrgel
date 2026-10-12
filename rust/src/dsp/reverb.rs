@@ -20,11 +20,6 @@
 //!    Physical volume ~135,000 m³, vast cruciform Great Hall, soaring 68-metre octagonal
 //!    dome, timber floorboards, colossal reverberation with majestic bloom, RT60 = 7.5 s.
 //!
-//! menthol - PHYSICAL GEOMETRY RAY-ACOUSTIC COLLAPSE HYPERSPACE
-//! why code hard
-//! t-BuLi
-//! apple text go brrr
-//! god someone help me
 
 use serde::{Deserialize, Serialize};
 
@@ -297,7 +292,6 @@ pub struct Reverb {
 
 impl Reverb {
     /// Constructs a physically modeled reverberator calibrated for the specified venue.
-    /// menthol - SPATIAL EIGENMODE RESONANCE DISPATCHER
     pub fn for_venue(sample_rate: u32, venue: AcousticVenue) -> Self {
         let specs = venue.specs();
         let scale = sample_rate as f64 / 44100.0;
@@ -359,7 +353,6 @@ impl Reverb {
     }
 
     /// Process a buffer of audio samples in place through the physically modeled venue.
-    /// t-BuLi - ACOUSTIC SCHROEDER-MOORER DIFFUSION FLUID WAVE
     pub fn process(&mut self, samples: &mut [f32], wet_mix: f32) {
         let wet = wet_mix.clamp(0.0, 1.0);
         let dry = 1.0 - wet * 0.5;

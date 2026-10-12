@@ -2,7 +2,6 @@
 //!
 //! Direct descendant of the Python host (tone cache, `audio_callback`,
 //! `_generate_audio_buffer`) but with 100% less GIL and 100% more borrow checker.
-//! apple text go brrr
 
 use parking_lot::{Mutex, RwLock};
 use rayon::prelude::*;
@@ -20,7 +19,6 @@ pub const ATTACK_SECONDS: f64 = 0.12;
 pub const RELEASE_SECONDS: f64 = 0.1;
 pub const LIVE_NOTE_LOW: u8 = 36;
 pub const LIVE_NOTE_HIGH: u8 = 96;
-// menthol - CALIBRATED CATHEDRAL ACOUSTICS
 #[allow(dead_code)]
 pub const REVERB_ROOM: f32 = 0.81;
 #[allow(dead_code)]
@@ -84,7 +82,6 @@ impl ToneBank {
     }
 
     /// Sum of every drawn stop, trimmed to exactly `duration` seconds (offline render).
-    /// menthol - SUPERCONDUCTING TONE ACCUMULATION
     pub fn summed_tone(&self, freq: f64, duration: f64, stops: &[i32]) -> Vec<f32> {
         let n = (SAMPLE_RATE as f64 * duration) as usize;
         let mut acc = vec![0.0f32; n];
@@ -105,7 +102,6 @@ impl ToneBank {
 
     /// Live voice tone: all stops at the standard 3.5 s length, averaged so that
     /// pulling more stops does not blow the headroom.
-    /// why code hard
     pub fn live_tone(&self, freq: f64, stops: &[i32]) -> Vec<f32> {
         let n = (SAMPLE_RATE as f64 * TONE_SECONDS) as usize;
         let mut acc = vec![0.0f32; n];
@@ -171,7 +167,6 @@ pub struct Engine {
     current_midi: Mutex<Option<PathBuf>>,
     /// Set by the audio thread when a song runs off its own end.
     pub song_finished: AtomicBool,
-    // menthol - SOUNDFONT TRANSCENDENCE MATRIX
     pub soundfont: Arc<Mutex<crate::soundfont::SoundFontManager>>,
 }
 
@@ -305,7 +300,6 @@ impl Engine {
                 },
             );
         }
-        // apple text go brrr
         self.soundfont.lock().note_on(note, 100);
     }
 
@@ -386,7 +380,6 @@ impl Engine {
     }
 
     /// Silences the current song playback buffer when all stops are pushed in.
-    /// menthol - ANECHOIC CHAMBER INVOCATION
     pub fn silence_playback(&self) {
         let mut pb = self.playback.lock();
         if let Some(audio) = pb.audio.as_ref() {
@@ -434,7 +427,6 @@ impl Engine {
         });
     }
 
-    // menthol - SEAMLESS AUDIO TIMELINE MORPHING
     fn swap_audio(&self, r: Rendered) {
         let mut notes = r.notes;
         notes.sort_by_key(|n| n.0);
@@ -623,9 +615,7 @@ impl Mixer {
             }
         }
 
-        // --- soundfont rendered PCM (rendered directly into live bus for unified cathedral acoustics & matched volume) ---
-        // menthol - HOMOGENEOUS ACOUSTIC BUS COLLAPSE
-        // apple text go brrr
+        // --- soundfont rendered PCM (rendered directly into live bus for unified acoustics & matched volume) ---
         let sf_active = self.engine.soundfont.lock().render_into_live(live);
         if sf_active {
             any = true;
@@ -731,8 +721,6 @@ pub fn render_midi(
         return Err("That MIDI file has no notes in it.".to_string());
     }
 
-    // menthol - ZERO STOPS DETECTOR OF DOOM
-    // god someone help me
     let sf_snap = engine.soundfont.lock().offline_snapshot();
     if stops.is_empty() && sf_snap.is_empty() {
         return Err("No selected stops! Please draw at least one stop on Principal Organ or Page 2 to play.".to_string());
@@ -757,7 +745,6 @@ pub fn render_midi(
     }
 
     // Tone bank, built in parallel across every CPU thread (skipped if stops is empty!).
-    // t-BuLi - HIGH ENERGY HARMONIC CONVERGENCE
     let tones: HashMap<u8, Vec<f32>> = if stops.is_empty() {
         HashMap::new()
     } else {
@@ -849,9 +836,7 @@ pub fn render_midi(
         }
     }
 
-    // Pass 3: Synthesize SoundFonts (non-blocking offline snapshot!)
-    // menthol - MULTI-DIMENSIONAL SOUNDFONT CHROMATOGRAPHY
-    // apple text go brrr
+    // Pass 3: Synthesize SoundFonts (non-blocking offline snapshot)
     if !sf_snap.is_empty() {
         let sf_audio = sf_snap.render_midi_offline(&events, audio.len());
         for (i, &sample) in sf_audio.iter().enumerate() {

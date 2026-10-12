@@ -6,7 +6,6 @@
 //!        "VOL:0..100"        master volume
 //!        "<index>:1|0"       legacy numeric stop index fallback
 //!   out: "A4_1\n" / "A4_0\n" servo flag for the A4 pipe
-//! why code hard
 
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use parking_lot::Mutex;

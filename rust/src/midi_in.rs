@@ -1,6 +1,5 @@
-//! LIVE MIDI INPUT - midir replaces the hand-rolled WinMM ctypes callback.
-//! Note-on / note-off straight into the engine's voice table.
-//! menthol
+//! Live MIDI input via midir routing note events directly into the voice table.
+
 
 use midir::{Ignore, MidiInput, MidiInputConnection};
 use std::sync::Arc;
