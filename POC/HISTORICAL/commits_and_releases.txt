@@ -1,9 +1,9 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-12 14:11:29
-Total Commits  : 70
-Total Releases : 19
+Updated At     : 2026-10-12 14:28:49
+Total Commits  : 71
+Total Releases : 20
 ================================================================================
 
 🚀 RELEASES / TAGS
@@ -32,6 +32,11 @@ Version : Prealpha_v1.7.4
 Date    : 2026-10-12
 Commit  : b6a81c4
 Details : Release Prealpha_v1.7.4: Refuse playback without stops, pure SoundFont playback, non-blocking synthesis
+--------------------------------------------------------------------------------
+Version : Prealpha_v1.7.5
+Date    : 2026-10-12
+Commit  : e451873
+Details : Release Prealpha_v1.7.5: Unified organ rank counting, architecture specification
 --------------------------------------------------------------------------------
 Version : Prealpha_v1.6.0
 Date    : 2026-10-08
@@ -113,7 +118,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-52be34e  | 2026-10-12 | williamemery2010-deb | Count samples equally as active organ ranks, add comprehensive architecture documentation, release v1.7.5
+5de4248  | 2026-10-12 | williamemery2010-deb | Major Release v2.0.0: Transition to 100% native Rust Wavetable & FM synthesis engine, deprecate C++ DLL and FFI
+e451873  | 2026-10-12 | williamemery2010-deb | Count samples equally as active organ ranks, add comprehensive architecture documentation, release v1.7.5
 b6a81c4  | 2026-10-12 | williamemery2010-deb | Enforce strict active stops requirement, eliminate C++ fallback flue pipe bleed, and optimize SoundFont timeline synthesis
 916aebf  | 2026-10-12 | williamemery2010-deb | Non-blocking high-speed offline re-synthesis and pure sample playback - Prealpha_v1.7.3
 96d79d7  | 2026-10-12 | williamemery2010-deb | Organ stop taxonomic taxonomy and soundfont engine restructuring - Prealpha_v1.7.2

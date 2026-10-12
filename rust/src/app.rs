@@ -16,7 +16,7 @@ use std::time::{Duration, Instant};
 
 use crate::audio::AudioOutput;
 use crate::engine::{self, Engine, Rendered, SAMPLE_RATE};
-use crate::ffi;
+use crate::dsp;
 use crate::midi_in::{self, MidiConnection};
 use crate::serial::{ArduinoLink, SerialEvent};
 use crate::classifier::{Division, Footage};
@@ -280,8 +280,8 @@ impl OrgelApp {
         setup_fonts(&cc.egui_ctx);
         setup_visuals(&cc.egui_ctx);
 
-        ffi::init_engine();
-        let engine_version = ffi::engine_version();
+        dsp::init_engine();
+        let engine_version = dsp::engine_version().to_string();
         let engine = Engine::new();
         let settings = Settings::load();
 
@@ -726,7 +726,7 @@ impl OrgelApp {
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     badge(
                         ui,
-                        &format!("C++ Engine v{}: Active", self.engine_version),
+                        &format!("DSP Engine: {}", self.engine_version),
                         GREEN,
                     );
                     if self.link.is_connected() {

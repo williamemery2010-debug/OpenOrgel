@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 
-use crate::ffi::{self, Reverb};
+use crate::dsp::{self, Reverb};
 
 pub const SAMPLE_RATE: u32 = 44_100;
 /// Standard cached tone length. Anything shorter is sliced out of this.
@@ -68,7 +68,7 @@ impl ToneBank {
             return hit.clone();
         }
         let ids: Vec<i32> = stop.into_iter().collect();
-        let data = Arc::new(ffi::generate_tone(freq, cache_duration, SAMPLE_RATE, &ids));
+        let data = Arc::new(dsp::generate_tone(freq, cache_duration, SAMPLE_RATE, &ids));
         self.map.write().insert(key, data.clone());
         data
     }
@@ -243,7 +243,7 @@ impl Engine {
     }
 
     pub fn clear_caches(self: &Arc<Self>) {
-        ffi::clear_engine_cache();
+        dsp::clear_engine_cache();
         self.bank.clear();
         self.refresh();
     }

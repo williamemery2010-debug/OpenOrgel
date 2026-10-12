@@ -7,8 +7,8 @@
 
 mod app;
 mod audio;
+pub mod dsp;
 mod engine;
-mod ffi;
 mod midi_in;
 mod serial;
 mod settings;

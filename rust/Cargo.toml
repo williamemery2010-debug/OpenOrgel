@@ -1,8 +1,8 @@
 [package]
 name = "openorgelsynth"
-version = "1.7.5"
+version = "2.0.0"
 edition = "2021"
-description = "OpenOrgel - native Rust console and host for the C++ pipe organ synthesis engine"
+description = "OpenOrgel - high-performance pipe organ Wavetable & FM synthesis engine"
 build = "build.rs"
 
 [[bin]]

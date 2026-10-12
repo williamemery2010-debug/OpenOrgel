@@ -1,23 +1,10 @@
-//! BUILD SCRIPT - compiles the C++ synthesis engine straight into the exe.
-//! GOOD LUCK SOLDIER. menthol
+//! BUILD SCRIPT for OpenOrgel (Pure Native Rust Wavetable & FM Engine)
+//!
+//! C++ engine has been fully deprecated and replaced by native Rust DSP.
+//! menthol - ZERO C++ DEPENDENCIES ACHIEVED
+//! apple text go brrr
 
 fn main() {
-    println!("cargo:rerun-if-changed=../openorgelsynth.cpp");
-    println!("cargo:rerun-if-changed=../dr_mp3.h");
-    println!("cargo:rerun-if-changed=../clarion.mp3");
-    println!("cargo:rerun-if-changed=../stoppedflue.mp3");
-
-    cc::Build::new()
-        .cpp(true)
-        .file("../openorgelsynth.cpp")
-        .include("..")
-        .flag_if_supported("-std=c++17")
-        .opt_level(3)
-        // The linker is the clang++ driver, which already pulls in libc++.
-        .cpp_link_stdlib(None)
-        .warnings(false)
-        .compile("openorgelsynth_engine");
-
-    // Windows system libs the engine touches (GetModuleHandleEx etc.)
+    // Windows system libs
     println!("cargo:rustc-link-lib=kernel32");
 }
