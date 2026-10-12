@@ -15,10 +15,16 @@ pub struct Settings {
     pub last_midi_device: String,
     #[serde(default = "default_temperament")]
     pub temperament: String,
+    #[serde(default = "default_venue")]
+    pub venue: String,
 }
 
 fn default_temperament() -> String {
     "Equal Temperament (12-EDO)".to_string()
+}
+
+fn default_venue() -> String {
+    "Hamer Hall (Arts Centre Melbourne)".to_string()
 }
 
 impl Default for Settings {
@@ -29,6 +35,7 @@ impl Default for Settings {
             volume: 1.0,
             last_midi_device: "None".to_string(),
             temperament: default_temperament(),
+            venue: default_venue(),
         }
     }
 }

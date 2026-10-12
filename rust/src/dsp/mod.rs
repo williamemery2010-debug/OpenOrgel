@@ -11,7 +11,7 @@ pub mod reverb;
 pub mod stops_dsp;
 pub mod wavetable;
 
-pub use reverb::Reverb;
+pub use reverb::{AcousticVenue, Reverb};
 use stops_dsp::render_stop_into;
 use wavetable::SineLut;
 
@@ -28,7 +28,7 @@ pub fn init_engine() {
 }
 
 pub fn engine_version() -> &'static str {
-    "2.0.1 (Rust Wavetable + FM Engine)"
+    "2.0.2 (Rust Wavetable + FM + Physical Reverb Engine)"
 }
 
 pub fn clear_engine_cache() {

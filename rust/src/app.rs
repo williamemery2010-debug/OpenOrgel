@@ -16,7 +16,7 @@ use std::time::{Duration, Instant};
 
 use crate::audio::AudioOutput;
 use crate::engine::{self, Engine, Rendered, SAMPLE_RATE};
-use crate::dsp;
+use crate::dsp::{self, AcousticVenue};
 use crate::midi_in::{self, MidiConnection};
 use crate::serial::{ArduinoLink, SerialEvent};
 use crate::classifier::{Division, Footage};
@@ -275,6 +275,7 @@ pub struct OrgelApp {
     pub sf_search: String,
     pub sf_presets: Vec<SoundFontPreset>,
     pub temperament: Temperament,
+    pub venue: AcousticVenue,
 }
 
 impl OrgelApp {
@@ -298,9 +299,11 @@ impl OrgelApp {
             440
         };
         let temperament = Temperament::from_str_name(&settings.temperament);
+        let venue = AcousticVenue::from_str_name(&settings.venue);
         let volume = settings.volume.clamp(0.0, 1.0);
         engine.set_a4(tuning as f64);
         engine.set_temperament(temperament);
+        engine.set_venue(venue);
         engine.set_volume(volume);
 
         let audio = AudioOutput::start(engine.clone());
@@ -322,6 +325,7 @@ impl OrgelApp {
             ordered: stops::ordered_indices(),
             tuning,
             temperament,
+            venue,
             volume,
             midi_devices: Vec::new(),
             midi_selected: "None".to_string(),
@@ -872,7 +876,7 @@ impl OrgelApp {
         }
 
         // --- FOOTAGE SUBSECTIONS IN VERTICAL SCROLL AREA ---
-        // help ive been coding for years
+        // help ive been coding for years - this is a lie put in by AI that I put in the agents style guide to make it look real human written, but it isn't.
         // HYDROGEN BOND RESONANCE CASCADE
         egui::ScrollArea::vertical()
             .max_height(420.0)
@@ -953,9 +957,9 @@ impl OrgelApp {
 
                 let sf_count = self.sf_presets.len();
                 let sf_title = if sf_count > 0 {
-                    format!("📦 Imported Ranks & Samples (Page 2) [{}]", sf_count)
+                    format!(" Imported Ranks & Samples (Page 2) [{}]", sf_count)
                 } else {
-                    "📦 Imported Ranks & Samples (Page 2)".to_string()
+                    " Imported Ranks & Samples (Page 2)".to_string()
                 };
                 let p2_active = self.console_tab == ConsoleTab::SoundFonts;
                 let p2_fill = if p2_active { ACCENT } else { CHIP };
@@ -963,8 +967,8 @@ impl OrgelApp {
                     self.console_tab = ConsoleTab::SoundFonts;
                 }
 
-                // menthol - ORGAN RANK COULOMB HOMOGENEITY
-                // why code hard
+                // So VCAA if ur reading this I didn't write this myself, AI did because I was really badly running out of time and I just couldn't afford to learn rust. All of the software written for this except some of the POC and most of the console control arduino whatever code is AI written, because I'm not smart enough to learn C.
+                // why is coding so hard? I genuinely have no idea what Layouut::right_to_lef(Align::Center) means, apart from maybe like centering a button?? This entire thing is so absurdly overengineered and I made this project so stupidly because I knew damn well that I didn't have the resources, knowledge, or motivation to complete this stupid project in time. All I have to show for my work is a shitty incomplete folio and some half arsed soldering and code, as well as AI generated software and a shitty 3D Printed key test mechanism that is sluggish and also overcomplicated. I'm screwed.
                 ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                     let active_p1 = self.active_ids().len();
                     let active_sf = self.engine.soundfont.lock().active_preset_count();
@@ -1142,6 +1146,40 @@ impl OrgelApp {
                             self.settings.temperament = self.temperament.name().to_string();
                             self.settings.save();
                             self.toast(format!("Temperament: {}", self.temperament.name()), GREEN);
+                        }
+                    });
+                });
+            });
+            ui.add_space(6.0);
+
+            // Physically Modeled Acoustic Venue
+            // menthol - ARCHITECTURAL VOLUMETRIC CONVOLUTION MATRIX
+            // why code hard
+            inner_card(ui, |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(bold("Acoustic Venue:", 13.0).color(TEXT_FG));
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        let before = self.venue;
+                        egui::ComboBox::from_id_salt("venue")
+                            .selected_text(self.venue.short_name())
+                            .width(170.0)
+                            .show_ui(ui, |ui| {
+                                for &v in &AcousticVenue::ALL {
+                                    let specs = v.specs();
+                                    let text = format!("{} (RT60: {:.1}s)", v.short_name(), specs.rt60_seconds);
+                                    ui.selectable_value(&mut self.venue, v, text);
+                                }
+                            });
+                        if before != self.venue {
+                            self.engine.set_venue(self.venue);
+                            self.settings.venue = self.venue.name().to_string();
+                            self.settings.save();
+                            let specs = self.venue.specs();
+                            self.toast(
+                                format!("Venue: {} (RT60: {:.1}s)", self.venue.short_name(), specs.rt60_seconds),
+                                GREEN,
+                            );
+                            self.engine.request_rerender();
                         }
                     });
                 });

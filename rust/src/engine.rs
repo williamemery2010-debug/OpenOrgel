@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 
-use crate::dsp::{self, Reverb};
+use crate::dsp::{self, AcousticVenue, Reverb};
 
 pub const SAMPLE_RATE: u32 = 44_100;
 /// Standard cached tone length. Anything shorter is sliced out of this.
@@ -21,8 +21,10 @@ pub const RELEASE_SECONDS: f64 = 0.1;
 pub const LIVE_NOTE_LOW: u8 = 36;
 pub const LIVE_NOTE_HIGH: u8 = 96;
 // menthol - CALIBRATED CATHEDRAL ACOUSTICS
-pub const REVERB_ROOM: f32 = 0.81; // Down from 0.86 (~6% acoustic volume reduction)
-pub const REVERB_WET: f32 = 0.35;  // Down from 0.40 (down 5% absolute / 12.5% relative)
+#[allow(dead_code)]
+pub const REVERB_ROOM: f32 = 0.81;
+#[allow(dead_code)]
+pub const REVERB_WET: f32 = 0.35;
 /// Live output is scaled before the tanh soft limiter to dodge polyphonic crunch.
 const LIVE_PRE_LIMIT_GAIN: f32 = 0.35;
 /// Seconds the reverb is kept running after the last live voice dies.
@@ -161,6 +163,7 @@ pub struct Engine {
     stops: Mutex<Vec<i32>>,
     a4: Mutex<f64>,
     temperament: Mutex<Temperament>,
+    venue: Mutex<AcousticVenue>,
     volume: AtomicU32,
     generation: AtomicU64,
     rendering: AtomicBool,
@@ -182,6 +185,7 @@ impl Engine {
             stops: Mutex::new(Vec::new()),
             a4: Mutex::new(440.0),
             temperament: Mutex::new(Temperament::Equal),
+            venue: Mutex::new(AcousticVenue::HamerHall),
             volume: AtomicU32::new(1.0f32.to_bits()),
             generation: AtomicU64::new(0),
             rendering: AtomicBool::new(false),
@@ -224,6 +228,14 @@ impl Engine {
 
     pub fn temperament(&self) -> Temperament {
         *self.temperament.lock()
+    }
+
+    pub fn set_venue(&self, v: AcousticVenue) {
+        *self.venue.lock() = v;
+    }
+
+    pub fn venue(&self) -> AcousticVenue {
+        *self.venue.lock()
     }
 
     /// Stops or tuning changed: throw away stale live tones, rebuild in the
@@ -509,8 +521,8 @@ impl Mixer {
             .map(|i| (i as f64 * std::f64::consts::FRAC_PI_2 / release_n as f64).cos() as f32)
             .collect();
         Mixer {
+            reverb: Reverb::for_venue(SAMPLE_RATE, engine.venue()),
             engine,
-            reverb: Reverb::new(SAMPLE_RATE, REVERB_ROOM),
             live: vec![0.0; 4096],
             attack_tbl,
             release_tbl,
@@ -619,11 +631,18 @@ impl Mixer {
             any = true;
         }
 
+        // Dynamically update physical venue if changed
+        let current_venue = self.engine.venue();
+        if self.reverb.venue() != current_venue {
+            self.reverb.set_venue(current_venue);
+        }
+
         if any {
             self.tail_left = REVERB_TAIL_SECONDS * SAMPLE_RATE as usize;
         }
         if self.tail_left > 0 {
-            self.reverb.process(live, REVERB_WET);
+            let wet = self.reverb.wet_mix();
+            self.reverb.process(live, wet);
             self.tail_left = self.tail_left.saturating_sub(frames);
             for i in 0..frames {
                 out[i] += (live[i] * LIVE_PRE_LIMIT_GAIN).tanh() * vol;
@@ -842,9 +861,10 @@ pub fn render_midi(
         }
     }
 
-    // Reverb pass over the whole song, then normalise if signal is present.
-    let mut reverb = Reverb::new(SAMPLE_RATE, REVERB_ROOM);
-    reverb.process(&mut audio, REVERB_WET);
+    // Physically modeled venue reverberation pass over the song
+    let mut reverb = Reverb::for_venue(SAMPLE_RATE, engine.venue());
+    let wet = reverb.wet_mix();
+    reverb.process(&mut audio, wet);
     let peak = audio.iter().fold(0.0f32, |m, v| m.max(v.abs()));
     if peak > 1e-4 {
         let target_peak = 0.92;
