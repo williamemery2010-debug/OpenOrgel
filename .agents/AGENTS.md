@@ -45,8 +45,13 @@ For every change made to the codebase:
 1. **Application Compilation & Packaging**:
    - Compile native release binary `openorgelsynth.exe` via `cargo build --release`.
    - Copy `openorgelsynth.exe` to Desktop target path.
+   - Package installer distribution bundle via `python installer/package_release.py`.
 2. **Release History & Timeline Documentation**:
    - Update `project_timeline.txt` with in-depth WHAT, WHY, and HOW explanations.
    - Update version history via `python update_history.py`.
    - Stage, commit, and create an annotated git tag (e.g. `Prealpha_v2.0.x`).
    - Push commit and tags to GitHub (`git push origin <branch> --tags`).
+3. **Automated GitHub Release Publishing**:
+   - Run `python publish_github_release.py` to publish the built standalone executable (`openorgelsynth.exe`) and the Windows installer distribution archive (`OpenOrgel-<tag>-Windows.zip`) directly to GitHub Releases under the created tag.
+   - Maintain the in-tree installer suite in `installer/` (`install.ps1`, `install.cmd`, `uninstall.ps1`, `openorgel_setup.iss`).
+
