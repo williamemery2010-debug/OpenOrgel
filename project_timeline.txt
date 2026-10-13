@@ -341,8 +341,31 @@ PHASE 18: PIPE CHIFF VOLUME CONTROL, ATTACK DE-CLICKING & MULTI-STOP ENERGY NORM
     3. rust/src/dsp/fm.rs: Added smooth 5 ms rise curve `rise = (i as f32 / rise_samples as f32).min(1.0)` to FM shallot modulation depth and parameterized `chiff_scale: f32`.
     4. rust/src/dsp/stops_dsp.rs: Passed `chiff_scale` into `render_stop_into()`, added 5 ms fade-in on `Sampled` ranks (`clarion.wav`, `stoppedflue.wav`).
     5. rust/src/dsp/mod.rs: Applied energy normalization factor `stop_norm = 1.0 / (num_stops.sqrt())` inside `generate_tone()`.
-    6. rust/src/app.rs: Added `chiff_volume` to `OrgelApp` struct, initialized from settings in `OrgelApp::new()`, and rendered responsive `Pipe Chiff Volume:` slider in `settings_col` with immediate audio engine update and persistence.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 19: AUTOMATED GITHUB RELEASES PIPELINE & IN-TREE WINDOWS INSTALLER SUITE (October 13, 2026 - Prealpha_v2.0.6)
+--------------------------------------------------------------------------------
+* October 13, 2026:
+  - WHAT:
+    1. Automated GitHub Release Publishing (publish_github_release.py): Developed dedicated automated Python tool that interfaces with the GitHub Releases REST API via authenticated Git Credential Manager tokens. Automatically creates official/intermediary GitHub Releases for each build tag and attaches both the standalone binary (openorgelsynth.exe) and the zipped installer distribution archive.
+    2. In-Tree Windows Application Installer Suite (installer/): Created complete source-controlled installation framework:
+       - installer/install.ps1: Automated installation script that sets up OpenOrgel in %LOCALAPPDATA%\OpenOrgel, copies binaries, audio assets, and documentation, creates Desktop and Start Menu shortcuts, and registers OpenOrgel into Windows "Installed Apps" (Programs & Features) with uninstaller hooks.
+       - installer/install.cmd: Convenience one-click launcher for Windows Explorer.
+       - installer/uninstall.ps1: Clean uninstaller script removing shortcuts, binaries, and registry entries.
+       - installer/openorgel_setup.iss: Inno Setup compiler specification for generating standard Windows Setup wizard executables.
+       - installer/package_release.py: Automated packager bundling the binary and installer into OpenOrgel-<tag>-Windows.zip.
+    3. CI/CD Release Automation (.github/workflows/build_and_release.yml): Authored GitHub Actions workflow triggered on version tags to automatically compile, package, and publish releases in cloud CI runners.
+    4. Project Rules Overhaul: Updated .agents/AGENTS.md to mandate that every build must be published to GitHub Releases and packaged with the in-tree installer.
+  - WHY:
+    1. The creator requested that built binaries be directly published to GitHub as intermediary releases for each build so testers, evaluators, and musicians can download and run the engine without setting up local Rust toolchains.
+    2. End users on Windows expect standard installation routines with Start Menu and Desktop shortcuts, rather than manually moving loose executables.
+  - HOW:
+    1. API Interaction: Queried git credential helper to securely obtain OAuth bearer tokens without hardcoding secrets, interacting with https://api.github.com/repos/williamemery2010-debug/OpenOrgel/releases.
+    2. Shell Shortcut Integration: Leveraged WScript.Shell COM interfaces in PowerShell to generate native .lnk desktop and start menu shortcuts with working directory context.
+    3. Windows Registry Registration: Registered HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\OpenOrgel with DisplayName, DisplayVersion, Publisher, and UninstallString.
+================================================================================
+
 
 
 
