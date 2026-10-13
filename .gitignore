@@ -14,3 +14,7 @@ dist/
 Open-Orgel Software/
 Open-Orgel Software.zip
 *.zip
+
+# Rust compilation artifacts
+target/
+rust/target/
