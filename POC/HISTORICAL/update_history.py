@@ -9,7 +9,16 @@ def run_git_cmd(args):
     except Exception as e:
         return f"Error: {e}"
 
+def find_repo_root():
+    cur = os.path.dirname(os.path.abspath(__file__))
+    while cur and os.path.dirname(cur) != cur:
+        if os.path.exists(os.path.join(cur, ".git")):
+            return cur
+        cur = os.path.dirname(cur)
+    return os.path.dirname(os.path.abspath(__file__))
+
 def main():
+    root_dir = find_repo_root()
     # Get all tags with their dates and commits
     tags_raw = run_git_cmd(["git", "tag", "-l"])
     tags = [t.strip() for t in tags_raw.split("\n") if t.strip()]
@@ -66,25 +75,31 @@ def main():
 
     content.append("📜 COMMIT HISTORY (Newest First)")
     content.append("--------------------------------------------------------------------------------")
-    content.append(f"{'HASH':<8} | {'DATE':<10} | {'AUTHOR':<20} | {'COMMIT MESSAGE'}")
+    format_header = f"{'HASH':<8} | {'DATE':<10} | {'AUTHOR':<20} | {'COMMIT MESSAGE'}"
+    content.append(format_header)
     content.append("-" * 80)
     for h, d, a, m in commits_list:
         a_trunc = a[:20]
         content.append(f"{h:<8} | {d:<10} | {a_trunc:<20} | {m}")
     content.append("================================================================================")
 
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    root_dir = os.path.abspath(os.path.join(script_dir, "..", ".."))
-
     out_content = "\n".join(content)
 
-    for target_dir in [root_dir, script_dir]:
-        output_file = os.path.join(target_dir, "commits_and_releases.txt")
-        try:
-            with open(output_file, "w", encoding="utf-8") as f:
-                f.write(out_content)
-        except Exception as e:
-            print(f"Error writing to {output_file}: {e}")
+    targets = [
+        os.path.join(root_dir, "commits_and_releases.txt"),
+        os.path.join(root_dir, "POC", "HISTORICAL", "commits_and_releases.txt"),
+        os.path.join(root_dir, "Open-Orgel Software", "Audio_and_Logs", "commits_and_releases.txt"),
+    ]
+
+    for output_file in targets:
+        dir_name = os.path.dirname(output_file)
+        if os.path.exists(dir_name):
+            try:
+                with open(output_file, "w", encoding="utf-8") as f:
+                    f.write(out_content)
+                print(f"Updated {output_file}")
+            except Exception as e:
+                print(f"Error writing to {output_file}: {e}")
 
 if __name__ == "__main__":
     main()

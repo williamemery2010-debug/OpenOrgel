@@ -1,12 +1,100 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
+Updated At     : 2026-10-13 12:40:06
+Total Commits  : 81
+Total Releases : 26
 Updated At     : 2026-08-13 11:22:54
 Total Commits  : 58
 Total Releases : 9
 ================================================================================
 
 🚀 RELEASES / TAGS
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.1
+Date    : 2026-10-13
+Commit  : 8122a1f
+Details : Release Prealpha_v2.0.1: Historical temperaments, native Clarion 8' stop, tamed chiff transients, equalized imported stop volume, and tuned reverb
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.2
+Date    : 2026-10-13
+Commit  : 2d9cef8
+Details : Prealpha v2.0.2: Physical acoustic venue reverb (Hamer Hall default, St Pauls Cathedral, Ian Potter, Grand Exhibition Building)
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.3
+Date    : 2026-10-13
+Commit  : 1870567
+Details : Prealpha v2.0.3: Complete codebase audit enforcing academic engineering standards for VCAA folio review
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.4
+Date    : 2026-10-13
+Commit  : 2b3311c
+Details : Prealpha v2.0.4: Comprehensive 13-test verification suite and unit_tests_report.md
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.5
+Date    : 2026-10-13
+Commit  : 936bf1a
+Details : Release Prealpha_v2.0.5: Pipe Chiff Volume Slider, Attack Click Elimination, and Multi-Stop Energy Normalization
+--------------------------------------------------------------------------------
+Version : Prealpha_v1.7.0
+Date    : 2026-10-12
+Commit  : 90ca839
+Details : Release Prealpha v1.7.0: Native Rust GUI and embedded C++ synthesis engine
+--------------------------------------------------------------------------------
+Version : Prealpha_v1.7.1
+Date    : 2026-10-12
+Commit  : 737f1e0
+Details : Release Prealpha v1.7.1: Add SoundFont 2 (SF2) support, 2-page stop console with pagination, and fix history workflow
+--------------------------------------------------------------------------------
+Version : Prealpha_v1.7.2
+Date    : 2026-10-12
+Commit  : 96d79d7
+Details : Release Prealpha_v1.7.2: Organ stop taxonomic library, footage subsections, responsive card click hitbox, and offline/live SoundFont synthesis engine
+--------------------------------------------------------------------------------
+Version : Prealpha_v1.7.3
+Date    : 2026-10-12
+Commit  : 916aebf
+Details : Release Prealpha_v1.7.3: Non-blocking re-synthesis snapshot, seamless playback without pausing, pure SoundFont playback without fallback bleed
+--------------------------------------------------------------------------------
+Version : Prealpha_v1.7.4
+Date    : 2026-10-12
+Commit  : b6a81c4
+Details : Release Prealpha_v1.7.4: Refuse playback without stops, pure SoundFont playback, non-blocking synthesis
+--------------------------------------------------------------------------------
+Version : Prealpha_v1.7.5
+Date    : 2026-10-12
+Commit  : e451873
+Details : Release Prealpha_v1.7.5: Unified organ rank counting, architecture specification
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.0
+Date    : 2026-10-12
+Commit  : c6c1ebb
+Details : Release Prealpha_v2.0.0: Native Rust Wavetable & FM synthesis, 100x speedup, pure Rust reverb, zero C++ compilation
+--------------------------------------------------------------------------------
+Version : Prealpha_v1.6.0
+Date    : 2026-10-08
+Commit  : 5803a16
+Details : Release Prealpha_v1.6.0: Enhancing and updating stops
+--------------------------------------------------------------------------------
+Version : Prealpha_v1.6.1
+Date    : 2026-10-08
+Commit  : dcccbda
+Details : Decoupled GUI and Engine architecture
+--------------------------------------------------------------------------------
+Version : Prealpha_v1.6.2
+Date    : 2026-10-08
+Commit  : fd13333
+Details : Line endings fix
+--------------------------------------------------------------------------------
+Version : Prealpha_v1.6.3
+Date    : 2026-10-08
+Commit  : d83a58d
+Details : Update history v1.6.4
+--------------------------------------------------------------------------------
+Version : Prealpha_v1.6.4
+Date    : 2026-10-08
+Commit  : 4e0c755
+Details : Update history v1.6.4
 --------------------------------------------------------------------------------
 Version : Alpha_v1.0.0
 Date    : 2026-08-13
@@ -63,6 +151,30 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
+954cc44  | 2026-10-13 | williamemery2010-deb | feat(dsp): add pipe chiff volume control, attack click elimination, and multi-stop energy normalization
+2b3311c  | 2026-10-13 | williamemery2010-deb | docs: record Prealpha_v2.0.4 unit testing release in history
+1b70d64  | 2026-10-13 | williamemery2010-deb | feat: expand unit test suite to 13 tests and author formal unit_tests_report.md
+1870567  | 2026-10-13 | williamemery2010-deb | docs: record Prealpha_v2.0.3 release in history
+15b4f86  | 2026-10-13 | williamemery2010-deb | refactor: enforce academic code standards and clean informal comments for VCAA folio review
+2d9cef8  | 2026-10-13 | williamemery2010-deb | docs: record Prealpha_v2.0.2 physical reverb release in history
+8a558e4  | 2026-10-13 | williamemery2010-deb | feat: physically modeled Melbourne architectural venue reverberation (Hamer Hall, St. Paul's Cathedral, Ian Potter Theatre, Grand Exhibition Building)
+f08c6bd  | 2026-10-13 | williamemery2010-deb | docs: record Prealpha_v2.0.1 release in project history
+8122a1f  | 2026-10-13 | williamemery2010-deb | feat: add historical temperaments, native Clarion 8' stop, tame chiff attack, equalize imported stop volume, and tune reverb
+dc6098c  | 2026-10-12 | williamemery2010-deb | docs: bring project timeline up to date through Phase 13 and mandate comprehensive WHAT/WHY/HOW timeline logging in AGENTS.md
+c6c1ebb  | 2026-10-12 | williamemery2010-deb | Major Release v2.0.0: Transition to 100% native Rust Wavetable & FM synthesis engine, deprecate C++ DLL and FFI
+e451873  | 2026-10-12 | williamemery2010-deb | Count samples equally as active organ ranks, add comprehensive architecture documentation, release v1.7.5
+b6a81c4  | 2026-10-12 | williamemery2010-deb | Enforce strict active stops requirement, eliminate C++ fallback flue pipe bleed, and optimize SoundFont timeline synthesis
+916aebf  | 2026-10-12 | williamemery2010-deb | Non-blocking high-speed offline re-synthesis and pure sample playback - Prealpha_v1.7.3
+96d79d7  | 2026-10-12 | williamemery2010-deb | Organ stop taxonomic taxonomy and soundfont engine restructuring - Prealpha_v1.7.2
+9a0d6dc  | 2026-10-12 | williamemery2010-deb | Synchronize release history files
+737f1e0  | 2026-10-12 | williamemery2010-deb | Update release notes and history
+e37c9bd  | 2026-10-12 | williamemery2010-deb | Implement SoundFont 2 (SF2) synthesizer, paged stop console, and fix history workflow
+90ca839  | 2026-10-12 | williamemery2010-deb | Migrate OpenOrgel GUI to native Rust application with embedded C++ synthesis
+20254fa  | 2026-10-08 | williamemery2010-deb | Update version and tags
+f8e3cc9  | 2026-10-08 | williamemery2010-deb | Implement requested sound improvements (Gedeckt, Voix Celeste as clarion, Trombones, less tremulant)
+e493af4  | 2026-10-08 | williamemery2010-deb | Implement requested sound improvements (Gedeckt, Voix Celeste as clarion, Trombones, less tremulant)
+e2bc1e9  | 2026-10-08 | williamemery2010-deb | Update history after revert
+6b78a92  | 2026-08-13 | williamemery2010-deb | Fix Acoustic Flue 16' pitch ratio and add Open-Orgel Software distribution packaging builder
 310d48b  | 2026-08-13 | williamemery2010-deb | Fix Acoustic Flue 16' pitch ratio and add Open-Orgel Software distribution packaging builder
 891d314  | 2026-08-13 | williamemery2010-deb | Merge branch 'main' into review/stops-restructure - Resolve all conflicts for Alpha v1.0.0
 d901538  | 2026-08-13 | williamemery2010-deb | Alpha v1.0.0 release updates

@@ -1,4 +1,10 @@
+#ifndef _USE_MATH_DEFINES
+#define _USE_MATH_DEFINES
+#endif
 #include <cmath>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 #include <cstdlib>
 #include <vector>
 #include <string>
@@ -9,15 +15,10 @@
 #define DR_MP3_IMPLEMENTATION
 #include "dr_mp3.h"
 
+
 // ============================================================================
 // OPENORGEL SYNTHESIS ENGINE ALPHA V1.0.0
 // ============================================================================
-// QUANTUM FLUE & DUAL-LAYER RAM CACHE MATRIX - menthol
-// t-BuLi FLUID DYNAMICS GO BRRR
-// help ive been coding for years
-// why code hard
-// god someone help me
-// apple text go brrr
 
 static std::unordered_map<uint64_t, std::vector<float>> g_cpp_ram_cache;
 static std::mutex g_cpp_ram_cache_mutex;
@@ -112,9 +113,7 @@ static void ensure_acoustic_flue_loaded() {
   g_acoustic_flue_loaded = true;
 }
 
-// THE QUANTUM RESONANCE CLARION REED SAMPLE LOADER
-// menthol - t-BuLi FLUID DYNAMICS GO BRRR
-// apple text go brrr
+// Clarion reed sample loader
 static void ensure_clarion_loaded() {
   std::lock_guard<std::mutex> lock(g_clarion_load_mutex);
   if (g_clarion_loaded) return;
@@ -178,6 +177,69 @@ extern "C" __declspec(dllexport) void set_acoustic_flue_sample_cpp(const float *
     g_acoustic_flue_sample.assign(buffer, buffer + num_samples);
     g_acoustic_flue_sample_rate = sample_rate;
     g_acoustic_flue_loaded = true;
+  }
+}
+
+// ============================================================================
+// RUST HOST INTERFACE (v1.7.0) - THE GREAT PYTHON EXODUS
+// ============================================================================
+// ENGINE VERSION: the host queries the engine version string directly.
+#define OPENORGEL_ENGINE_VERSION "1.7.0"
+
+extern "C" __declspec(dllexport) const char *openorgel_engine_version() {
+  return OPENORGEL_ENGINE_VERSION;
+}
+
+// Decode an in-memory MP3 into a mono float buffer (channels averaged).
+static bool decode_mp3_memory_mono(const void *data, size_t size,
+                                   std::vector<float> &out, int &rate) {
+  if (!data || size == 0) return false;
+  drmp3 mp3;
+  if (!drmp3_init_memory(&mp3, data, size, NULL)) return false;
+  drmp3_uint64 totalFrames = 0;
+  drmp3_get_mp3_and_pcm_frame_count(&mp3, NULL, &totalFrames);
+  bool ok = false;
+  if (totalFrames > 0) {
+    std::vector<float> rawPcm((size_t)totalFrames * mp3.channels);
+    drmp3_read_pcm_frames_f32(&mp3, totalFrames, rawPcm.data());
+    rate = (int)mp3.sampleRate;
+    out.assign((size_t)totalFrames, 0.0f);
+    for (size_t i = 0; i < (size_t)totalFrames; i++) {
+      float sum = 0.0f;
+      for (unsigned int c = 0; c < mp3.channels; c++) {
+        sum += rawPcm[i * mp3.channels + c];
+      }
+      out[i] = sum / (float)mp3.channels;
+    }
+    ok = true;
+  }
+  drmp3_uninit(&mp3);
+  return ok;
+}
+
+// SAMPLE EMBEDDING: lets the host pass embedded sample bytes directly.
+extern "C" __declspec(dllexport) void
+load_samples_from_memory_cpp(const void *clarion_data, size_t clarion_len,
+                             const void *flue_data, size_t flue_len) {
+  {
+    std::lock_guard<std::mutex> lock(g_clarion_load_mutex);
+    std::vector<float> tmp;
+    int rate = 44100;
+    if (decode_mp3_memory_mono(clarion_data, clarion_len, tmp, rate)) {
+      g_clarion_sample = std::move(tmp);
+      g_clarion_sample_rate = rate;
+      g_clarion_loaded = true;
+    }
+  }
+  {
+    std::lock_guard<std::mutex> lock(g_flue_load_mutex);
+    std::vector<float> tmp;
+    int rate = 44100;
+    if (decode_mp3_memory_mono(flue_data, flue_len, tmp, rate)) {
+      g_acoustic_flue_sample = std::move(tmp);
+      g_acoustic_flue_sample_rate = rate;
+      g_acoustic_flue_loaded = true;
+    }
   }
 }
 
@@ -265,6 +327,7 @@ struct StopDefinition {
   bool is_sample_based;
 };
 
+static const StopDefinition STOPS_DB[32] = {
 static const StopDefinition STOPS_DB[30] = {
     // 0: Oboe 8'
     {"Oboe 8'",
@@ -334,7 +397,6 @@ static const StopDefinition STOPS_DB[30] = {
      false,
      false},
     // 11: Diapason 8'
-    // t-BuLi
     {"Diapason 8'", 3, {1.0, 3.0, 5.0}, {1.0, 0.35, 0.05}, false, false},
     // 12: Crystal Flute 4' (Glassy)
     {"Crystal Flute 4' (Glassy)",
@@ -353,7 +415,6 @@ static const StopDefinition STOPS_DB[30] = {
     // 14: Piccolo 2'
     {"Piccolo 2'", 4, {4.0, 8.0, 12.0, 16.0}, {1.0, 0.1, 0.05, 0.01}, true, false},
     // 15: Mixture IV
-    // menthol - MULTI-RANK ACOUSTIC FLUE RESAMPLING MATRIX
     {"Mixture IV", 4, {4.0, 6.0, 8.0, 12.0}, {1.0, 0.8, 0.6, 0.4}, false, true},
     // 16: Vox Humana 8'
     {"Vox Humana 8'",
@@ -362,29 +423,29 @@ static const StopDefinition STOPS_DB[30] = {
      {1.0, 0.4, 0.8, 0.2, 0.6, 0.1, 0.05, 0.02},
      false,
      false},
-    // 17: Hollow Gedeckt 8' (Airy)
-    {"Hollow Gedeckt 8' (Airy)",
+    // 17: Gedeckt 8' (Airy)
+    {"Gedeckt 8' (Airy)",
      6,
      {1.0, 3.0, 5.0, 7.0, 9.0, 11.0},
      {1.0, 0.5, 0.2, 0.08, 0.03, 0.01},
      false,
      false},
-    // 18: Hollow Gedeckt 4' (Airy)
-    {"Hollow Gedeckt 4' (Airy)",
+    // 18: Gedeckt 4' (Airy)
+    {"Gedeckt 4' (Airy)",
      6,
      {2.0, 6.0, 10.0, 14.0, 18.0, 22.0},
      {1.0, 0.5, 0.2, 0.08, 0.03, 0.01},
      true,
      false},
-    // 19: Hollow Gedeckt 16'
-    {"Hollow Gedeckt 16'",
+    // 19: Gedeckt 16'
+    {"Gedeckt 16'",
      6,
      {0.5, 1.5, 2.5, 3.5, 4.5, 5.5},
      {1.0, 0.5, 0.2, 0.08, 0.03, 0.01},
      false,
      false},
-    // 20: Hollow Gedeckt 32'
-    {"Hollow Gedeckt 32'",
+    // 20: Gedeckt 32'
+    {"Gedeckt 32'",
      6,
      {0.25, 0.75, 1.25, 1.75, 2.25, 2.75},
      {1.0, 0.5, 0.2, 0.08, 0.03, 0.01},
@@ -413,10 +474,10 @@ static const StopDefinition STOPS_DB[30] = {
      true},
     // 24: Voix Celeste 8'
     {"Voix Celeste 8'",
-     10,
-     {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0},
-     {1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2, 0.15, 0.1, 0.05},
-     false,
+     1,
+     {1.0},
+     {1.0},
+     true,
      false},
     // 25: Acoustic Flue 8'
     {"Acoustic Flue 8'", 1, {1.0}, {1.0}, false, true},
@@ -441,8 +502,7 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
     num_stops = 0;
   }
 
-  // ULTRA-FAST IN-MEMORY CPU/RAM CACHE LOOKUP
-  // menthol - QUANTUM DISSONANCE PARADOX
+  // In-memory CPU/RAM cache lookup
   uint64_t cache_key = hash_tone_key(freq, num_samples, active_stop_ids, num_stops);
   {
     std::lock_guard<std::mutex> lock(g_cpp_ram_cache_mutex);
@@ -453,8 +513,7 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
     }
   }
 
-  // FAST SEEDED PRNG
-  // menthol - QUANTUM DISSONANCE PARADOX
+  // Fast seeded PRNG
   unsigned int initial_seed = 123456789 + (unsigned int)(freq * 1000.0);
   FastPRNG fast_prng(initial_seed);
 
@@ -466,12 +525,13 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
   bool has_clarion_stops = false;
   for (int i = 0; i < num_stops; i++) {
     int stop_id = active_stop_ids[i];
+    if (stop_id >= 0 && stop_id < 32) {
     if (stop_id >= 0 && stop_id < 30) {
       if (stop_id == 17 || stop_id == 18 || stop_id == 19 || stop_id == 20) {
         has_slower_drift = true;
       }
       if (STOPS_DB[stop_id].is_sample_based) {
-        if (stop_id == 26) {
+        if (stop_id == 26 || stop_id == 24) {
           has_clarion_stops = true;
         } else {
           has_flue_stops = true;
@@ -496,6 +556,8 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
   } else {
     for (int i = 0; i < num_stops; i++) {
       int stop_id = active_stop_ids[i];
+      if (stop_id >= 0 && stop_id < 32) {
+        bool sample_ready = (stop_id == 26 || stop_id == 24) ? clarion_ready : flue_ready;
       if (stop_id >= 0 && stop_id < 30) {
         bool sample_ready = (stop_id == 26) ? clarion_ready : flue_ready;
         if (!sample_ready || !STOPS_DB[stop_id].is_sample_based) {
@@ -511,9 +573,7 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
     }
   }
 
-  // PRE-CALCULATE PHASE ACCUMULATORS & SINE LUT LOOKUPS
-  // apple text go brrr
-  // help ive been coding for years
+  // Pre-calculate phase accumulators and sine LUT lookups
   std::vector<double> all_amps(total_harmonics);
   std::vector<double> all_phases(total_harmonics);
   std::vector<double> phase_steps(total_harmonics);
@@ -535,7 +595,7 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
         int stop_id = active_stop_ids[i];
         if (stop_id < 0 || stop_id >= 30)
           continue;
-        bool sample_ready = (stop_id == 26) ? clarion_ready : flue_ready;
+        bool sample_ready = (stop_id == 26 || stop_id == 24) ? clarion_ready : flue_ready;
         if (sample_ready && STOPS_DB[stop_id].is_sample_based)
           continue;
 
@@ -593,20 +653,24 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
 
   for (int i = 0; i < num_stops; i++) {
     int stop_id = active_stop_ids[i];
+    if (stop_id >= 0 && stop_id < 32 && STOPS_DB[stop_id].is_sample_based) {
     if (stop_id >= 0 && stop_id < 30 && STOPS_DB[stop_id].is_sample_based) {
       const auto &stop = STOPS_DB[stop_id];
       const std::vector<float> *s_ptr = nullptr;
       int s_rate = 44100;
-      if (stop_id == 26 && clarion_ready) {
+      if ((stop_id == 26 || stop_id == 24) && clarion_ready) {
         s_ptr = &g_clarion_sample;
         s_rate = g_clarion_sample_rate;
-      } else if (stop_id != 26 && flue_ready) {
+      } else if (stop_id != 26 && stop_id != 24 && flue_ready) {
         s_ptr = &g_acoustic_flue_sample;
         s_rate = g_acoustic_flue_sample_rate;
       }
 
       if (s_ptr && !s_ptr->empty()) {
         double base_sample_ratio = (double)s_rate / (double)sample_rate;
+        double sample_base_freq = (stop_id == 26 || stop_id == 24) ? 440.0 : 220.0;
+        for (int h = 0; h < stop.num_harmonics; h++) {
+          double rank_freq = (stop_id == 24 ? freq * 1.006 : freq) * stop.harmonics[h];
         double sample_base_freq = (stop_id == 26) ? 440.0 : 220.0;
         for (int h = 0; h < stop.num_harmonics; h++) {
           double rank_freq = freq * stop.harmonics[h];
@@ -628,11 +692,9 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
   double pitch_scoop_mult = exp(-20.0 / (double)sample_rate);
   double pitch_scoop_val = 0.001;
 
-  double air_amp = has_slower_drift ? 0.022 : 0.002;
+  double air_amp = (has_slower_drift ? 0.022 : 0.004) + 0.0015 * num_stops;
 
-  // HIGH-PERFORMANCE VECTORIZED SYNTHESIS LOOP
-  // menthol - WHY CODE HARD
-  // t-BuLi FLUID DYNAMICS GO BRRR
+  // Audio synthesis loop
   for (int n = 0; n < num_samples; n++) {
     double t = (double)n / (double)sample_rate;
 
@@ -689,7 +751,7 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
     }
 
     // Amplitude modulation & sub-bass boost
-    double airflow_env = 1.0 + 0.005 * fast_sin(5.5 * 2.0 * M_PI * t) + wind_wobble;
+    double airflow_env = 1.0 + 0.001 * fast_sin(5.5 * 2.0 * M_PI * t) + wind_wobble * 0.4;
     sample_val *= airflow_env;
 
     if (freq < 250.0) {

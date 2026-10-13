@@ -1,0 +1,7 @@
+[build]
+target = "x86_64-pc-windows-gnullvm"
+
+# LLVM-MinGW (the same toolchain used for the standalone DLL build) must be on PATH.
+# The C++ driver is used as the linker so libc++ and libunwind link automatically.
+[target.x86_64-pc-windows-gnullvm]
+linker = "x86_64-w64-mingw32-clang++"
