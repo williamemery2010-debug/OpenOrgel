@@ -1,8 +1,8 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-13 11:04:08
-Total Commits  : 79
+Updated At     : 2026-10-13 11:04:25
+Total Commits  : 80
 Total Releases : 24
 ================================================================================
 
@@ -138,7 +138,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-56f1b75  | 2026-10-13 | williamemery2010-deb | feat: expand unit test suite to 13 tests and author formal unit_tests_report.md
+1101ff1  | 2026-10-13 | williamemery2010-deb | docs: record Prealpha_v2.0.4 unit testing release in history
+1b70d64  | 2026-10-13 | williamemery2010-deb | feat: expand unit test suite to 13 tests and author formal unit_tests_report.md
 1870567  | 2026-10-13 | williamemery2010-deb | docs: record Prealpha_v2.0.3 release in history
 15b4f86  | 2026-10-13 | williamemery2010-deb | refactor: enforce academic code standards and clean informal comments for VCAA folio review
 2d9cef8  | 2026-10-13 | williamemery2010-deb | docs: record Prealpha_v2.0.2 physical reverb release in history
