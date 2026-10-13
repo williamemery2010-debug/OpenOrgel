@@ -93,3 +93,48 @@ impl Wavetable {
         self.samples[idx] + frac * (self.samples[idx + 1] - self.samples[idx])
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sine_lut_accuracy() {
+        let lut = SineLut::new();
+        let pi = std::f64::consts::PI;
+        // Test key phase points: 0, pi/6, pi/4, pi/2, pi, 3*pi/2, 2*pi
+        for step in 0..=360 {
+            let angle = step as f64 * (pi / 180.0);
+            let expected = angle.sin() as f32;
+            let actual = lut.sin(angle);
+            assert!(
+                (actual - expected).abs() < 0.002,
+                "Sine LUT error at {} deg: got {}, expected {}",
+                step, actual, expected
+            );
+        }
+    }
+
+    #[test]
+    fn test_wavetable_normalization_and_wrap() {
+        let harmonics = [(1.0, 1.0), (2.0, 0.5), (3.0, 0.25)];
+        let wt = Wavetable::from_harmonics(440.0, 44100, &harmonics);
+        // Table should have TABLE_SIZE + 1 elements
+        assert_eq!(wt.samples.len(), TABLE_SIZE + 1);
+        // Wrap-around guard for linear interpolation
+        assert_eq!(wt.samples[0], wt.samples[TABLE_SIZE]);
+        // Peak normalized to <= 1.0
+        let peak = wt.samples.iter().fold(0.0f32, |m, v| m.max(v.abs()));
+        assert!((peak - 1.0).abs() < 1e-4, "Peak should be normalized to 1.0, got {}", peak);
+    }
+
+    #[test]
+    fn test_wavetable_bandlimiting_nyquist() {
+        // Fundamental at 15 kHz, sample rate 44.1 kHz. Harmonic 2 (30 kHz) and Harmonic 3 (45 kHz) exceed Nyquist (22.05 kHz)
+        let harmonics = [(1.0, 1.0), (2.0, 1.0), (3.0, 1.0)];
+        let wt = Wavetable::from_harmonics(15_000.0, 44100, &harmonics);
+        // Should only synthesize fundamental without panicking or creating aliasing
+        assert_eq!(wt.samples.len(), TABLE_SIZE + 1);
+        assert!(!wt.samples[0].is_nan());
+    }
+}

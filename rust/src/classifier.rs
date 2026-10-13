@@ -438,3 +438,28 @@ pub fn classify_division(raw_name: &str) -> Division {
 
     Division::Misc
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_footage_classification_heuristics() {
+        assert_eq!(classify_footage("Subbass 16'"), Footage::Ft16);
+        assert_eq!(classify_footage("Open Diapason 8'"), Footage::Ft8);
+        assert_eq!(classify_footage("Octave 4'"), Footage::Ft4);
+        assert_eq!(classify_footage("Super Octave 2'"), Footage::Ft2);
+        assert_eq!(classify_footage("Piccolo 2'"), Footage::Ft2);
+        assert_eq!(classify_footage("Mixture IV"), Footage::Mixture);
+        assert_eq!(classify_footage("Tierce 1 3/5'"), Footage::Mutation);
+        assert_eq!(classify_footage("Larigot 1 1/3'"), Footage::Mutation);
+    }
+
+    #[test]
+    fn test_division_classification_heuristics() {
+        assert_eq!(classify_division("Ped. Subbass 16'"), Division::Pedal);
+        assert_eq!(classify_division("Swell Oboe 8'"), Division::Swell);
+        assert_eq!(classify_division("Great Open Diapason 8'"), Division::Great);
+        assert_eq!(classify_division("Choir Clarinet 8'"), Division::Choir);
+    }
+}

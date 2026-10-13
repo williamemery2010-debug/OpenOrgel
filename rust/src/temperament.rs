@@ -157,4 +157,27 @@ mod tests {
         assert_eq!(def.name, "Clarion 8'");
         assert_eq!(def.id, 30);
     }
+
+    #[test]
+    fn test_temperament_octave_equivalence() {
+        for &t in &Temperament::ALL {
+            for midi_note in 36..=84 {
+                let f1 = t.midi_to_freq(440.0, midi_note);
+                let f2 = t.midi_to_freq(440.0, midi_note + 12);
+                let ratio = f2 / f1;
+                assert!((ratio - 2.0).abs() < 1e-9, "Octave ratio failed for note {} in {:?}", midi_note, t);
+            }
+        }
+    }
+
+    #[test]
+    fn test_meantone_pure_major_third() {
+        // In 1/4-comma meantone, the major third (C4 to E4) has an acoustically pure 5:4 (1.25) frequency ratio.
+        let c4_freq = Temperament::Meantone14.midi_to_freq(440.0, 60);
+        let e4_freq = Temperament::Meantone14.midi_to_freq(440.0, 64);
+        let ratio = e4_freq / c4_freq;
+        let expected_pure_ratio = 5.0 / 4.0; // 1.25
+        assert!((ratio - expected_pure_ratio).abs() < 1e-4, "Meantone third deviated: got {}, expected {}", ratio, expected_pure_ratio);
+    }
 }
+

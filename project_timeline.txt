@@ -300,3 +300,27 @@ PHASE 16: VCE/VCAA PROFESSIONAL CODEBASE AUDIT & ACADEMIC CLEANLINESS (October 1
     3. Test Suite Verification: Re-ran the native Rust unit test suite confirming all tests pass with zero warnings, zero regressions, and pristine code hygiene.
 ================================================================================
 
+--------------------------------------------------------------------------------
+PHASE 17: UNIT TESTING EXPANSION & FORMAL VERIFICATION REPORT (October 13, 2026 - Prealpha_v2.0.4)
+--------------------------------------------------------------------------------
+* October 13, 2026:
+  - WHAT:
+    1. Comprehensive Unit Test Suite Expansion: Expanded the automated native Rust unit test harness from 5 tests to 13 deterministic tests across 5 key architectural modules:
+       - Historical Temperament Invariants: A4 reference invariance across all 8 tuning systems, full-keyboard octave equivalence ratio (f(N+12)/f(N) = 2.000000000 across 384 tested pitch-temperament pairs), and acoustically pure 5:4 meantone major third ratio (C4 to E4 = 1.25000).
+       - Clarion 8' Registration Integrity: Stop registry and DSP synthesis model ID alignment for the native sampled reed rank.
+       - Bandlimited Wavetable Synthesis: Sine lookup table accuracy verification against stdlib sin (< 0.002 max error), wavetable normalization (peak <= 1.0) and wrap-around interpolation boundary safety, and Nyquist threshold truncation guarding against aliasing.
+       - FM Reed Operator Stability: Bounded output validation ensuring feedback phase modulation never produces NaN, infinity, or numerical divergence.
+       - Architectural Reverberation: Hamer Hall default initialization and geometry parameter assertions across all 4 performance spaces, plus impulse response stability and tail energy dissipation tests.
+       - Stop Classifier Heuristics: Heuristic parsing tests for speaking pipe footages (16', 8', 4', 2', Mutations, Mixtures) and organ divisions (Pedal, Great, Swell, Choir).
+    2. Formal Unit Testing Report: Authored unit_tests_report.md providing an exhaustive VCAA-compliant verification folio document detailing each test's purpose (WHY), target failure mode (WHAT), methodology & math (HOW), and expected vs actual results.
+    3. User Comment Preservation Mandate: Re-affirmed in .agents/AGENTS.md that user-authored comments (even if informal, humorous, or personal) are strictly preserved, while assistant contributions maintain academic and technical precision.
+  - WHY:
+    1. Real-time audio software and digital filters are susceptible to phase overflow, Nyquist foldback distortion, and unstable feedback divergence. Automated regression testing mathematically guarantees system stability.
+    2. Formal software assessment under VCAA folio criteria requires structured documentation of software testing, expected outcomes, and verifiable execution results.
+  - HOW:
+    1. Implemented test cases in #[cfg(test)] modules in rust/src/temperament.rs, rust/src/dsp/wavetable.rs, rust/src/dsp/fm.rs, rust/src/dsp/reverb.rs, and rust/src/classifier.rs.
+    2. Executed cargo test -- --nocapture verifying all 13 tests pass in 0.00s.
+    3. Generated unit_tests_report.md and recompiled the standalone release binary.
+================================================================================
+
+

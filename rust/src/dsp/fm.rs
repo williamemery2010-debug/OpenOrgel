@@ -99,3 +99,26 @@ impl FmOperator {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fm_operator_stability_and_no_nan() {
+        let config = FmVoiceConfig::default();
+        let mut op = FmOperator::new(config, 44100);
+        let sine_lut = SineLut::new();
+        let mut buffer = vec![0.0f32; 1024];
+        let wind = vec![0.0f32; 1024];
+
+        op.render(440.0, 44100, &mut buffer, &sine_lut, &wind);
+
+        for (i, &s) in buffer.iter().enumerate() {
+            assert!(!s.is_nan(), "Sample at {} is NaN", i);
+            assert!(!s.is_infinite(), "Sample at {} is infinite", i);
+            assert!(s.abs() <= 2.5, "Sample at {} exceeded expected bounds: {}", i, s);
+        }
+    }
+}
+
