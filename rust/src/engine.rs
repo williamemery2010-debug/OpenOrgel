@@ -47,6 +47,7 @@ struct ToneKey {
     freq_centi: i64,
     samples: usize,
     stop: i32, // -1 = the default sine, for when no stops are drawn
+    chiff_centi: i64,
 }
 
 #[derive(Default)]
@@ -57,7 +58,14 @@ pub struct ToneBank {
 impl ToneBank {
     /// One stop (or the default sine) at a frequency. Returned buffer is at least
     /// `duration` long; callers slice what they need.
-    pub fn stop_tone(&self, freq: f64, duration: f64, stop: Option<i32>) -> Arc<Vec<f32>> {
+    pub fn stop_tone(
+        &self,
+        freq: f64,
+        duration: f64,
+        stop: Option<i32>,
+        chiff_vol: f32,
+        num_stops: usize,
+    ) -> Arc<Vec<f32>> {
         let cache_duration = if duration <= TONE_SECONDS {
             TONE_SECONDS
         } else {
@@ -67,12 +75,16 @@ impl ToneBank {
             freq_centi: (freq * 100.0).round() as i64,
             samples: (SAMPLE_RATE as f64 * cache_duration) as usize,
             stop: stop.unwrap_or(-1),
+            chiff_centi: (chiff_vol * 100.0).round() as i64,
         };
         if let Some(hit) = self.map.read().get(&key) {
             return hit.clone();
         }
         let ids: Vec<i32> = stop.into_iter().collect();
-        let data = Arc::new(dsp::generate_tone(freq, cache_duration, SAMPLE_RATE, &ids));
+        // Energy normalization: balances transient attack across active ranks
+        let norm = 1.0 / (num_stops.max(1) as f32).sqrt();
+        let eff_chiff = (chiff_vol * norm).clamp(0.0, 1.5);
+        let data = Arc::new(dsp::generate_tone(freq, cache_duration, SAMPLE_RATE, &ids, eff_chiff));
         self.map.write().insert(key, data.clone());
         data
     }
@@ -82,27 +94,29 @@ impl ToneBank {
     }
 
     /// Sum of every drawn stop, trimmed to exactly `duration` seconds (offline render).
-    pub fn summed_tone(&self, freq: f64, duration: f64, stops: &[i32]) -> Vec<f32> {
+    /// Automatically applies energy normalization so adding stops does not blow out headroom or transients.
+    pub fn summed_tone(&self, freq: f64, duration: f64, stops: &[i32], chiff_vol: f32) -> Vec<f32> {
         let n = (SAMPLE_RATE as f64 * duration) as usize;
         let mut acc = vec![0.0f32; n];
         if stops.is_empty() {
             // No physical stops drawn: return absolute silence so SoundFonts sound unadulterated!
             return acc;
         }
+        let stop_norm = 1.0 / (stops.len() as f32).sqrt().max(1.0);
         let mut add = |tone: &[f32]| {
             for (a, b) in acc.iter_mut().zip(tone.iter()) {
-                *a += *b;
+                *a += *b * stop_norm;
             }
         };
         for &s in stops {
-            add(&self.stop_tone(freq, duration, Some(s)));
+            add(&self.stop_tone(freq, duration, Some(s), chiff_vol, stops.len()));
         }
         acc
     }
 
     /// Live voice tone: all stops at the standard 3.5 s length, averaged so that
     /// pulling more stops does not blow the headroom.
-    pub fn live_tone(&self, freq: f64, stops: &[i32]) -> Vec<f32> {
+    pub fn live_tone(&self, freq: f64, stops: &[i32], chiff_vol: f32) -> Vec<f32> {
         let n = (SAMPLE_RATE as f64 * TONE_SECONDS) as usize;
         let mut acc = vec![0.0f32; n];
         if stops.is_empty() {
@@ -116,7 +130,7 @@ impl ToneBank {
             }
         };
         for &s in stops {
-            add(&self.stop_tone(freq, TONE_SECONDS, Some(s)));
+            add(&self.stop_tone(freq, TONE_SECONDS, Some(s), chiff_vol, stops.len()));
         }
         for a in acc.iter_mut() {
             *a /= count;
@@ -161,6 +175,7 @@ pub struct Engine {
     temperament: Mutex<Temperament>,
     venue: Mutex<AcousticVenue>,
     volume: AtomicU32,
+    chiff_volume: AtomicU32,
     generation: AtomicU64,
     rendering: AtomicBool,
     render_requested: AtomicBool,
@@ -182,6 +197,7 @@ impl Engine {
             temperament: Mutex::new(Temperament::Equal),
             venue: Mutex::new(AcousticVenue::HamerHall),
             volume: AtomicU32::new(1.0f32.to_bits()),
+            chiff_volume: AtomicU32::new(0.20f32.to_bits()),
             generation: AtomicU64::new(0),
             rendering: AtomicBool::new(false),
             render_requested: AtomicBool::new(false),
@@ -199,6 +215,14 @@ impl Engine {
 
     pub fn volume(&self) -> f32 {
         f32::from_bits(self.volume.load(Ordering::Relaxed))
+    }
+
+    pub fn set_chiff_volume(&self, v: f32) {
+        self.chiff_volume.store(v.clamp(0.0, 1.0).to_bits(), Ordering::Relaxed);
+    }
+
+    pub fn chiff_volume(&self) -> f32 {
+        f32::from_bits(self.chiff_volume.load(Ordering::Relaxed))
     }
 
     pub fn set_stops(&self, ids: Vec<i32>) {
@@ -243,6 +267,7 @@ impl Engine {
         let stops = self.stops();
         let a4 = self.a4();
         let temp = self.temperament();
+        let chiff = self.chiff_volume();
         std::thread::spawn(move || {
             (LIVE_NOTE_LOW..=LIVE_NOTE_HIGH)
                 .into_par_iter()
@@ -253,7 +278,7 @@ impl Engine {
                     if me.live_tones.read().contains_key(&note) {
                         return;
                     }
-                    let tone = Arc::new(me.bank.live_tone(temp.midi_to_freq(a4, note), &stops));
+                    let tone = Arc::new(me.bank.live_tone(temp.midi_to_freq(a4, note), &stops, chiff));
                     let mut w = me.live_tones.write();
                     if me.generation.load(Ordering::SeqCst) == gen {
                         w.insert(note, tone);
@@ -282,7 +307,8 @@ impl Engine {
                     let gen = self.generation.load(Ordering::SeqCst);
                     let a4 = self.a4();
                     let temp = self.temperament();
-                    let t = Arc::new(self.bank.live_tone(temp.midi_to_freq(a4, note), &stops));
+                    let chiff = self.chiff_volume();
+                    let t = Arc::new(self.bank.live_tone(temp.midi_to_freq(a4, note), &stops, chiff));
                     let mut w = self.live_tones.write();
                     if self.generation.load(Ordering::SeqCst) == gen {
                         w.insert(note, t.clone());
@@ -748,6 +774,7 @@ pub fn render_midi(
     let tones: HashMap<u8, Vec<f32>> = if stops.is_empty() {
         HashMap::new()
     } else {
+        let chiff = engine.chiff_volume();
         let jobs: Vec<(u8, f64)> = max_dur.into_iter().collect();
         jobs.par_iter()
             .map(|&(note, dur)| {
@@ -755,7 +782,7 @@ pub fn render_midi(
                     note,
                     engine
                         .bank
-                        .summed_tone(temperament.midi_to_freq(a4, note), dur, stops),
+                        .summed_tone(temperament.midi_to_freq(a4, note), dur, stops, chiff),
                 )
             })
             .collect()

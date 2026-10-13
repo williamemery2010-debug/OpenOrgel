@@ -274,6 +274,7 @@ pub struct OrgelApp {
     pub sf_presets: Vec<SoundFontPreset>,
     pub temperament: Temperament,
     pub venue: AcousticVenue,
+    pub chiff_volume: f32,
 }
 
 impl OrgelApp {
@@ -299,10 +300,12 @@ impl OrgelApp {
         let temperament = Temperament::from_str_name(&settings.temperament);
         let venue = AcousticVenue::from_str_name(&settings.venue);
         let volume = settings.volume.clamp(0.0, 1.0);
+        let chiff_volume = settings.chiff_volume.clamp(0.0, 1.0);
         engine.set_a4(tuning as f64);
         engine.set_temperament(temperament);
         engine.set_venue(venue);
         engine.set_volume(volume);
+        engine.set_chiff_volume(chiff_volume);
 
         let audio = AudioOutput::start(engine.clone());
         if let Err(e) = &audio {
@@ -324,6 +327,7 @@ impl OrgelApp {
             temperament,
             venue,
             volume,
+            chiff_volume,
             midi_devices: Vec::new(),
             midi_selected: "None".to_string(),
             midi_conn: None,
@@ -1213,6 +1217,26 @@ impl OrgelApp {
                 if r.drag_stopped() {
                     self.settings.volume = self.volume;
                     self.settings.save();
+                }
+            });
+            ui.add_space(6.0);
+
+            inner_card(ui, |ui| {
+                ui.label(bold("Pipe Chiff Volume:", 13.0).color(TEXT_FG));
+                ui.spacing_mut().slider_width = (ui.available_width() - 60.0).max(80.0);
+                let r = ui.add(
+                    egui::Slider::new(&mut self.chiff_volume, 0.0..=1.0)
+                        .show_value(true)
+                        .custom_formatter(|v, _| format!("{:.0}%", v * 100.0))
+                        .custom_parser(|s| s.trim_end_matches('%').parse::<f64>().ok().map(|v| v / 100.0)),
+                );
+                if r.changed() {
+                    self.engine.set_chiff_volume(self.chiff_volume);
+                }
+                if r.drag_stopped() {
+                    self.settings.chiff_volume = self.chiff_volume;
+                    self.settings.save();
+                    self.engine.request_rerender();
                 }
             });
         });

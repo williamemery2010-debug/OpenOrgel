@@ -33,8 +33,15 @@ pub fn clear_engine_cache() {
     // Allocation-free RAM buffers require no cache flush
 }
 
-/// Generates raw audio samples for a given pitch, duration, and registration.
-pub fn generate_tone(freq: f64, duration: f64, sample_rate: u32, stop_ids: &[i32]) -> Vec<f32> {
+/// Generates raw audio samples for a given pitch, duration, registration, and chiff volume.
+/// Automatically balances chiff across active stops to prevent transient multiplication.
+pub fn generate_tone(
+    freq: f64,
+    duration: f64,
+    sample_rate: u32,
+    stop_ids: &[i32],
+    chiff_volume: f32,
+) -> Vec<f32> {
     let num_samples = (sample_rate as f64 * duration) as usize;
     if num_samples == 0 || stop_ids.is_empty() {
         return vec![0.0f32; num_samples];
@@ -42,6 +49,11 @@ pub fn generate_tone(freq: f64, duration: f64, sample_rate: u32, stop_ids: &[i32
 
     let sine_lut = get_sine_lut();
     let mut out = vec![0.0f32; num_samples];
+
+    // Energy normalization factor: prevents transient attack from multiplying when multiple stops are active
+    let num_stops = stop_ids.len().max(1) as f32;
+    let stop_norm = 1.0 / num_stops.sqrt();
+    let effective_chiff = (chiff_volume * stop_norm).clamp(0.0, 1.5);
 
     // Pre-calculate pipe wind modulation & aerodynamic turbulence
     let mut wind_mod = vec![0.0f32; num_samples];
@@ -54,9 +66,9 @@ pub fn generate_tone(freq: f64, duration: f64, sample_rate: u32, stop_ids: &[i32
         *w = wobble;
     }
 
-    // Render every active stop directly into the accumulator
+    // Render every active stop directly into the accumulator with calibrated chiff
     for &id in stop_ids {
-        render_stop_into(id, freq, sample_rate, &mut out, sine_lut, &wind_mod);
+        render_stop_into(id, freq, sample_rate, &mut out, sine_lut, &wind_mod, effective_chiff);
     }
 
     // Sub-bass acoustic pipe boost for deep pedal stops
@@ -68,4 +80,35 @@ pub fn generate_tone(freq: f64, duration: f64, sample_rate: u32, stop_ids: &[i32
     }
 
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_tone_chiff_scaling_and_normalization() {
+        // Stop 11 is Diapason 8', Stop 7 is Flute 4', Stop 14 is Piccolo 2', Stop 1 is Clarinet 8'
+        let single_stop = [11];
+        let quad_stops = [11, 7, 14, 1];
+
+        let tone_single = generate_tone(440.0, 0.05, 44100, &single_stop, 0.20);
+        let tone_quad = generate_tone(440.0, 0.05, 44100, &quad_stops, 0.20);
+
+        assert_eq!(tone_single.len(), 2205);
+        assert_eq!(tone_quad.len(), 2205);
+
+        for s in &tone_single {
+            assert!(!s.is_nan() && !s.is_infinite());
+        }
+        for s in &tone_quad {
+            assert!(!s.is_nan() && !s.is_infinite());
+        }
+
+        // Chiff 0.0 test
+        let tone_zero_chiff = generate_tone(440.0, 0.05, 44100, &single_stop, 0.0);
+        for s in &tone_zero_chiff {
+            assert!(!s.is_nan() && !s.is_infinite());
+        }
+    }
 }

@@ -16,6 +16,8 @@ pub struct Settings {
     pub temperament: String,
     #[serde(default = "default_venue")]
     pub venue: String,
+    #[serde(default = "default_chiff_volume")]
+    pub chiff_volume: f32,
 }
 
 fn default_temperament() -> String {
@@ -24,6 +26,10 @@ fn default_temperament() -> String {
 
 fn default_venue() -> String {
     "Hamer Hall (Arts Centre Melbourne)".to_string()
+}
+
+fn default_chiff_volume() -> f32 {
+    0.20
 }
 
 impl Default for Settings {
@@ -35,6 +41,7 @@ impl Default for Settings {
             last_midi_device: "None".to_string(),
             temperament: default_temperament(),
             venue: default_venue(),
+            chiff_volume: default_chiff_volume(),
         }
     }
 }

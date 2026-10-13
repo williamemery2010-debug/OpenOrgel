@@ -34,13 +34,15 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 | **UT-06** | `dsp::wavetable` | `test_wavetable_normalization_and_wrap` | **PASSED** | < 0.001 s |
 | **UT-07** | `dsp::wavetable` | `test_wavetable_bandlimiting_nyquist` | **PASSED** | < 0.001 s |
 | **UT-08** | `dsp::fm` | `test_fm_operator_stability_and_no_nan` | **PASSED** | < 0.001 s |
-| **UT-09** | `dsp::reverb` | `test_default_venue_is_hamer_hall` | **PASSED** | < 0.001 s |
-| **UT-10** | `dsp::reverb` | `test_all_four_venues_configured_correctly` | **PASSED** | < 0.001 s |
-| **UT-11** | `dsp::reverb` | `test_reverb_impulse_response_stability` | **PASSED** | < 0.001 s |
-| **UT-12** | `classifier` | `test_footage_classification_heuristics` | **PASSED** | < 0.001 s |
-| **UT-13** | `classifier` | `test_division_classification_heuristics` | **PASSED** | < 0.001 s |
+| **UT-09** | `dsp::fm` | `test_chiff_volume_zero_has_no_boost` | **PASSED** | < 0.001 s |
+| **UT-10** | `dsp` | `test_generate_tone_chiff_scaling_and_normalization` | **PASSED** | < 0.001 s |
+| **UT-11** | `dsp::reverb` | `test_default_venue_is_hamer_hall` | **PASSED** | < 0.001 s |
+| **UT-12** | `dsp::reverb` | `test_all_four_venues_configured_correctly` | **PASSED** | < 0.001 s |
+| **UT-13** | `dsp::reverb` | `test_reverb_impulse_response_stability` | **PASSED** | < 0.001 s |
+| **UT-14** | `classifier` | `test_footage_classification_heuristics` | **PASSED** | < 0.001 s |
+| **UT-15** | `classifier` | `test_division_classification_heuristics` | **PASSED** | < 0.001 s |
 
-**Overall Result: 13 Passed, 0 Failed, 0 Ignored.**
+**Overall Result: 15 Passed, 0 Failed, 0 Ignored.**
 
 ---
 
@@ -128,7 +130,27 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 
 ---
 
-### UT-09: Default Reverb Venue Calibration
+### UT-09: Chiff Elimination at Zero Scale (De-Click Verification)
+- **Module:** [rust/src/dsp/fm.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/fm.rs)
+- **WHY:** Organists often require completely smooth, non-percussive flue attacks without chiff transients. When the chiff volume is configured to 0.0, the FM operator modulation envelope must not introduce any transient phase jumps or step discontinuities that cause clicky artifacts.
+- **WHAT:** Validates that rendering an FM operator with `chiff_scale = 0.0` yields bounded, non-NaN audio with zero transient overshoot.
+- **METHOD:** Renders a 1024-sample block with `chiff_scale = 0.0`. Asserts every sample is finite and bounded within $[-2.0, 2.0]$.
+- **EXPECTED RESULT:** Completely smooth sustain onset with zero discontinuities or `NaN`.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-10: Multi-Stop Chiff Energy Normalization
+- **Module:** [rust/src/dsp/mod.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/mod.rs)
+- **WHY:** In acoustic organs, drawing multiple stops simultaneously activates individual pipe valves, but the windchest pressure and transient acoustic power do not multiply linearly ($N \times$ gain). Without normalization, drawing 6 stops caused chiff energy to multiply excessively and sound harsh/clicky. The engine applies an energy normalization factor $1/\sqrt{N}$.
+- **WHAT:** Verifies that single-stop and multi-stop registrations render without overflow, NaN, or infinite values, while applying correct per-stop chiff energy scaling.
+- **METHOD:** Invokes `generate_tone` for a single stop (`[11]` Diapason 8') and a 4-stop registration (`[11, 7, 14, 1]`) at 20% chiff, as well as 0% chiff. Verifies audio length, sample boundedness, and numerical stability.
+- **EXPECTED RESULT:** Clean audio output without numerical overflow across all multi-stop registrations.
+- **ACTUAL RESULT:** Passed across single and multi-stop registrations.
+
+---
+
+### UT-11: Default Reverb Venue Calibration
 - **Module:** [rust/src/dsp/reverb.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/reverb.rs)
 - **WHY:** The project architecture mandates that Hamer Hall (Arts Centre Melbourne) serves as the primary default acoustic environment upon application startup.
 - **WHAT:** Verifies that `AcousticVenue::default()` evaluates to `AcousticVenue::HamerHall`, with correct physical parameters ($V = 21,500\text{ m}^3$, $RT_{60} = 2.10\text{ s}$).
@@ -138,7 +160,7 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 
 ---
 
-### UT-10: All Architectural Venues Physical Model Integrity
+### UT-12: All Architectural Venues Physical Model Integrity
 - **Module:** [rust/src/dsp/reverb.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/reverb.rs)
 - **WHY:** All 4 performance venues (Hamer Hall, St. Paul's Cathedral, Ian Potter Theatre, Grand Exhibition Building) must have valid physical dimensions, positive reverberation times, sensible wet mixes, and exactly 6 comb delay lines to feed the Schroeder-Moorer network.
 - **WHAT:** Validates physical specifications for all enum variants in `AcousticVenue::ALL`.
@@ -148,7 +170,7 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 
 ---
 
-### UT-11: Reverb Impulse Response & Tail Energy Stability
+### UT-13: Reverb Impulse Response & Tail Energy Stability
 - **Module:** [rust/src/dsp/reverb.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/reverb.rs)
 - **WHY:** Physical reverb engines must exhibit both mathematical stability (never exploding to $\infty$) and genuine acoustic energy bloom (providing a natural decaying diffuse tail after an impulse).
 - **WHAT:** Feeds a unit Dirac delta impulse ($\delta[0] = 1.0, \delta[n>0] = 0.0$) through the Hamer Hall reverb engine. Tests for stability and verifies tail energy dissipation.
@@ -158,7 +180,7 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 
 ---
 
-### UT-12: Pipe Footage Heuristic Parsing
+### UT-14: Pipe Footage Heuristic Parsing
 - **Module:** [rust/src/classifier.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/classifier.rs)
 - **WHY:** When users load external `.sf2` SoundFont banks, stop names contain arbitrary strings (e.g., `"Subbass 16'"`, `"Piccolo 2'"`, `"Mixture IV"`, `"Tierce 1 3/5'"`). The classification engine must correctly extract the speaking pipe footage to categorize stops on Page 2 of the console.
 - **WHAT:** Tests regex and string heuristics against standard pipe footages: 16', 8', 4', 2', Mutations, and Mixtures.
@@ -176,7 +198,7 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 
 ---
 
-### UT-13: Pipe Division Heuristic Parsing
+### UT-15: Pipe Division Heuristic Parsing
 - **Module:** [rust/src/classifier.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/classifier.rs)
 - **WHY:** Organ ranks belong to traditional architectural divisions (Pedal, Great, Swell, Choir). Correct division classification allows organists to filter imported ranks logically.
 - **WHAT:** Tests division detection heuristics for standard organ divisions.

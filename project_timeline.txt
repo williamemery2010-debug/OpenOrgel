@@ -320,7 +320,29 @@ PHASE 17: UNIT TESTING EXPANSION & FORMAL VERIFICATION REPORT (October 13, 2026 
   - HOW:
     1. Implemented test cases in #[cfg(test)] modules in rust/src/temperament.rs, rust/src/dsp/wavetable.rs, rust/src/dsp/fm.rs, rust/src/dsp/reverb.rs, and rust/src/classifier.rs.
     2. Executed cargo test -- --nocapture verifying all 13 tests pass in 0.00s.
-    3. Generated unit_tests_report.md and recompiled the standalone release binary.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 18: PIPE CHIFF VOLUME CONTROL, ATTACK DE-CLICKING & MULTI-STOP ENERGY NORMALIZATION (October 13, 2026 - Prealpha_v2.0.5)
+--------------------------------------------------------------------------------
+* October 13, 2026:
+  - WHAT:
+    1. Dedicated Pipe Chiff Volume Slider: Added interactive UI slider (0% to 100%, default 20%) in the System Configuration panel of the console, dynamically controlling the articulation attack transient volume of pipe ranks in real time, and persisted across sessions in settings.json.
+    2. Multi-Stop Chiff Energy Normalization: Solved the chiff accumulation issue where drawing multiple stops caused attack volume to multiply excessively. Introduced acoustic power normalization scaling factor (1 / sqrt(N), where N is the number of drawn ranks), ensuring total transient chiff energy remains balanced and natural regardless of registration size.
+    3. Attack Click Elimination & De-Clicking: Eliminated the harsh, clicky artifact in FM reed attack articulation by introducing a smooth 5 ms linear rise window on shallot modulation depth (preventing instantaneous step discontinuities in phase modulation at sample index 0), and applied a 5 ms soft fade-in on sampled acoustic stops.
+    4. Unit Testing Expansion (15 Tests): Added UT-09 (chiff elimination at zero scale with bounded sustain) and UT-10 (multi-stop registration chiff energy normalization), expanding the automated test suite to 15 passing tests.
+  - WHY:
+    1. In acoustic pipe organs, the voicing of pipe speech varies by builder and aesthetic tradition. Some organists prefer pronounced Neo-Baroque pipe speech (spucken/chiff), while others prefer smooth, legato symphonic voicing. Providing an adjustable chiff volume slider allows flexible real-time acoustic voicing.
+    2. When multiple stops are pulled on a single windchest, each pipe's pallet valve opens simultaneously. In earlier code, each active stop added full-scale chiff transient energy linearly (N x gain), causing large registrations (e.g., 6+ stops) to produce an overwhelmingly loud, abrasive attack transient.
+    3. Instantaneous step jumps in phase modulation at sample index 0 created high-frequency impulse spikes perceived by human hearing as an unnatural mechanical click rather than organic wind turbulence.
+  - HOW:
+    1. rust/src/settings.rs: Added `pub chiff_volume: f32` with default 0.20 (20%), serialized to `settings.json`.
+    2. rust/src/engine.rs: Implemented lock-free `AtomicU32` storage for `chiff_volume` with `set_chiff_volume()` and `chiff_volume()`. Integrated `chiff_centi` into `ToneKey` cache indexing and passed `chiff_volume` into `live_tone`, `summed_tone`, and `generate_tone`.
+    3. rust/src/dsp/fm.rs: Added smooth 5 ms rise curve `rise = (i as f32 / rise_samples as f32).min(1.0)` to FM shallot modulation depth and parameterized `chiff_scale: f32`.
+    4. rust/src/dsp/stops_dsp.rs: Passed `chiff_scale` into `render_stop_into()`, added 5 ms fade-in on `Sampled` ranks (`clarion.wav`, `stoppedflue.wav`).
+    5. rust/src/dsp/mod.rs: Applied energy normalization factor `stop_norm = 1.0 / (num_stops.sqrt())` inside `generate_tone()`.
+    6. rust/src/app.rs: Added `chiff_volume` to `OrgelApp` struct, initialized from settings in `OrgelApp::new()`, and rendered responsive `Pipe Chiff Volume:` slider in `settings_col` with immediate audio engine update and persistence.
+================================================================================
+
 
 

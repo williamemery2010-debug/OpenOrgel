@@ -428,6 +428,7 @@ pub fn render_stop_into(
     out: &mut [f32],
     sine_lut: &SineLut,
     wind_mod: &[f32],
+    chiff_scale: f32,
 ) {
     if stop_id < 0 || stop_id as usize >= STOP_DEFINITIONS.len() {
         return;
@@ -461,7 +462,7 @@ pub fn render_stop_into(
         }
         StopSynthesisModel::FmReed(cfg) => {
             let mut fm = FmOperator::new(*cfg, sample_rate);
-            fm.render(freq, sample_rate, out, sine_lut, wind_mod);
+            fm.render(freq, sample_rate, out, sine_lut, wind_mod, chiff_scale);
         }
         StopSynthesisModel::Sampled {
             is_clarion,
@@ -491,6 +492,9 @@ pub fn render_stop_into(
                 len
             };
 
+            // Smooth 5ms fade-in to eliminate initial DC offset click in sample files
+            let fade_in_samples = (0.005 * sample_rate as f64).round() as usize;
+
             for (n, out_sample) in out.iter_mut().enumerate() {
                 let mut pos = n as f64 * step;
                 if pos >= loop_end as f64 {
@@ -505,7 +509,12 @@ pub fn render_stop_into(
                 };
                 let frac = (pos - pos.floor()) as f32;
                 let sample_val = (1.0 - frac) * pcm[i0.min(len.saturating_sub(1))] + frac * pcm[i1];
-                *out_sample += sample_val;
+                let attack_ramp = if n < fade_in_samples {
+                    (n as f32 / fade_in_samples as f32).sin()
+                } else {
+                    1.0
+                };
+                *out_sample += sample_val * attack_ramp;
             }
         }
     }

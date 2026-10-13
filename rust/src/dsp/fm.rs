@@ -65,22 +65,32 @@ impl FmOperator {
         out: &mut [f32],
         sine_lut: &SineLut,
         wind_mod: &[f32],
+        chiff_scale: f32,
     ) {
         let sample_rate_f = sample_rate as f64;
         let c_step_base = (freq * self.config.carrier_ratio) / sample_rate_f;
         let m_step_base = (freq * self.config.mod_ratio) / sample_rate_f;
 
-        let mut attack_boost = self.config.mod_index_attack;
+        let max_chiff = self.config.mod_index_attack * chiff_scale.max(0.0) as f64;
         let sustain_idx = self.config.mod_index_sustain;
         let fb = self.config.feedback;
+        let rise_samples = (0.005 * sample_rate_f).round() as usize; // 5ms smooth onset to eliminate click
+
+        let mut attack_boost = max_chiff;
 
         for (i, sample) in out.iter_mut().enumerate() {
             let wind = if i < wind_mod.len() { wind_mod[i] as f64 } else { 0.0 };
             let c_step = c_step_base * (1.0 + wind * 0.002);
             let m_step = m_step_base * (1.0 + wind * 0.002);
 
-            // Dynamic modulation index: spikes during chiff, settles to sustain
-            let current_index = sustain_idx + attack_boost;
+            let rise = if i < rise_samples {
+                i as f64 / rise_samples as f64
+            } else {
+                1.0
+            };
+
+            // Dynamic modulation index: smooth rise then natural decay, completely click-free
+            let current_index = sustain_idx + attack_boost * rise;
             attack_boost *= self.decay_rate;
 
             // Modulator with feedback: y_m = sin(2*pi*phase_m + fb * last_y_m)
@@ -112,12 +122,29 @@ mod tests {
         let mut buffer = vec![0.0f32; 1024];
         let wind = vec![0.0f32; 1024];
 
-        op.render(440.0, 44100, &mut buffer, &sine_lut, &wind);
+        op.render(440.0, 44100, &mut buffer, &sine_lut, &wind, 1.0);
 
         for (i, &s) in buffer.iter().enumerate() {
             assert!(!s.is_nan(), "Sample at {} is NaN", i);
             assert!(!s.is_infinite(), "Sample at {} is infinite", i);
             assert!(s.abs() <= 2.5, "Sample at {} exceeded expected bounds: {}", i, s);
+        }
+    }
+
+    #[test]
+    fn test_chiff_volume_zero_has_no_boost() {
+        let config = FmVoiceConfig::default();
+        let mut op = FmOperator::new(config, 44100);
+        let sine_lut = SineLut::new();
+        let mut buffer = vec![0.0f32; 1024];
+        let wind = vec![0.0f32; 1024];
+
+        // chiff_scale = 0.0 should render smoothly with zero attack click
+        op.render(440.0, 44100, &mut buffer, &sine_lut, &wind, 0.0);
+
+        for (i, &s) in buffer.iter().enumerate() {
+            assert!(!s.is_nan(), "Sample at {} is NaN", i);
+            assert!(s.abs() <= 2.0);
         }
     }
 }

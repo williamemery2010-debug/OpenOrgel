@@ -1,9 +1,9 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-13 11:04:25
-Total Commits  : 80
-Total Releases : 24
+Updated At     : 2026-10-13 12:40:06
+Total Commits  : 81
+Total Releases : 26
 ================================================================================
 
 🚀 RELEASES / TAGS
@@ -22,6 +22,16 @@ Version : Prealpha_v2.0.3
 Date    : 2026-10-13
 Commit  : 1870567
 Details : Prealpha v2.0.3: Complete codebase audit enforcing academic engineering standards for VCAA folio review
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.4
+Date    : 2026-10-13
+Commit  : 2b3311c
+Details : Prealpha v2.0.4: Comprehensive 13-test verification suite and unit_tests_report.md
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.5
+Date    : 2026-10-13
+Commit  : 936bf1a
+Details : Release Prealpha_v2.0.5: Pipe Chiff Volume Slider, Attack Click Elimination, and Multi-Stop Energy Normalization
 --------------------------------------------------------------------------------
 Version : Prealpha_v1.7.0
 Date    : 2026-10-12
@@ -138,7 +148,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-1101ff1  | 2026-10-13 | williamemery2010-deb | docs: record Prealpha_v2.0.4 unit testing release in history
+954cc44  | 2026-10-13 | williamemery2010-deb | feat(dsp): add pipe chiff volume control, attack click elimination, and multi-stop energy normalization
+2b3311c  | 2026-10-13 | williamemery2010-deb | docs: record Prealpha_v2.0.4 unit testing release in history
 1b70d64  | 2026-10-13 | williamemery2010-deb | feat: expand unit test suite to 13 tests and author formal unit_tests_report.md
 1870567  | 2026-10-13 | williamemery2010-deb | docs: record Prealpha_v2.0.3 release in history
 15b4f86  | 2026-10-13 | williamemery2010-deb | refactor: enforce academic code standards and clean informal comments for VCAA folio review
