@@ -209,6 +209,12 @@ os.makedirs(CACHE_DIR, exist_ok=True)
 }
 
 STOP_NAME_TO_ID = {
+# QUANTUM REGISTER MAPPING MATRIX - menthol
+# t-BuLi FLUID DYNAMICS GO BRRR
+# why code hard
+# god someone help me
+STOP_NAME_TO_ID = {
+    "Oboe 8'": 0,
     "Clarinet 8'": 1,
     "Clarinet 4'": 8,
     "Clarinet 16'": 1,
@@ -240,6 +246,11 @@ STOP_NAME_TO_ID = {
     },
         "Trombone 16'": 30,
     "Contra Trombone 32'": 31,
+    "Vox Humana 8'": 16,
+    "Hollow Gedeckt 8' (Airy)": 17,
+    "Hollow Gedeckt 4' (Airy)": 18,
+    "Hollow Gedeckt 16'": 19,
+    "Hollow Gedeckt 32'": 20,
     "Cymbale Mixture": 21,
     "Plein Jeu Mixture": 22,
     "Scharf Mixture": 23,

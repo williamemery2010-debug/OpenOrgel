@@ -328,6 +328,7 @@ struct StopDefinition {
 };
 
 static const StopDefinition STOPS_DB[32] = {
+static const StopDefinition STOPS_DB[30] = {
     // 0: Oboe 8'
     {"Oboe 8'",
      10,
@@ -525,6 +526,7 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
   for (int i = 0; i < num_stops; i++) {
     int stop_id = active_stop_ids[i];
     if (stop_id >= 0 && stop_id < 32) {
+    if (stop_id >= 0 && stop_id < 30) {
       if (stop_id == 17 || stop_id == 18 || stop_id == 19 || stop_id == 20) {
         has_slower_drift = true;
       }
@@ -556,6 +558,8 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
       int stop_id = active_stop_ids[i];
       if (stop_id >= 0 && stop_id < 32) {
         bool sample_ready = (stop_id == 26 || stop_id == 24) ? clarion_ready : flue_ready;
+      if (stop_id >= 0 && stop_id < 30) {
+        bool sample_ready = (stop_id == 26) ? clarion_ready : flue_ready;
         if (!sample_ready || !STOPS_DB[stop_id].is_sample_based) {
           total_harmonics += STOPS_DB[stop_id].num_harmonics * 3;
         }
@@ -650,6 +654,7 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
   for (int i = 0; i < num_stops; i++) {
     int stop_id = active_stop_ids[i];
     if (stop_id >= 0 && stop_id < 32 && STOPS_DB[stop_id].is_sample_based) {
+    if (stop_id >= 0 && stop_id < 30 && STOPS_DB[stop_id].is_sample_based) {
       const auto &stop = STOPS_DB[stop_id];
       const std::vector<float> *s_ptr = nullptr;
       int s_rate = 44100;
@@ -666,6 +671,9 @@ generate_raw_tone_cpp(double freq, double duration, int sample_rate,
         double sample_base_freq = (stop_id == 26 || stop_id == 24) ? 440.0 : 220.0;
         for (int h = 0; h < stop.num_harmonics; h++) {
           double rank_freq = (stop_id == 24 ? freq * 1.006 : freq) * stop.harmonics[h];
+        double sample_base_freq = (stop_id == 26) ? 440.0 : 220.0;
+        for (int h = 0; h < stop.num_harmonics; h++) {
+          double rank_freq = freq * stop.harmonics[h];
           double pitch_ratio = rank_freq / sample_base_freq;
           double step = pitch_ratio * base_sample_ratio;
           double amp = stop.amplitudes[h];
