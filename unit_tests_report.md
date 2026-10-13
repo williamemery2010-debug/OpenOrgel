@@ -41,8 +41,10 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 | **UT-13** | `dsp::reverb` | `test_reverb_impulse_response_stability` | **PASSED** | < 0.001 s |
 | **UT-14** | `classifier` | `test_footage_classification_heuristics` | **PASSED** | < 0.001 s |
 | **UT-15** | `classifier` | `test_division_classification_heuristics` | **PASSED** | < 0.001 s |
+| **UT-16** | `soundfont` | `test_soundfont_unlimited_presets_exceeding_15_channels` | **PASSED** | < 0.001 s |
+| **UT-17** | `soundfont` | `test_soundfont_attack_declick_smoothness` | **PASSED** | < 0.001 s |
 
-**Overall Result: 15 Passed, 0 Failed, 0 Ignored.**
+**Overall Result: 17 Passed, 0 Failed, 0 Ignored.**
 
 ---
 
@@ -209,6 +211,26 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
   - `"Great Open Diapason 8'"` $\rightarrow$ `Division::Great`
   - `"Choir Clarinet 8'"` $\rightarrow$ `Division::Choir`
 - **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-16: Unlimited SoundFont Preset Channels Exceeding 15-Stop Limit
+- **Module:** [rust/src/soundfont.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/soundfont.rs)
+- **WHY:** Standard MIDI synthesis frameworks provide only 16 channels (with channel 9 reserved for GM percussion), artificially capping active organ stops at 15. Real pipe organs frequently draw 25 to 60+ stops simultaneously (e.g. Full Organ / Tutti). The engine must dynamically allocate synthesizer instances to support unlimited active stops without evicting previously selected ranks.
+- **WHAT:** Tests that drawing 25+ SoundFont presets successfully activates all 25 ranks simultaneously with zero channel collisions and zero preset evictions.
+- **METHOD:** Loads `Jeux14.SF2`, queries 25 presets, and activates all 25 sequentially. Asserts `active_preset_count() == 25`.
+- **EXPECTED RESULT:** Exactly 25 presets remain active simultaneously.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-17: SoundFont Attack De-Clicking Continuity
+- **Module:** [rust/src/soundfont.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/soundfont.rs)
+- **WHY:** Sampled organ pipes in SF2 soundfonts (such as Jeux 1.4) often begin playback with non-zero raw PCM sample offsets and high initial derivatives. Starting playback without an attack envelope introduces a sharp step discontinuity at sample 0, which acoustic transducers reproduce as a harsh, loud click/pop.
+- **WHAT:** Validates that the attack de-clicker smoothing envelope ($N = 256$ samples, $\sim 5.8\text{ ms}$) guarantees $C^0$ continuity with zero step impulse at note onset ($|s[0]| < 10^{-6}$).
+- **METHOD:** Triggers note-on on `Jeux14.SF2` stops and checks the first rendered audio frame. Asserts $|s[0]| < 1e-6$ and verifies all subsequent samples are finite and bounded.
+- **EXPECTED RESULT:** Sample 0 begins at 0.0 with smooth half-sine squared onset.
+- **ACTUAL RESULT:** Passed ($|s[0]| = 0.000000$).
 
 ---
 

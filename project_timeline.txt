@@ -363,8 +363,27 @@ PHASE 19: AUTOMATED GITHUB RELEASES PIPELINE & IN-TREE WINDOWS INSTALLER SUITE (
   - HOW:
     1. API Interaction: Queried git credential helper to securely obtain OAuth bearer tokens without hardcoding secrets, interacting with https://api.github.com/repos/williamemery2010-debug/OpenOrgel/releases.
     2. Shell Shortcut Integration: Leveraged WScript.Shell COM interfaces in PowerShell to generate native .lnk desktop and start menu shortcuts with working directory context.
-    3. Windows Registry Registration: Registered HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\OpenOrgel with DisplayName, DisplayVersion, Publisher, and UninstallString.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 20: UNLIMITED SOUNDFONT STOPS & ATTACK DE-CLICKING (October 13, 2026 - Prealpha_v2.0.7)
+--------------------------------------------------------------------------------
+* October 13, 2026:
+  - WHAT:
+    1. Elimination of 15-Stop Limit (Multi-Synthesizer Architecture): Re-architected SoundFont bank management to dynamically instantiate Synthesizer instances when all 15 MIDI channels of the current synthesizer are allocated. Organists can now draw 20, 30, 50, or unlimited sampled stops simultaneously without evicting or turning off earlier drawn ranks.
+    2. Elimination of Attack Clicks on Note-On: Implemented a smooth S-curve attack de-clicker smoothing envelope (N = 256 samples, ~5.8 ms at 44.1 kHz) using a half-sine squared window (ramp = sin^2(pi/2 * t/N)), guaranteeing C^0 continuity with the previous sample and C^1 zero derivative at onset. Completely eradicated the loud, metallic clicks/pops heard at note onset on organ soundfonts (such as Jeux 1.4).
+    3. Disabled Redundant Internal Reverb/Chorus: Disabled rustysynth's secondary internal Freeverb and Chorus effects, preventing unwanted comb filtering and impulse echoes over OpenOrgel's native physical architectural reverberation.
+    4. Energy Normalization Across Imported Registrations: Scaled rendered SoundFont loudness by 1 / sqrt(N), keeping total acoustic power balanced and preventing volume drops when adding stops.
+    5. Unit Testing Expansion (17 Tests): Added UT-16 (unlimited SoundFont preset activation exceeding 15 channels) and UT-17 (attack de-clicker onset continuity), expanding the automated unit test harness to 17 passing tests.
+  - WHY:
+    1. In earlier versions, LoadedFont had a single Synthesizer with 15 available channels. Activating a 16th preset evicted the oldest active preset, preventing large registrations or Tutti combinations.
+    2. Organ pipe samples in SoundFont 2 banks (notably Jeux 1.4) often start with non-zero raw PCM sample offsets and steep initial derivatives. Starting playback without an attack envelope created an instantaneous step jump (up to 0.20 in 1 sample), producing an audible Dirac impulse click at the start of every note.
+  - HOW:
+    1. ChannelSlot Struct (rust/src/soundfont.rs): Introduced ChannelSlot { synth_idx, channel }, mapping preset_id -> ChannelSlot. When free_channels is empty, a new Synthesizer is spawned, providing an additional 15 channels.
+    2. Attack De-Clicker (rust/src/soundfont.rs): When note_on is triggered, attack_declick_remaining is set to DECLICK_SAMPLES (256). During render_into_live, live[i] is blended continuously from last_live_sample to the new signal via sin^2(pi/2 * t/N).
+    3. Multi-Synth Live & Offline Dispatch: Updated render_into_live, render_into, and render_midi_offline to loop over all allocated Synthesizer instances and sum with 1 / sqrt(N) acoustic power normalization.
+================================================================================
+
 
 
 

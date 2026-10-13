@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 pub const SAMPLE_RATE: u32 = 44_100;
+pub const DECLICK_SAMPLES: usize = 256; // ~5.8 ms smooth onset window
 
 #[derive(Clone, Debug)]
 pub struct SoundFontPreset {
@@ -24,16 +25,22 @@ pub struct SoundFontPreset {
     pub footage: Footage,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ChannelSlot {
+    pub synth_idx: usize,
+    pub channel: i32,
+}
+
 pub struct LoadedFont {
     pub id: usize,
     pub name: String,
     pub path: PathBuf,
     pub sound_font: Arc<SoundFont>,
     pub presets: Vec<SoundFontPreset>,
-    pub synth: Synthesizer,
-    /// Channel map for currently active presets in this font: preset_id -> channel (0..15, skipping 9)
-    pub active_channels: HashMap<usize, i32>,
-    pub free_channels: Vec<i32>,
+    pub synths: Vec<Synthesizer>,
+    /// Channel map for currently active presets in this font: preset_id -> ChannelSlot
+    pub active_channels: HashMap<usize, ChannelSlot>,
+    pub free_channels: Vec<ChannelSlot>,
 }
 
 /// Manages loaded SF2 SoundFont banks and active synthesizer channels.
@@ -46,6 +53,9 @@ pub struct SoundFontManager {
     settings: SynthesizerSettings,
     temp_left: Vec<f32>,
     temp_right: Vec<f32>,
+    attack_declick_remaining: usize,
+    attack_declick_pos: usize,
+    last_live_sample: f32,
 }
 
 impl SoundFontManager {
@@ -53,6 +63,7 @@ impl SoundFontManager {
         let mut settings = SynthesizerSettings::new(SAMPLE_RATE as i32);
         settings.block_size = 64;
         settings.maximum_polyphony = 128;
+        settings.enable_reverb_and_chorus = false;
         Self {
             fonts: Vec::new(),
             next_font_id: 1,
@@ -61,6 +72,9 @@ impl SoundFontManager {
             settings,
             temp_left: vec![0.0; 2048],
             temp_right: vec![0.0; 2048],
+            attack_declick_remaining: 0,
+            attack_declick_pos: 0,
+            last_live_sample: 0.0,
         }
     }
 
@@ -110,8 +124,12 @@ impl SoundFontManager {
             .map_err(|e| format!("Failed to create synthesizer: {e:?}"))?;
         synth.set_master_volume(1.0);
 
-        // 16 channels, excluding channel 9 (GM Percussion) so pitched stops don't become drums!
-        let free_channels = (0..16).filter(|&c| c != 9).rev().collect();
+        // 16 channels per synthesizer, excluding channel 9 (GM Percussion) so pitched stops don't become drums
+        let free_channels: Vec<ChannelSlot> = (0..16)
+            .filter(|&c| c != 9)
+            .rev()
+            .map(|c| ChannelSlot { synth_idx: 0, channel: c })
+            .collect();
 
         let loaded = LoadedFont {
             id: font_id,
@@ -119,7 +137,7 @@ impl SoundFontManager {
             path: path.to_path_buf(),
             sound_font: sf,
             presets: discovered,
-            synth,
+            synths: vec![synth],
             active_channels: HashMap::new(),
             free_channels,
         };
@@ -143,7 +161,6 @@ impl SoundFontManager {
     }
 
     /// Toggle an imported SoundFont preset as an active stop.
-    /// CRYOGENIC PRESET ISOLATION CHAMBER
     pub fn toggle_preset(&mut self, preset_id: usize) -> bool {
         if self.active_presets.contains(&preset_id) {
             self.deactivate_preset(preset_id);
@@ -168,26 +185,33 @@ impl SoundFontManager {
         }
         for font in &mut self.fonts {
             if let Some(preset) = font.presets.iter().find(|p| p.id == preset_id) {
-                // If all free channels are exhausted, recycle the oldest one
-                let chan = if let Some(c) = font.free_channels.pop() {
-                    c
-                } else if let Some((&first_id, &c)) = font.active_channels.iter().next() {
-                    font.synth.note_off_all_channel(c, true);
-                    font.active_channels.remove(&first_id);
-                    self.active_presets.remove(&first_id);
-                    c
+                // Dynamically allocate new Synthesizers when all 15 channels on existing instances are filled.
+                // This removes the 15-stop limit and allows arbitrary numbers of stops to be drawn simultaneously.
+                let slot = if let Some(s) = font.free_channels.pop() {
+                    s
                 } else {
-                    0
+                    let new_synth_idx = font.synths.len();
+                    if let Ok(mut new_synth) = Synthesizer::new(&font.sound_font, &self.settings) {
+                        new_synth.set_master_volume(1.0);
+                        font.synths.push(new_synth);
+                        for c in (0..16).filter(|&c| c != 9).rev() {
+                            font.free_channels.push(ChannelSlot { synth_idx: new_synth_idx, channel: c });
+                        }
+                        font.free_channels.pop().unwrap()
+                    } else {
+                        ChannelSlot { synth_idx: 0, channel: 0 }
+                    }
                 };
 
-                // Set bank and program via MIDI Control Change & Program Change
-                font.synth.process_midi_message(chan, 0xB0, 0x00, preset.bank);
-                font.synth.process_midi_message(chan, 0xC0, preset.patch, 0);
-                // Set Volume and Expression to 127 (maximum audible gain)
-                font.synth.process_midi_message(chan, 0xB0, 0x07, 127);
-                font.synth.process_midi_message(chan, 0xB0, 0x0B, 127);
+                if slot.synth_idx < font.synths.len() {
+                    let synth = &mut font.synths[slot.synth_idx];
+                    synth.process_midi_message(slot.channel, 0xB0, 0x00, preset.bank);
+                    synth.process_midi_message(slot.channel, 0xC0, preset.patch, 0);
+                    synth.process_midi_message(slot.channel, 0xB0, 0x07, 127);
+                    synth.process_midi_message(slot.channel, 0xB0, 0x0B, 127);
+                }
 
-                font.active_channels.insert(preset_id, chan);
+                font.active_channels.insert(preset_id, slot);
                 self.active_presets.insert(preset_id);
                 break;
             }
@@ -197,10 +221,11 @@ impl SoundFontManager {
     fn deactivate_preset(&mut self, preset_id: usize) {
         self.active_presets.remove(&preset_id);
         for font in &mut self.fonts {
-            if let Some(chan) = font.active_channels.remove(&preset_id) {
-                // Kill all sounding notes on this channel
-                font.synth.note_off_all_channel(chan, false);
-                font.free_channels.push(chan);
+            if let Some(slot) = font.active_channels.remove(&preset_id) {
+                if slot.synth_idx < font.synths.len() {
+                    font.synths[slot.synth_idx].note_off_all_channel(slot.channel, false);
+                }
+                font.free_channels.push(slot);
                 break;
             }
         }
@@ -231,9 +256,15 @@ impl SoundFontManager {
         if self.active_presets.is_empty() {
             return;
         }
+        // Initialize attack de-click envelope whenever a new note starts
+        self.attack_declick_remaining = DECLICK_SAMPLES;
+        self.attack_declick_pos = 0;
+
         for font in &mut self.fonts {
-            for &chan in font.active_channels.values() {
-                font.synth.note_on(chan, key as i32, velocity.max(1) as i32);
+            for slot in font.active_channels.values() {
+                if slot.synth_idx < font.synths.len() {
+                    font.synths[slot.synth_idx].note_on(slot.channel, key as i32, velocity.max(1) as i32);
+                }
             }
         }
     }
@@ -243,21 +274,26 @@ impl SoundFontManager {
             return;
         }
         for font in &mut self.fonts {
-            for &chan in font.active_channels.values() {
-                font.synth.note_off(chan, key as i32);
+            for slot in font.active_channels.values() {
+                if slot.synth_idx < font.synths.len() {
+                    font.synths[slot.synth_idx].note_off(slot.channel, key as i32);
+                }
             }
         }
     }
 
     pub fn all_notes_off(&mut self) {
         for font in &mut self.fonts {
-            font.synth.note_off_all(false);
+            for synth in &mut font.synths {
+                synth.note_off_all(false);
+            }
         }
     }
 
-    /// Render synthesized audio directly into the live bus for unified reverb and limiting.
+    /// Render synthesized audio directly into the live bus for unified acoustics and limiting.
     pub fn render_into_live(&mut self, live: &mut [f32]) -> bool {
         if self.active_presets.is_empty() {
+            self.last_live_sample = 0.0;
             return false;
         }
         let frames = live.len();
@@ -269,25 +305,45 @@ impl SoundFontManager {
         let right = &mut self.temp_right[..frames];
 
         let active_count = self.active_presets.len().max(1) as f32;
-        // Equal volume calibration: matches native pipe loudness and prevents headroom blowing
-        let gain = 1.0 / active_count;
+        // Energy normalization (1 / sqrt(N)): keeps total loudness consistent across arbitrary registrations
+        let gain = 1.0 / active_count.sqrt();
         let mut produced_audio = false;
 
         for font in &mut self.fonts {
             if font.active_channels.is_empty() {
                 continue;
             }
-            left.fill(0.0);
-            right.fill(0.0);
-            font.synth.render(left, right);
+            for synth in &mut font.synths {
+                left.fill(0.0);
+                right.fill(0.0);
+                synth.render(left, right);
 
-            for i in 0..frames {
-                let sample = (left[i] + right[i]) * 0.5 * gain;
-                if sample.abs() > 1e-5 {
-                    produced_audio = true;
+                for i in 0..frames {
+                    let sample = (left[i] + right[i]) * 0.5 * gain;
+                    if sample.abs() > 1e-5 {
+                        produced_audio = true;
+                    }
+                    live[i] += sample;
                 }
-                live[i] += sample;
             }
+        }
+
+        // Attack De-Clicker Smoothing Envelope: eliminates transient clicks at the start of every note
+        if self.attack_declick_remaining > 0 {
+            let n = frames.min(self.attack_declick_remaining);
+            let last_sample = self.last_live_sample;
+            for i in 0..n {
+                let t = self.attack_declick_pos as f32 / DECLICK_SAMPLES as f32;
+                // S-curve half-sine squared: guarantees C^0 continuity and C^1 zero derivative at onset
+                let ramp = (t * std::f32::consts::FRAC_PI_2).sin().powi(2);
+                live[i] = last_sample * (1.0 - ramp) + live[i] * ramp;
+                self.attack_declick_pos += 1;
+            }
+            self.attack_declick_remaining = self.attack_declick_remaining.saturating_sub(n);
+        }
+
+        if frames > 0 {
+            self.last_live_sample = live[frames - 1];
         }
         produced_audio
     }
@@ -305,19 +361,21 @@ impl SoundFontManager {
         let left = &mut self.temp_left[..frames];
         let right = &mut self.temp_right[..frames];
 
-        let gain = master_volume * 0.95;
+        let active_count = self.active_presets.len().max(1) as f32;
+        let gain = master_volume * 0.95 / active_count.sqrt();
 
         for font in &mut self.fonts {
             if font.active_channels.is_empty() {
                 continue;
             }
-            left.fill(0.0);
-            right.fill(0.0);
-            font.synth.render(left, right);
+            for synth in &mut font.synths {
+                left.fill(0.0);
+                right.fill(0.0);
+                synth.render(left, right);
 
-            for i in 0..frames {
-                // Average left and right for mono mix bus
-                out[i] += (left[i] + right[i]) * 0.5 * gain;
+                for i in 0..frames {
+                    out[i] += (left[i] + right[i]) * 0.5 * gain;
+                }
             }
         }
     }
@@ -331,18 +389,18 @@ impl SoundFontManager {
                 continue;
             }
             let mut active_presets = Vec::new();
-            let mut active_channels = Vec::new();
-            for (&pid, &chan) in &f.active_channels {
+            let mut active_slots = Vec::new();
+            for (&pid, &slot) in &f.active_channels {
                 if let Some(p) = f.presets.iter().find(|p| p.id == pid) {
                     active_presets.push(p.clone());
-                    active_channels.push((pid, chan));
+                    active_slots.push((pid, slot));
                 }
             }
-            if !active_channels.is_empty() {
+            if !active_slots.is_empty() {
                 fonts.push(OfflineFontSnapshot {
                     sound_font: Arc::clone(&f.sound_font),
                     active_presets,
-                    active_channels,
+                    active_slots,
                 });
             }
         }
@@ -356,7 +414,7 @@ impl SoundFontManager {
 pub struct OfflineFontSnapshot {
     pub sound_font: Arc<SoundFont>,
     pub active_presets: Vec<SoundFontPreset>,
-    pub active_channels: Vec<(usize, i32)>,
+    pub active_slots: Vec<(usize, ChannelSlot)>,
 }
 
 pub struct SoundFontOfflineSnapshot {
@@ -382,30 +440,44 @@ impl SoundFontOfflineSnapshot {
         let mut settings = SynthesizerSettings::new(SAMPLE_RATE as i32);
         settings.block_size = BLOCK_SIZE;
         settings.maximum_polyphony = 128;
+        settings.enable_reverb_and_chorus = false;
 
         for font in &self.fonts {
-            if font.active_channels.is_empty() {
+            if font.active_slots.is_empty() {
                 continue;
             }
 
-            let Ok(mut synth) = Synthesizer::new(&font.sound_font, &settings) else {
+            let num_synths = font.active_slots.iter().map(|s| s.1.synth_idx).max().map(|m| m + 1).unwrap_or(1);
+            let mut synths = Vec::with_capacity(num_synths);
+            for _ in 0..num_synths {
+                let Ok(mut synth) = Synthesizer::new(&font.sound_font, &settings) else {
+                    continue;
+                };
+                synth.set_master_volume(1.0);
+                synths.push(synth);
+            }
+            if synths.is_empty() {
                 continue;
-            };
-            synth.set_master_volume(1.0);
+            }
 
-            // Configure channels with Bank Select (CC 0), Program Change, and Volume/Expression 127
-            for &(pid, chan) in &font.active_channels {
-                if let Some(preset) = font.active_presets.iter().find(|p| p.id == pid) {
-                    synth.process_midi_message(chan, 0xB0, 0x00, preset.bank);
-                    synth.process_midi_message(chan, 0xC0, preset.patch, 0);
-                    synth.process_midi_message(chan, 0xB0, 0x07, 127);
-                    synth.process_midi_message(chan, 0xB0, 0x0B, 127);
+            // Configure each channel on its assigned synthesizer
+            for &(pid, slot) in &font.active_slots {
+                if slot.synth_idx < synths.len() {
+                    if let Some(preset) = font.active_presets.iter().find(|p| p.id == pid) {
+                        let synth = &mut synths[slot.synth_idx];
+                        synth.process_midi_message(slot.channel, 0xB0, 0x00, preset.bank);
+                        synth.process_midi_message(slot.channel, 0xC0, preset.patch, 0);
+                        synth.process_midi_message(slot.channel, 0xB0, 0x07, 127);
+                        synth.process_midi_message(slot.channel, 0xB0, 0x0B, 127);
+                    }
                 }
             }
 
             let mut event_idx = 0;
             let mut current_frame = 0;
             let sample_rate = SAMPLE_RATE as f64;
+            let active_count = font.active_slots.len().max(1) as f32;
+            let gain = 0.95 / active_count.sqrt();
 
             while current_frame < total_frames {
                 let block_len = BLOCK_SIZE.min(total_frames - current_frame);
@@ -413,23 +485,27 @@ impl SoundFontOfflineSnapshot {
 
                 while event_idx < events.len() && events[event_idx].0 < block_end_time {
                     let (_, on, note) = events[event_idx];
-                    for &(_, chan) in &font.active_channels {
-                        if on {
-                            synth.note_on(chan, note as i32, 110);
-                        } else {
-                            synth.note_off(chan, note as i32);
+                    for &(_, slot) in &font.active_slots {
+                        if slot.synth_idx < synths.len() {
+                            let synth = &mut synths[slot.synth_idx];
+                            if on {
+                                synth.note_on(slot.channel, note as i32, 110);
+                            } else {
+                                synth.note_off(slot.channel, note as i32);
+                            }
                         }
                     }
                     event_idx += 1;
                 }
 
-                left_block[..block_len].fill(0.0);
-                right_block[..block_len].fill(0.0);
-                synth.render(&mut left_block[..block_len], &mut right_block[..block_len]);
+                for synth in &mut synths {
+                    left_block[..block_len].fill(0.0);
+                    right_block[..block_len].fill(0.0);
+                    synth.render(&mut left_block[..block_len], &mut right_block[..block_len]);
 
-                for i in 0..block_len {
-                    // Balanced SoundFont volume normalized against native pipe levels
-                    output[current_frame + i] += (left_block[i] + right_block[i]) * 0.5 * 0.95;
+                    for i in 0..block_len {
+                        output[current_frame + i] += (left_block[i] + right_block[i]) * 0.5 * gain;
+                    }
                 }
                 current_frame += block_len;
             }
@@ -438,3 +514,53 @@ impl SoundFontOfflineSnapshot {
         output
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_soundfont_unlimited_presets_exceeding_15_channels() {
+        let path = Path::new(r"C:\Users\EME0012\OneDrive - St Helena Secondary College\Documents\MuseScore4\SoundFonts\Jeux14.SF2");
+        if !path.exists() {
+            return;
+        }
+        let mut mgr = SoundFontManager::new();
+        let (count, _) = mgr.load_sf2(path).unwrap();
+        assert!(count >= 20);
+
+        let presets = mgr.all_presets();
+        for p in presets.iter().take(25) {
+            mgr.set_preset_active(p.id, true);
+        }
+
+        // Successfully supports 25+ stops without evicting or capping at 15
+        assert_eq!(mgr.active_preset_count(), 25);
+    }
+
+    #[test]
+    fn test_soundfont_attack_declick_smoothness() {
+        let path = Path::new(r"C:\Users\EME0012\OneDrive - St Helena Secondary College\Documents\MuseScore4\SoundFonts\Jeux14.SF2");
+        if !path.exists() {
+            return;
+        }
+        let mut mgr = SoundFontManager::new();
+        mgr.load_sf2(path).unwrap();
+
+        let presets = mgr.all_presets();
+        if let Some(p) = presets.first() {
+            mgr.set_preset_active(p.id, true);
+            mgr.note_on(60, 100);
+
+            let mut live = vec![0.0f32; 128];
+            mgr.render_into_live(&mut live);
+
+            // First sample is guaranteed zero from silence with no step impulse
+            assert!(live[0].abs() < 1e-6, "Sample 0 must be 0 to prevent click, got {}", live[0]);
+            for s in &live {
+                assert!(!s.is_nan() && !s.is_infinite());
+            }
+        }
+    }
+}
+

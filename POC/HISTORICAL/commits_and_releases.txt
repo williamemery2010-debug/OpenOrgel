@@ -1,9 +1,9 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-13 19:55:20
-Total Commits  : 85
-Total Releases : 27
+Updated At     : 2026-10-13 21:21:43
+Total Commits  : 86
+Total Releases : 28
 ================================================================================
 
 🚀 RELEASES / TAGS
@@ -37,6 +37,11 @@ Version : Prealpha_v2.0.6
 Date    : 2026-10-13
 Commit  : 0b9d35b
 Details : Release Prealpha_v2.0.6: Automated GitHub Releases Pipeline and In-Tree Windows Installer Suite
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.7
+Date    : 2026-10-13
+Commit  : 973d9b3
+Details : Release Prealpha_v2.0.7: Unlimited SoundFont Stops and Attack De-Clicking
 --------------------------------------------------------------------------------
 Version : Prealpha_v1.7.0
 Date    : 2026-10-12
@@ -153,7 +158,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-e329873  | 2026-10-13 | williamemery2010-deb | chore: ignore rust/target build artifacts in .gitignore
+4f7ebb8  | 2026-10-13 | williamemery2010-deb | feat(soundfont): remove 15-stop limit with multi-synthesizer architecture and add attack de-clicker
+96759dd  | 2026-10-13 | williamemery2010-deb | chore: ignore rust/target build artifacts in .gitignore
 0235d39  | 2026-10-13 | williamemery2010-deb | feat(release): automate GitHub release publishing and add in-tree Windows installer suite
 1d1eac6  | 2026-10-13 | Violinteresting      | Merge branch 'main' into review/stops-restructure
 0535dac  | 2026-10-13 | williamemery2010-deb | feat(dsp): add pipe chiff volume control, attack click elimination, and multi-stop energy normalization
