@@ -1,8 +1,8 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-13 21:21:43
-Total Commits  : 86
+Updated At     : 2026-10-14 12:46:54
+Total Commits  : 87
 Total Releases : 28
 ================================================================================
 
@@ -40,7 +40,7 @@ Details : Release Prealpha_v2.0.6: Automated GitHub Releases Pipeline and In-Tre
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.7
 Date    : 2026-10-13
-Commit  : 973d9b3
+Commit  : 49a81e1
 Details : Release Prealpha_v2.0.7: Unlimited SoundFont Stops and Attack De-Clicking
 --------------------------------------------------------------------------------
 Version : Prealpha_v1.7.0
@@ -158,7 +158,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-4f7ebb8  | 2026-10-13 | williamemery2010-deb | feat(soundfont): remove 15-stop limit with multi-synthesizer architecture and add attack de-clicker
+c29c8ab  | 2026-10-14 | williamemery2010-deb | feat(dsp): sanitize SF2 loop clicks, add slew limiter, and overhaul Diapason 8' physical voicing
+49a81e1  | 2026-10-13 | williamemery2010-deb | feat(soundfont): remove 15-stop limit with multi-synthesizer architecture and add attack de-clicker
 96759dd  | 2026-10-13 | williamemery2010-deb | chore: ignore rust/target build artifacts in .gitignore
 0235d39  | 2026-10-13 | williamemery2010-deb | feat(release): automate GitHub release publishing and add in-tree Windows installer suite
 1d1eac6  | 2026-10-13 | Violinteresting      | Merge branch 'main' into review/stops-restructure

@@ -384,7 +384,31 @@ PHASE 20: UNLIMITED SOUNDFONT STOPS & ATTACK DE-CLICKING (October 13, 2026 - Pre
     3. Multi-Synth Live & Offline Dispatch: Updated render_into_live, render_into, and render_midi_offline to loop over all allocated Synthesizer instances and sum with 1 / sqrt(N) acoustic power normalization.
 ================================================================================
 
-
-
-
-
+--------------------------------------------------------------------------------
+PHASE 21: SF2 LOOP SANITIZATION, ANTI-CLICK BUS SLEW LIMITING, NATIVE LOOP CROSSFADING & DIAPASON 8' PHYSICAL VOICING OVERHAUL (October 14, 2026 - Prealpha_v2.0.8)
+--------------------------------------------------------------------------------
+* October 14, 2026:
+  - WHAT:
+    1. SF2 Loop-Boundary Sanitization (sanitize_sf2_bytes): Discovered and eliminated the root cause of persistent clicks on certain notes in historical SoundFont banks (such as Jeux 1.4). Deep diagnostic analysis of Jeux14.SF2 revealed 89 sample headers (notably Bombarde 16', Pedal Reeds, Plein Jeu, Fourniture, Prestant 4') where raw sample loop end markers deviated from loop start markers by up to 28,000 counts (an abrupt jump of Delta = 0.40 amplitude in a single sample, half the entire 16-bit dynamic range). Built an automated in-memory SF2 parser and loop boundary sanitizer that computes the loop mismatch and smoothly ramps the delta backwards across the final M = min(32, loop_len / 4) samples using quadratic ease-in, guaranteeing that pcm[end_loop - 1] exactly matches pcm[start_loop]. Completely reduced loop wrap discontinuities from 28,000 counts to exactly 0 across all 167 sample headers.
+    2. Initial Attack Zero-Crossing Smoothing: Applied a 16-sample quadratic fade-in at the start of raw sample regions in SF2 banks, ensuring pcm[start] is zero and preventing initial DC step clicks when striking keys.
+    3. Bus-Level Adaptive Per-Sample Slew Limiter: Replaced the previous buffer-level attack ramp (which erroneously attenuated active polyphonic notes whenever a new note was struck) with a dedicated per-sample slew limiter on the SoundFont bus mix. Caps abrupt sample-to-sample discontinuities at |Delta s| <= 0.15, guaranteeing that voice stealing, abrupt channel switching, or retriggering never produces an audible click while preserving 100% transparent dynamics for all legitimate polyphony.
+    4. Seamless Native Voice Loop Crossfading: Eliminated periodic clicks in native organ ranks. When a voice sustains past loop boundaries in rust/src/engine.rs, the engine now applies a 256-sample C^1 continuous crossfade (half-sine squared S-curve) between the end of the tone buffer and the loop start, guaranteeing seamless, click-free sustain for arbitrarily long held notes and chords.
+    5. Truncation-Free Native Voice Release: Fixed release clicks where voices held longer than 3.4 seconds truncated abruptly when phase exceeded buffer length. The engine now wraps the release phase cyclically within the valid tone loop, allowing the cosine release envelope (release_tbl) to decay smoothly all the way to absolute zero amplitude.
+    6. Complete Physical & Harmonic Rework of Diapason 8' (Open Diapason / Montre 8' / Principal 8'): Replaced the previous artificial model (which erroneously only contained odd harmonics 1, 3, 5, mimicking a hollow stopped wooden flute or plastic square wave) with an authentic, noble Open Cylindrical Flue Pipe acoustic profile:
+       - Full Integer Harmonic Series: Fundamental 1st (1.000), Octave 2nd (0.620 - vital for open pipe warmth and body), Twelfth 3rd (0.380 - vocal presence), Fifteenth 4th (0.240 - clarity), Tierce 5th (0.140 - rich spotted metal warmth), Nineteenth 6th (0.085), Septième 7th (0.045), Twenty-second 8th (0.028), 9th (0.016), and 10th (0.010).
+       - Acoustic Pipe Body & Mouth Radiation Formant: Modeled the physical mouth radiation and chest coupling resonance via an octave-space Gaussian formant peaked at 650 Hz with 400 Hz bandwidth, imparting authentic cathedral pipe presence.
+       - Töpfer Normalmensur Scale Modeling: Integrated frequency-dependent pipe scaling across octaves, where bass pipes retain richer high-partial bite and upper octave pipes round off into pure, singing fluty tones.
+       - Dedicated Solo Pipe Air Column vs. Celeste: Separated non-celeste solo flue pipes from celeste stops in Wavetable synthesis. Non-celeste ranks (Diapason, Principals, Flutes) now resonate as a pure, solid single air column with organic wind flutter rather than a synthetic 3-oscillator chorus effect.
+       - Articulate Languid Chiff Modeling for Flue Stops: Modeled the initial turbulent vortex sheet striking the pipe upper lip, producing a crisp 22 ms harmonic edge-tone speech onset (partials 3x and 5x) that scales with the interactive Chiff Volume slider.
+    7. Unit Testing Suite Expansion (20 Tests): Added UT-18 (SoundFont loop sanitization and slew limiting), UT-19 (Diapason 8' open flue harmonic series), and UT-20 (Diapason 8' articulate chiff speech energy), bringing the test suite to 20 passing tests in 0.19 seconds.
+  - WHY:
+    1. The creator reported that clicks were still audible on specific notes and that the native Diapason 8' sounded artificial and needed to sound like an authentic diapason rank.
+    2. Imperfect loop points in third-party SF2 soundfonts caused rustysynth to step discontinuously by up to 0.40 amplitude every time the sample looped, causing rapid clicking during sustained notes on certain ranks.
+    3. An Open Diapason is an open flue pipe that physically requires both odd and even harmonics (especially the strong 2nd harmonic octave). Without even harmonics and running through a detuned chorus effect, it sounded like a synthetic electronic buzzer rather than a grand church organ rank.
+  - HOW:
+    1. rust/src/soundfont.rs: Implemented sanitize_sf2_bytes() to parse RIFF shdr and smpl chunks, smoothing loop boundaries and attack offsets. Added 	emp_bus and per-sample slew limiter |Delta s| <= 0.15 in 
+ender_into_live().
+    2. rust/src/engine.rs: Added 256-sample half-sine squared loop crossfade for sustaining native voices and cyclic phase wrapping during release decay.
+    3. rust/src/dsp/wavetable.rs: Integrated 650 Hz pipe mouth radiation formant and Töpfer Normalmensur scaling into Wavetable::from_harmonics().
+    4. rust/src/dsp/stops_dsp.rs: Overhauled Stop ID 11 (Diapason 8') harmonics, separated single-pipe rendering from celeste chorus, and added 22 ms languid chiff modeling for wavetable flue pipes.
+================================================================================

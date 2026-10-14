@@ -61,7 +61,19 @@ impl Wavetable {
                 1.0
             };
 
-            let amp_scaled = (amp as f32) * damp;
+            // Acoustic pipe body & mouth radiation formant (~650 Hz peak, typical of open flue pipes)
+            let formant_octave_dist = (partial_freq / 650.0).log2();
+            let formant_gain = 1.0 + 0.35 * (-formant_octave_dist * formant_octave_dist).exp() as f32;
+
+            // Töpfer Normalmensur pipe scaling: bass pipes retain richer overtones, treble rounds off
+            let scale_damp = if factor > 2.0 {
+                let oct_shift = (fundamental_freq / 261.63).log2();
+                (1.0 - 0.08 * oct_shift).clamp(0.65, 1.35) as f32
+            } else {
+                1.0
+            };
+
+            let amp_scaled = (amp as f32) * damp * formant_gain * scale_damp;
             let step = factor * 2.0 * std::f64::consts::PI / TABLE_SIZE as f64;
             for i in 0..TABLE_SIZE {
                 let p = i as f64 * step;

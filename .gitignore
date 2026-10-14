@@ -18,3 +18,7 @@ Open-Orgel Software.zip
 # Rust compilation artifacts
 target/
 rust/target/
+
+# SoundFont files
+*.sf2
+*.SF2

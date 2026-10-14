@@ -212,13 +212,24 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
             feedback: 0.4,
         }),
     },
-    // 11: Diapason 8'
+    // 11: Diapason 8' (Open Diapason / Montre 8' / Principal 8')
     StopDefinition {
         name: "Diapason 8'",
         id: 11,
         model: StopSynthesisModel::Wavetable {
-            harmonics: &[(1.0, 1.0), (3.0, 0.35), (5.0, 0.05)],
-            dampening: 0.08,
+            harmonics: &[
+                (1.0, 1.000), // Fundamental 8' (noble, full foundational tone)
+                (2.0, 0.620), // Octave 4' (vital open cylindrical pipe singing warmth)
+                (3.0, 0.380), // Twelfth 2-2/3' (vocal pipe body presence)
+                (4.0, 0.240), // Fifteenth 2' (clarity, definition)
+                (5.0, 0.140), // Tierce 1-3/5' (rich spotted metal warmth)
+                (6.0, 0.085), // Nineteenth 1-1/3' (silvery brilliance)
+                (7.0, 0.045), // Septième (mild natural overtone color)
+                (8.0, 0.028), // Twenty-second 1'
+                (9.0, 0.016),
+                (10.0, 0.010),
+            ],
+            dampening: 0.04,
             is_celeste: false,
         },
     },
@@ -443,20 +454,48 @@ pub fn render_stop_into(
         } => {
             let base_freq = if *is_celeste { freq * 1.003 } else { freq };
             let wt = Wavetable::from_harmonics(base_freq, sample_rate, harmonics);
-
-            // Detuned pipe chorus: center (1.0), detune high (+0.15%), detune low (-0.15%)
-            let chorus_rates = [1.0, 1.0015, 0.9985];
-            let chorus_gains = [1.0f32, 0.35f32, 0.35f32];
-
             let sample_rate_f = sample_rate as f64;
-            for (&rate_mul, &gain) in chorus_rates.iter().zip(chorus_gains.iter()) {
-                let step = (base_freq * rate_mul) / sample_rate_f;
+
+            if *is_celeste {
+                // Detuned undulating rank (Voix Céleste): dual detuned beating ranks
+                let chorus_rates = [1.0, 1.0015, 0.9985];
+                let chorus_gains = [0.8f32, 0.35f32, 0.35f32];
+                for (&rate_mul, &gain) in chorus_rates.iter().zip(chorus_gains.iter()) {
+                    let step = (base_freq * rate_mul) / sample_rate_f;
+                    let mut phase = 0.0f64;
+                    for (i, sample) in out.iter_mut().enumerate() {
+                        let wind = if i < wind_mod.len() { wind_mod[i] as f64 } else { 0.0 };
+                        let sample_val = wt.get_sample(phase);
+                        *sample += sample_val * gain;
+                        phase += step * (1.0 + wind * 0.0015);
+                    }
+                }
+            } else {
+                // Majestic, solid single flue pipe (Open Diapason, Principals, Flutes)
+                // Real organ pipes resonate as a single acoustic air column with subtle wind jitter
+                let step = base_freq / sample_rate_f;
                 let mut phase = 0.0f64;
                 for (i, sample) in out.iter_mut().enumerate() {
                     let wind = if i < wind_mod.len() { wind_mod[i] as f64 } else { 0.0 };
                     let sample_val = wt.get_sample(phase);
-                    *sample += sample_val * gain;
-                    phase += step * (1.0 + wind * 0.0015);
+                    *sample += sample_val;
+                    phase += step * (1.0 + wind * 0.0020);
+                }
+            }
+
+            // Pipe Languid Speech & Articulate Chiff for Flue Stops:
+            // Models the initial turbulent vortex sheet striking the upper lip
+            if chiff_scale > 0.001 {
+                let chiff_samples = (0.022 * sample_rate_f).round() as usize; // 22 ms speech onset
+                let decay_tau = (0.006 * sample_rate_f).max(1.0);
+                let chiff_gain = chiff_scale * 0.16;
+                for (i, sample) in out.iter_mut().enumerate().take(chiff_samples) {
+                    let t = i as f64;
+                    let env = (-t / decay_tau).exp() as f32;
+                    let p3 = ((t * base_freq * 3.0 / sample_rate_f) * 2.0 * std::f64::consts::PI).sin() as f32;
+                    let p5 = ((t * base_freq * 5.0 / sample_rate_f) * 2.0 * std::f64::consts::PI).sin() as f32;
+                    let burst = (0.6 * p3 + 0.4 * p5) * env * chiff_gain;
+                    *sample += burst;
                 }
             }
         }
@@ -516,6 +555,60 @@ pub fn render_stop_into(
                 };
                 *out_sample += sample_val * attack_ramp;
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_diapason_8_harmonic_registry_structure() {
+        let diapason = &STOP_DEFINITIONS[11];
+        assert_eq!(diapason.name, "Diapason 8'");
+        assert_eq!(diapason.id, 11);
+
+        match &diapason.model {
+            StopSynthesisModel::Wavetable { harmonics, is_celeste, .. } => {
+                // Must be an open flue pipe: contains both odd and even harmonics (1, 2, 3, 4, 5, etc.)
+                assert!(!is_celeste, "Diapason 8' must be a foundational solo pipe, not a detuned celeste");
+                let has_fundamental = harmonics.iter().any(|h| (h.0 - 1.0).abs() < 1e-4);
+                let has_octave = harmonics.iter().any(|h| (h.0 - 2.0).abs() < 1e-4);
+                let has_twelfth = harmonics.iter().any(|h| (h.0 - 3.0).abs() < 1e-4);
+                let has_fifteenth = harmonics.iter().any(|h| (h.0 - 4.0).abs() < 1e-4);
+
+                assert!(has_fundamental, "Diapason 8' requires fundamental partial");
+                assert!(has_octave, "Diapason 8' requires 2nd harmonic octave for singing flue warmth");
+                assert!(has_twelfth, "Diapason 8' requires 3rd harmonic twelfth");
+                assert!(has_fifteenth, "Diapason 8' requires 4th harmonic fifteenth");
+                assert!(harmonics.len() >= 8, "Diapason 8' requires rich overtone spectrum up to 8th partial or beyond");
+            }
+            _ => panic!("Diapason 8' must be a Wavetable model"),
+        }
+    }
+
+    #[test]
+    fn test_diapason_8_rendering_smoothness_and_chiff() {
+        let sine_lut = SineLut::new();
+        let wind_mod = vec![0.0f32; 1024];
+        let mut out_normal = vec![0.0f32; 1024];
+        let mut out_with_chiff = vec![0.0f32; 1024];
+
+        render_stop_into(11, 440.0, 44100, &mut out_normal, &sine_lut, &wind_mod, 0.0);
+        render_stop_into(11, 440.0, 44100, &mut out_with_chiff, &sine_lut, &wind_mod, 1.0);
+
+        // Chiff adds articulate languid energy in the first 20ms
+        let initial_normal_energy: f32 = out_normal[..100].iter().map(|s| s * s).sum();
+        let initial_chiff_energy: f32 = out_with_chiff[..100].iter().map(|s| s * s).sum();
+        assert!(
+            initial_chiff_energy > initial_normal_energy,
+            "Chiff must add articulate languid transient speech energy on onset"
+        );
+
+        // Must be numerically stable with no NaN or infinities
+        for s in out_with_chiff {
+            assert!(!s.is_nan() && !s.is_infinite());
         }
     }
 }

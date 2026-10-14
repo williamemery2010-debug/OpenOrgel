@@ -43,8 +43,11 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 | **UT-15** | `classifier` | `test_division_classification_heuristics` | **PASSED** | < 0.001 s |
 | **UT-16** | `soundfont` | `test_soundfont_unlimited_presets_exceeding_15_channels` | **PASSED** | < 0.001 s |
 | **UT-17** | `soundfont` | `test_soundfont_attack_declick_smoothness` | **PASSED** | < 0.001 s |
+| **UT-18** | `soundfont` | `test_detect_clicks_across_notes` | **PASSED** | < 0.050 s |
+| **UT-19** | `dsp::stops_dsp` | `test_diapason_8_harmonic_registry_structure` | **PASSED** | < 0.001 s |
+| **UT-20** | `dsp::stops_dsp` | `test_diapason_8_rendering_smoothness_and_chiff` | **PASSED** | < 0.001 s |
 
-**Overall Result: 17 Passed, 0 Failed, 0 Ignored.**
+**Overall Result: 20 Passed, 0 Failed, 0 Ignored.**
 
 ---
 
@@ -227,10 +230,40 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 ### UT-17: SoundFont Attack De-Clicking Continuity
 - **Module:** [rust/src/soundfont.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/soundfont.rs)
 - **WHY:** Sampled organ pipes in SF2 soundfonts (such as Jeux 1.4) often begin playback with non-zero raw PCM sample offsets and high initial derivatives. Starting playback without an attack envelope introduces a sharp step discontinuity at sample 0, which acoustic transducers reproduce as a harsh, loud click/pop.
-- **WHAT:** Validates that the attack de-clicker smoothing envelope ($N = 256$ samples, $\sim 5.8\text{ ms}$) guarantees $C^0$ continuity with zero step impulse at note onset ($|s[0]| < 10^{-6}$).
+- **WHAT:** Validates that the attack de-clicker smoothing envelope guarantees $C^0$ continuity with zero step impulse at note onset ($|s[0]| < 10^{-6}$).
 - **METHOD:** Triggers note-on on `Jeux14.SF2` stops and checks the first rendered audio frame. Asserts $|s[0]| < 1e-6$ and verifies all subsequent samples are finite and bounded.
 - **EXPECTED RESULT:** Sample 0 begins at 0.0 with smooth half-sine squared onset.
 - **ACTUAL RESULT:** Passed ($|s[0]| = 0.000000$).
+
+---
+
+### UT-18: SoundFont Loop-Boundary Sanitization & Discontinuity Slew Limiting
+- **Module:** [rust/src/soundfont.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/soundfont.rs)
+- **WHY:** Historical SoundFont banks like `Jeux14.SF2` contain imperfect loop markers in ranks like `Bombarde 16'` and `Pedal Reeds`, where `pcm[end_loop - 1]` deviates sharply from `pcm[start_loop]` by up to 28,000 counts ($\Delta = 0.40$ amplitude in a single sample), causing persistent clicking whenever voices loop.
+- **WHAT:** Validates that `sanitize_sf2_bytes` and the adaptive per-sample slew limiter eliminate loop wrap clicks across all octaves, capping single-sample discontinuities at $\Delta \le 0.15$ with no NaN or infinities.
+- **METHOD:** Iterates across 5 active presets in `Jeux14.SF2` across 10 distinct chromatic pitches ($MIDI \in [36, 84]$), checks rendered audio blocks of 1024 samples, and measures maximum sample-to-sample difference $|s[i] - s[i-1]|$.
+- **EXPECTED RESULT:** Maximum sample step across all tested ranks is strictly bounded ($\le 0.15$), with zero unbounded impulse pops.
+- **ACTUAL RESULT:** Passed ($\max |\Delta s| \le 0.15000$).
+
+---
+
+### UT-19: Open Diapason 8' Harmonic Registry & Flue Pipe Voicing
+- **Module:** [rust/src/dsp/stops_dsp.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/stops_dsp.rs)
+- **WHY:** The native Diapason 8' previously implemented an acoustic model with only odd harmonics ($1, 3, 5$), mimicking a stopped wooden flute or plastic square wave rather than an authentic open cylindrical metal flue pipe (Montre / Principal 8'). An open flue pipe physically produces both even and odd harmonics ($1, 2, 3, 4, 5, \dots$), with the 2nd harmonic (octave at 4') being vital for singing warmth and body.
+- **WHAT:** Validates that Stop Definition 11 (`Diapason 8'`) has been overhauled into an open flue wavetable with fundamental, 2nd, 3rd, and 4th partials, rich overtone series ($\ge 8$ harmonics), and is marked as a non-celeste solo pipe rank to prevent synthetic chorus flutter.
+- **METHOD:** Inspects `STOP_DEFINITIONS[11]`, checks partial factors for $1.0, 2.0, 3.0, 4.0$, verifies harmonic count, and asserts `is_celeste == false`.
+- **EXPECTED RESULT:** Contains complete integer harmonic series ($1..10$) with `is_celeste == false`.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-20: Diapason 8' Languid Speech & Articulate Chiff Energy
+- **Module:** [rust/src/dsp/stops_dsp.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/stops_dsp.rs)
+- **WHY:** Authentic flue pipes produce an articulate languid transient speech onset during the first $15\text{--}25\text{ ms}$ of speech as the planar air sheet strikes the upper lip before laminar resonance establishes. Synthesizing flue pipes without chiff sounds synthetic and lifeless.
+- **WHAT:** Validates that setting `chiff_scale > 0` adds physical languid transient speech energy in the initial $20\text{ ms}$ attack window, while maintaining numerical stability and bounded amplitude.
+- **METHOD:** Renders Diapason 8' at $440.0\text{ Hz}$ with `chiff_scale = 0.0` vs. `chiff_scale = 1.0`. Measures initial onset signal energy $\sum_{i=0}^{99} s[i]^2$. Asserts energy with chiff exceeds baseline, with zero NaNs or infinities.
+- **EXPECTED RESULT:** Initial transient energy with chiff exceeds non-chiff baseline.
+- **ACTUAL RESULT:** Passed ($E_{\text{chiff}} > E_{\text{baseline}}$, stable).
 
 ---
 

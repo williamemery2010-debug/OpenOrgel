@@ -598,39 +598,56 @@ impl Mixer {
                 for (&note, v) in voices.iter_mut() {
                     let wave = &v.tone[..];
                     let len = wave.len();
+                    let sustain_end = len.saturating_sub(rel_n);
+                    let mut loop_start = (2.0 * SAMPLE_RATE as f64) as usize;
+                    if loop_start >= sustain_end {
+                        loop_start = 0;
+                    }
+                    let loop_len = sustain_end.saturating_sub(loop_start).max(1);
+                    let xfade_len = 256.min(loop_len / 4);
+
                     if !v.released {
-                        let sustain_end = len.saturating_sub(rel_n);
-                        let mut loop_start = (2.0 * SAMPLE_RATE as f64) as usize;
-                        if loop_start >= sustain_end {
-                            loop_start = 0;
-                        }
                         for l in live.iter_mut() {
-                            if v.phase >= sustain_end {
+                            let s = if v.phase >= sustain_end {
                                 v.phase = loop_start;
-                            }
-                            let mut s = wave[v.phase];
+                                wave[v.phase]
+                            } else if v.phase >= sustain_end - xfade_len {
+                                // Seamless C^1 cross-fade between loop end and loop start to eliminate periodic click
+                                let k = v.phase - (sustain_end - xfade_len);
+                                let t = k as f32 / xfade_len as f32;
+                                let w = (t * std::f32::consts::FRAC_PI_2).sin().powi(2);
+                                let s_end = wave[v.phase];
+                                let s_start = wave[loop_start + k];
+                                (1.0 - w) * s_end + w * s_start
+                            } else {
+                                wave[v.phase]
+                            };
+
+                            let mut amp = s;
                             if v.phase < self.attack_tbl.len() {
-                                s *= self.attack_tbl[v.phase];
+                                amp *= self.attack_tbl[v.phase];
                             }
-                            *l += s;
+                            *l += amp;
                             v.phase += 1;
                         }
                     } else {
                         let mut dead = false;
                         for l in live.iter_mut() {
-                            if v.phase >= len {
-                                dead = true;
-                                break;
-                            }
-                            let rel_idx = v.phase - v.release_start;
+                            let rel_idx = v.phase.saturating_sub(v.release_start);
                             if rel_idx >= rel_n {
                                 dead = true;
                                 break;
                             }
-                            *l += wave[v.phase] * self.release_tbl[rel_idx];
+                            // Keep phase strictly within loop boundaries so sample buffer never truncates prematurely
+                            let p = if v.phase >= sustain_end {
+                                loop_start + (v.phase - sustain_end) % loop_len
+                            } else {
+                                v.phase
+                            };
+                            *l += wave[p] * self.release_tbl[rel_idx];
                             v.phase += 1;
                         }
-                        if dead || v.phase - v.release_start >= rel_n {
+                        if dead || v.phase.saturating_sub(v.release_start) >= rel_n {
                             self.done.push(note);
                         }
                     }

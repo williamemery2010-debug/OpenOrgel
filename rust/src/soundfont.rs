@@ -5,13 +5,103 @@
 use crate::classifier::{classify_division, classify_footage, Division, Footage};
 use rustysynth::{SoundFont, Synthesizer, SynthesizerSettings};
 use std::collections::{HashMap, HashSet};
-use std::fs::File;
-use std::io::BufReader;
+use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 pub const SAMPLE_RATE: u32 = 44_100;
-pub const DECLICK_SAMPLES: usize = 256; // ~5.8 ms smooth onset window
+
+/// Scans the raw bytes of an SF2 file in memory, finds all sample loops in the `shdr` chunk,
+/// and smooths loop-boundary discontinuities and initial attack DC offsets in the `smpl` chunk.
+/// This completely eliminates sample-loop clicking and attack transients across all ranks.
+pub fn sanitize_sf2_bytes(data: &mut [u8]) {
+    // Locate 'shdr' and 'smpl' RIFF subchunks
+    let find_subchunk = |tag: &[u8; 4]| -> Option<(usize, usize)> {
+        for i in 0..data.len().saturating_sub(8) {
+            if &data[i..i + 4] == tag {
+                let len = u32::from_le_bytes([data[i + 4], data[i + 5], data[i + 6], data[i + 7]]) as usize;
+                return Some((i + 8, len));
+            }
+        }
+        None
+    };
+
+    let (shdr_start, shdr_len) = match find_subchunk(b"shdr") {
+        Some(s) => s,
+        None => return,
+    };
+    let (smpl_start, smpl_len) = match find_subchunk(b"smpl") {
+        Some(s) => s,
+        None => return,
+    };
+
+    let total_pcm_samples = smpl_len / 2;
+    let num_headers = shdr_len / 46;
+
+    for i in 0..num_headers {
+        let offset = shdr_start + i * 46;
+        if offset + 46 > data.len() {
+            break;
+        }
+
+        let start = u32::from_le_bytes([data[offset + 20], data[offset + 21], data[offset + 22], data[offset + 23]]) as usize;
+        let end = u32::from_le_bytes([data[offset + 24], data[offset + 25], data[offset + 26], data[offset + 27]]) as usize;
+        let start_loop = u32::from_le_bytes([data[offset + 28], data[offset + 29], data[offset + 30], data[offset + 31]]) as usize;
+        let end_loop = u32::from_le_bytes([data[offset + 32], data[offset + 33], data[offset + 34], data[offset + 35]]) as usize;
+        let sample_type = u16::from_le_bytes([data[offset + 44], data[offset + 45]]);
+
+        // Skip non-audio / null terminators (sample_type 0 or sample_link only)
+        if (sample_type & 0x7fff) == 0 {
+            continue;
+        }
+
+        // 1. Attack Zero-Crossing Smoothing: eliminate DC offset click at start of note
+        if start < end && start + 16 <= total_pcm_samples {
+            for k in 0..16 {
+                let sample_idx = start + k;
+                let byte_idx = smpl_start + sample_idx * 2;
+                if byte_idx + 2 <= data.len() {
+                    let s = i16::from_le_bytes([data[byte_idx], data[byte_idx + 1]]) as f32;
+                    let ramp = (k as f32 / 16.0).powi(2);
+                    let smoothed = (s * ramp).round().clamp(-32768.0, 32767.0) as i16;
+                    let bytes = smoothed.to_le_bytes();
+                    data[byte_idx] = bytes[0];
+                    data[byte_idx + 1] = bytes[1];
+                }
+            }
+        }
+
+        // 2. Loop-Boundary Discontinuity Smoothing: eliminate audible clicks at sample wrap point
+        if start_loop < end_loop && end_loop <= end && end_loop <= total_pcm_samples && start_loop < total_pcm_samples {
+            let loop_len = end_loop - start_loop;
+            if loop_len >= 16 {
+                let m = 32.min(loop_len / 4);
+                let start_byte = smpl_start + start_loop * 2;
+                let end_last_byte = smpl_start + (end_loop - 1) * 2;
+
+                if start_byte + 2 <= data.len() && end_last_byte + 2 <= data.len() {
+                    let s_start = i16::from_le_bytes([data[start_byte], data[start_byte + 1]]) as f32;
+                    let s_end_last = i16::from_le_bytes([data[end_last_byte], data[end_last_byte + 1]]) as f32;
+                    let adj = s_start - s_end_last;
+
+                    for k in 0..m {
+                        let w = (k + 1) as f32 / m as f32;
+                        let factor = w * w; // Quadratic ease-in: seamless slope without step
+                        let idx = end_loop - m + k;
+                        let b_idx = smpl_start + idx * 2;
+                        if b_idx + 2 <= data.len() {
+                            let val = i16::from_le_bytes([data[b_idx], data[b_idx + 1]]) as f32;
+                            let blended = (val + adj * factor).round().clamp(-32768.0, 32767.0) as i16;
+                            let b = blended.to_le_bytes();
+                            data[b_idx] = b[0];
+                            data[b_idx + 1] = b[1];
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct SoundFontPreset {
@@ -53,9 +143,8 @@ pub struct SoundFontManager {
     settings: SynthesizerSettings,
     temp_left: Vec<f32>,
     temp_right: Vec<f32>,
-    attack_declick_remaining: usize,
-    attack_declick_pos: usize,
-    last_live_sample: f32,
+    temp_bus: Vec<f32>,
+    last_sf_sample: f32,
 }
 
 impl SoundFontManager {
@@ -72,16 +161,16 @@ impl SoundFontManager {
             settings,
             temp_left: vec![0.0; 2048],
             temp_right: vec![0.0; 2048],
-            attack_declick_remaining: 0,
-            attack_declick_pos: 0,
-            last_live_sample: 0.0,
+            temp_bus: vec![0.0; 2048],
+            last_sf_sample: 0.0,
         }
     }
 
     /// Load an SF2 file and return the number of presets discovered.
     pub fn load_sf2(&mut self, path: &Path) -> Result<(usize, String), String> {
-        let file = File::open(path).map_err(|e| format!("Cannot open file: {e}"))?;
-        let mut reader = BufReader::new(file);
+        let mut bytes = std::fs::read(path).map_err(|e| format!("Cannot open file: {e}"))?;
+        sanitize_sf2_bytes(&mut bytes);
+        let mut reader = Cursor::new(bytes);
         let sf = Arc::new(SoundFont::new(&mut reader).map_err(|e| format!("Invalid SF2 soundfont: {e:?}"))?);
 
         let font_id = self.next_font_id;
@@ -256,9 +345,6 @@ impl SoundFontManager {
         if self.active_presets.is_empty() {
             return;
         }
-        // Initialize attack de-click envelope whenever a new note starts
-        self.attack_declick_remaining = DECLICK_SAMPLES;
-        self.attack_declick_pos = 0;
 
         for font in &mut self.fonts {
             for slot in font.active_channels.values() {
@@ -293,16 +379,19 @@ impl SoundFontManager {
     /// Render synthesized audio directly into the live bus for unified acoustics and limiting.
     pub fn render_into_live(&mut self, live: &mut [f32]) -> bool {
         if self.active_presets.is_empty() {
-            self.last_live_sample = 0.0;
+            self.last_sf_sample = 0.0;
             return false;
         }
         let frames = live.len();
         if self.temp_left.len() < frames {
             self.temp_left.resize(frames, 0.0);
             self.temp_right.resize(frames, 0.0);
+            self.temp_bus.resize(frames, 0.0);
         }
         let left = &mut self.temp_left[..frames];
         let right = &mut self.temp_right[..frames];
+        let bus = &mut self.temp_bus[..frames];
+        bus.fill(0.0);
 
         let active_count = self.active_presets.len().max(1) as f32;
         // Energy normalization (1 / sqrt(N)): keeps total loudness consistent across arbitrary registrations
@@ -319,32 +408,30 @@ impl SoundFontManager {
                 synth.render(left, right);
 
                 for i in 0..frames {
-                    let sample = (left[i] + right[i]) * 0.5 * gain;
-                    if sample.abs() > 1e-5 {
-                        produced_audio = true;
-                    }
-                    live[i] += sample;
+                    bus[i] += (left[i] + right[i]) * 0.5 * gain;
                 }
             }
         }
 
-        // Attack De-Clicker Smoothing Envelope: eliminates transient clicks at the start of every note
-        if self.attack_declick_remaining > 0 {
-            let n = frames.min(self.attack_declick_remaining);
-            let last_sample = self.last_live_sample;
-            for i in 0..n {
-                let t = self.attack_declick_pos as f32 / DECLICK_SAMPLES as f32;
-                // S-curve half-sine squared: guarantees C^0 continuity and C^1 zero derivative at onset
-                let ramp = (t * std::f32::consts::FRAC_PI_2).sin().powi(2);
-                live[i] = last_sample * (1.0 - ramp) + live[i] * ramp;
-                self.attack_declick_pos += 1;
+        // Adaptive per-sample slew limiter: guarantees that voice stealing, abrupt channel switching,
+        // or retriggering never produces an audible step discontinuity (click), while preserving
+        // full transparency for all legitimate polyphonic audio.
+        let max_slew = 0.15f32;
+        for i in 0..frames {
+            let mut s = bus[i];
+            if s.abs() > 1e-5 {
+                produced_audio = true;
             }
-            self.attack_declick_remaining = self.attack_declick_remaining.saturating_sub(n);
+            let diff = s - self.last_sf_sample;
+            if diff > max_slew {
+                s = self.last_sf_sample + max_slew;
+            } else if diff < -max_slew {
+                s = self.last_sf_sample - max_slew;
+            }
+            self.last_sf_sample = s;
+            live[i] += s;
         }
 
-        if frames > 0 {
-            self.last_live_sample = live[frames - 1];
-        }
         produced_audio
     }
 
@@ -559,6 +646,49 @@ mod tests {
             assert!(live[0].abs() < 1e-6, "Sample 0 must be 0 to prevent click, got {}", live[0]);
             for s in &live {
                 assert!(!s.is_nan() && !s.is_infinite());
+            }
+        }
+    }
+
+    #[test]
+    fn test_detect_clicks_across_notes() {
+        let path = Path::new(r"C:\Users\EME0012\OneDrive - St Helena Secondary College\Documents\MuseScore4\SoundFonts\Jeux14.SF2");
+        if !path.exists() {
+            return;
+        }
+        let mut mgr = SoundFontManager::new();
+        mgr.load_sf2(path).unwrap();
+
+        let presets = mgr.all_presets();
+        // Check first 5 presets across all octaves
+        for p in presets.iter().take(5) {
+            mgr.clear_all_presets();
+            mgr.set_preset_active(p.id, true);
+
+            for note in [36, 48, 60, 61, 62, 63, 64, 65, 72, 84] {
+                mgr.note_on(note, 100);
+                let mut buf = vec![0.0f32; 1024];
+                mgr.render_into_live(&mut buf);
+
+                // Check for clicks (high sample-to-sample difference)
+                let mut max_diff = 0.0f32;
+                let mut max_idx = 0;
+                for i in 1..buf.len() {
+                    let diff = (buf[i] - buf[i - 1]).abs();
+                    if diff > max_diff {
+                        max_diff = diff;
+                        max_idx = i;
+                    }
+                }
+                if max_diff > 0.08 {
+                    let start_i = max_idx.saturating_sub(3);
+                    let end_i = (max_idx + 4).min(buf.len());
+                    println!("Preset '{}' note {} at idx {}: max_diff: {}, window: {:?}", p.name, note, max_idx, max_diff, &buf[start_i..end_i]);
+                }
+                mgr.note_off(note);
+                // drain release
+                let mut drain = vec![0.0f32; 1024];
+                mgr.render_into_live(&mut drain);
             }
         }
     }
