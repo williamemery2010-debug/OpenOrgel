@@ -34,11 +34,11 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "..\rust\target\x86_64-pc-windows-gnullvm\release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\clarion.wav"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\stoppedflue.wav"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\samples\*"; DestDir: "{app}\samples"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\unit_tests_report.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\project_timeline.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

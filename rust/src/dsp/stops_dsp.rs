@@ -10,8 +10,8 @@ use hound::WavReader;
 use super::fm::{FmOperator, FmVoiceConfig};
 use super::wavetable::{SineLut, Wavetable};
 
-static CLARION_WAV_BYTES: &[u8] = include_bytes!("../../../clarion.wav");
-static FLUE_WAV_BYTES: &[u8] = include_bytes!("../../../stoppedflue.wav");
+static CLARION_WAV_BYTES: &[u8] = include_bytes!("../../../samples/clarion.wav");
+static FLUE_WAV_BYTES: &[u8] = include_bytes!("../../../samples/stoppedflue.wav");
 
 pub struct EmbeddedSamples {
     pub clarion: Vec<f32>,

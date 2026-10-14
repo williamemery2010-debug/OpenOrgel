@@ -72,7 +72,7 @@ pub fn sanitize_sf2_bytes(data: &mut [u8]) {
         }
 
         // 2. Loop-Boundary Discontinuity Smoothing: eliminate audible clicks at sample wrap point
-        if start_loop < end_loop && end_loop <= end && end_loop <= total_pcm_samples && start_loop < total_pcm_samples {
+        if start_loop < end_loop && end_loop <= total_pcm_samples && start_loop < total_pcm_samples {
             let loop_len = end_loop - start_loop;
             if loop_len >= 16 {
                 let m = 32.min(loop_len / 4);
@@ -625,14 +625,23 @@ mod tests {
         assert_eq!(mgr.active_preset_count(), 25);
     }
 
+    fn get_jeux14_path() -> Option<PathBuf> {
+        let candidates = [
+            PathBuf::from("../samples/Jeux14.SF2"),
+            PathBuf::from("samples/Jeux14.SF2"),
+            PathBuf::from(r"C:\Users\EME0012\OneDrive - St Helena Secondary College\Documents\MuseScore4\SoundFonts\Jeux14.SF2"),
+        ];
+        candidates.into_iter().find(|p| p.exists())
+    }
+
     #[test]
     fn test_soundfont_attack_declick_smoothness() {
-        let path = Path::new(r"C:\Users\EME0012\OneDrive - St Helena Secondary College\Documents\MuseScore4\SoundFonts\Jeux14.SF2");
-        if !path.exists() {
-            return;
-        }
+        let path = match get_jeux14_path() {
+            Some(p) => p,
+            None => return,
+        };
         let mut mgr = SoundFontManager::new();
-        mgr.load_sf2(path).unwrap();
+        mgr.load_sf2(&path).unwrap();
 
         let presets = mgr.all_presets();
         if let Some(p) = presets.first() {
@@ -652,12 +661,12 @@ mod tests {
 
     #[test]
     fn test_detect_clicks_across_notes() {
-        let path = Path::new(r"C:\Users\EME0012\OneDrive - St Helena Secondary College\Documents\MuseScore4\SoundFonts\Jeux14.SF2");
-        if !path.exists() {
-            return;
-        }
+        let path = match get_jeux14_path() {
+            Some(p) => p,
+            None => return,
+        };
         let mut mgr = SoundFontManager::new();
-        mgr.load_sf2(path).unwrap();
+        mgr.load_sf2(&path).unwrap();
 
         let presets = mgr.all_presets();
         // Check first 5 presets across all octaves

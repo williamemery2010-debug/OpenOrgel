@@ -59,7 +59,11 @@ Write-Host "Installing executable..." -ForegroundColor Yellow
 $TargetExe = Join-Path $InstallPath "openorgelsynth.exe"
 Copy-Item -Path $ExeSource -Destination $TargetExe -Force
 
-# Copy audio samples if found
+# Copy audio samples directory if found
+$SamplesSrc = Join-Path $ProjectRoot "samples"
+if (Test-Path $SamplesSrc) {
+    Copy-Item -Path $SamplesSrc -Destination $InstallPath -Recurse -Force
+}
 foreach ($sample in @("clarion.wav", "stoppedflue.wav")) {
     $src = Join-Path $ProjectRoot $sample
     if (Test-Path $src) {

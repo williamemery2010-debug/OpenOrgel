@@ -59,8 +59,12 @@ def build_package():
             shutil.copy2(src, os.path.join(staging_dir, f))
             
     # 3. Copy audio samples and docs
-    root_files = ["clarion.wav", "stoppedflue.wav", "README.md", "LICENSE", "unit_tests_report.md"]
-    for f in root_files:
+    samples_src = os.path.join(repo_root, "samples")
+    if os.path.exists(samples_src):
+        shutil.copytree(samples_src, os.path.join(staging_dir, "samples"), dirs_exist_ok=True)
+
+    doc_files = ["README.md", "LICENSE", "unit_tests_report.md", "project_timeline.txt"]
+    for f in doc_files:
         src = os.path.join(repo_root, f)
         if os.path.exists(src):
             shutil.copy2(src, os.path.join(staging_dir, f))

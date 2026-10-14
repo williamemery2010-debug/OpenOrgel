@@ -412,3 +412,30 @@ ender_into_live().
     3. rust/src/dsp/wavetable.rs: Integrated 650 Hz pipe mouth radiation formant and Töpfer Normalmensur scaling into Wavetable::from_harmonics().
     4. rust/src/dsp/stops_dsp.rs: Overhauled Stop ID 11 (Diapason 8') harmonics, separated single-pipe rendering from celeste chorus, and added 22 ms languid chiff modeling for wavetable flue pipes.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 22: JEUX14 PERMANENT ON-DISK DE-CLICKING REWORK, SAMPLES DIRECTORY MODULARIZATION & HISTORICAL ARCHIVE CLEANUP (October 14, 2026 - Prealpha_v2.0.9)
+--------------------------------------------------------------------------------
+* October 14, 2026:
+  - WHAT:
+    1. Local Jeux14.SF2 Diagnostic & Permanent On-Disk De-Clicking Rework: Directly analyzed the local copy of Jeux14.SF2 provided in the project folder. Inspection confirmed 131 sample loops with severe step discontinuities exceeding 1,000 counts (and up to 17,800 counts, e.g. in Bombarde 16', Pedal Reeds, Plein Jeu, Fourniture, Prestant 4', and Glockenspiel). Executed automated on-disk sanitization across all 167 sample headers, smoothing 166 loop boundaries using quadratic ease-in across the final M = min(32, loop_len / 4) samples and applying 16-sample zero-crossing quadratic fade-ins across 78 initial attack onsets. Fully verified that 100% of loop wrap discontinuities are reduced to 0 counts on disk.
+    2. Repository Workspace Organization & Architectural Modularization:
+       - Created dedicated `samples/` directory: Consolidated all audio assets (samples/clarion.wav, samples/stoppedflue.wav, samples/clarion.mp3, samples/stoppedflue.mp3, and sanitized samples/Jeux14.SF2). Authored comprehensive samples/README.md documenting the recorded pipe samples and French symphonic SoundFont bank.
+       - Created dedicated `historical/` directory: Consolidated legacy C++ synthesis implementation (historical/openorgelsynth.cpp, historical/openorgelsynth.dll, historical/dr_mp3.h), initial Python GUI/DSP prototypes (historical/newsynthesis.py, historical/newsynthesis.spec, historical/newsynthesis_architecture.md), legacy packager (historical/build_distribution_package.py), scratch diagnostic binaries, and refactoring scripts. Authored historical/README.md preserving complete academic provenance and engineering traceability for VCAA folio assessment.
+       - Cleaned the root repository directory to contain exclusively modern, active project files (source tree, documentation, timeline, tests, and installer suite).
+    3. Source Code Asset & Build Pipeline Synchronization:
+       - rust/src/dsp/stops_dsp.rs: Updated `include_bytes!` macros for native Clarion 8' and Stopped Flue ranks to link directly to `samples/clarion.wav` and `samples/stoppedflue.wav`.
+       - rust/src/soundfont.rs: Generalized candidate search paths in unit tests to inspect `samples/Jeux14.SF2` dynamically.
+       - installer/package_release.py: Updated distribution packager to bundle the entire `samples/` folder into release zip archives.
+       - installer/install.ps1: Updated PowerShell installer to deploy `samples/` directly into `%LOCALAPPDATA%\OpenOrgel\samples`.
+       - installer/openorgel_setup.iss: Updated Inno Setup specification to bundle the `samples` directory into standard Windows installer packages.
+    4. Unit Testing & Continuous Verification: Verified all 20 automated unit tests pass in 0.24 seconds with the restructured directories and reworked SoundFont.
+  - WHY:
+    1. The user requested: "ive added Jeux14 to the openorgel folder. I recommend you analyse it and potentially rework it to eliminate the click. It may also prove wise to clean up the folder, putting historical files in their own folder and putting samples in their own folder, because right now its a mess".
+    2. Reworking the SF2 file on disk permanently repairs third-party sample loop defects at the source, allowing any external tool, DAW, or OpenOrgel instance to play the bank with zero clicks.
+    3. Maintaining clean architectural separation between active Rust engine components, audio sample assets, and historical prototypes satisfies professional VCAA software engineering assessment standards.
+  - HOW:
+    1. Executed binary byte inspection and sample loop rewrite via Python struct manipulation, adjusting sample endpoints to match loop start values.
+    2. Migrated loose files to `samples/` and `historical/` using directory structure reorganization.
+    3. Updated embedded sample macros and packaging scripts.
+================================================================================

@@ -1,8 +1,8 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-14 12:48:34
-Total Commits  : 88
+Updated At     : 2026-10-14 13:02:22
+Total Commits  : 89
 Total Releases : 29
 ================================================================================
 
@@ -163,7 +163,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-e80f9b8  | 2026-10-14 | williamemery2010-deb | docs: update commits and releases history for Prealpha_v2.0.8
+bb1e5c9  | 2026-10-14 | williamemery2010-deb | refactor: reorganize project folders into samples/ and historical/, and permanently rework Jeux14.SF2 on disk
+7bbeb03  | 2026-10-14 | williamemery2010-deb | docs: update commits and releases history for Prealpha_v2.0.8
 de2ffd7  | 2026-10-14 | williamemery2010-deb | feat(dsp): sanitize SF2 loop clicks, add slew limiter, and overhaul Diapason 8' physical voicing
 49a81e1  | 2026-10-13 | williamemery2010-deb | feat(soundfont): remove 15-stop limit with multi-synthesizer architecture and add attack de-clicker
 96759dd  | 2026-10-13 | williamemery2010-deb | chore: ignore rust/target build artifacts in .gitignore
