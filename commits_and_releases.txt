@@ -1,9 +1,9 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-14 13:02:22
-Total Commits  : 89
-Total Releases : 29
+Updated At     : 2026-10-14 13:04:02
+Total Commits  : 90
+Total Releases : 30
 ================================================================================
 
 🚀 RELEASES / TAGS
@@ -12,6 +12,11 @@ Version : Prealpha_v2.0.8
 Date    : 2026-10-14
 Commit  : de2ffd7
 Details : Prealpha v2.0.8: SF2 loop click sanitization, anti-click bus slew limiting, native loop crossfading, and Diapason 8' physical voicing overhaul
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.9
+Date    : 2026-10-14
+Commit  : 37f6843
+Details : Prealpha v2.0.9: Jeux14 on-disk loop de-clicking rework, samples directory modularization, and historical archive consolidation
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.1
 Date    : 2026-10-13
@@ -163,7 +168,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-bb1e5c9  | 2026-10-14 | williamemery2010-deb | refactor: reorganize project folders into samples/ and historical/, and permanently rework Jeux14.SF2 on disk
+6ed166c  | 2026-10-14 | williamemery2010-deb | docs: sync history and releases for Prealpha_v2.0.9
+37f6843  | 2026-10-14 | williamemery2010-deb | refactor: reorganize project folders into samples/ and historical/, and permanently rework Jeux14.SF2 on disk
 7bbeb03  | 2026-10-14 | williamemery2010-deb | docs: update commits and releases history for Prealpha_v2.0.8
 de2ffd7  | 2026-10-14 | williamemery2010-deb | feat(dsp): sanitize SF2 loop clicks, add slew limiter, and overhaul Diapason 8' physical voicing
 49a81e1  | 2026-10-13 | williamemery2010-deb | feat(soundfont): remove 15-stop limit with multi-synthesizer architecture and add attack de-clicker
