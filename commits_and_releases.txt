@@ -1,12 +1,17 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-14 12:46:54
-Total Commits  : 87
-Total Releases : 28
+Updated At     : 2026-10-14 12:48:34
+Total Commits  : 88
+Total Releases : 29
 ================================================================================
 
 🚀 RELEASES / TAGS
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.8
+Date    : 2026-10-14
+Commit  : de2ffd7
+Details : Prealpha v2.0.8: SF2 loop click sanitization, anti-click bus slew limiting, native loop crossfading, and Diapason 8' physical voicing overhaul
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.1
 Date    : 2026-10-13
@@ -158,7 +163,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-c29c8ab  | 2026-10-14 | williamemery2010-deb | feat(dsp): sanitize SF2 loop clicks, add slew limiter, and overhaul Diapason 8' physical voicing
+e80f9b8  | 2026-10-14 | williamemery2010-deb | docs: update commits and releases history for Prealpha_v2.0.8
+de2ffd7  | 2026-10-14 | williamemery2010-deb | feat(dsp): sanitize SF2 loop clicks, add slew limiter, and overhaul Diapason 8' physical voicing
 49a81e1  | 2026-10-13 | williamemery2010-deb | feat(soundfont): remove 15-stop limit with multi-synthesizer architecture and add attack de-clicker
 96759dd  | 2026-10-13 | williamemery2010-deb | chore: ignore rust/target build artifacts in .gitignore
 0235d39  | 2026-10-13 | williamemery2010-deb | feat(release): automate GitHub release publishing and add in-tree Windows installer suite
