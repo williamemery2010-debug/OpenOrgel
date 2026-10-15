@@ -267,6 +267,86 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 
 ---
 
+### UT-21: Gedeckt Stopped-Pipe Spectrum
+- **Module:** [rust/src/dsp/stops_dsp.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/stops_dsp.rs) (`test_gedeckt_stopped_pipe_spectrum`)
+- **WHY:** The previous Gedeckt was a static wavetable (peak-normalised, fixed phase, 650 Hz formant boost) that sounded like a vocoder or early speech synthesiser rather than a wooden stopped flute.
+- **WHAT:** Guards the acoustic character of `render_stopped_flue`: dominant fundamental, audible 3rd partial, odd partials stronger than even partials, partial amplitudes falling with height, and bounded peak level (headroom).
+- **METHOD:** Renders stop 17 at 441 Hz (exactly 100 samples per period) and analyses 10,000 steady-state samples (100 whole cycles) with a single-bin DFT at 1x to 5x the fundamental.
+- **EXPECTED RESULT:** m1 > 5 x m3; m3 > 0.08 x m1; m3 > 3 x max(m2, m4); m3 > m5; onset peak < 1.5; steady peak < 1.0.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-22: Gedeckt 16' Sounds An Octave Below The Key
+- **Module:** [rust/src/dsp/stops_dsp.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/stops_dsp.rs) (`test_gedeckt_16_foot_sounds_an_octave_below_key`)
+- **WHY:** The old 16' and 32' definitions used fractional harmonic factors (0.5, 1.5, ...) inside a one-cycle wavetable. The table could not hold a half cycle, so the rank sounded at the wrong pitch with a discontinuity once per cycle (a buzz).
+- **WHAT:** Validates the pitch ratio mechanism: a 16' rank must place its fundamental at half of the key frequency.
+- **METHOD:** Renders stop 19 with key frequency 882 Hz; compares single-bin DFT magnitude at 441 Hz against 882 Hz.
+- **EXPECTED RESULT:** magnitude(441 Hz) > 15 x magnitude(882 Hz).
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-23: Gedeckt Stability Across Footages And Compass
+- **Module:** [rust/src/dsp/stops_dsp.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/stops_dsp.rs) (`test_gedeckt_all_footages_render_finite_across_compass`)
+- **WHY:** The noise resonators and partial table depend on pitch; extreme pitches (16 Hz fundamentals, partials beyond Nyquist) are where filter and aliasing faults appear.
+- **WHAT:** Guards against NaN/infinite samples, unbounded amplitude and silent output for stops 17 to 20.
+- **METHOD:** Renders each stop at 16.35, 65.41, 261.63, 1046.5 and 4186 Hz for 100 ms.
+- **EXPECTED RESULT:** Every sample finite with |s| < 2.0, and some sample above 1e-4.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-24: Loop Points Are Seamless For A Periodic Tone
+- **Module:** [rust/src/engine.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/engine.rs) (`test_loop_points_are_seamless_for_periodic_tone`)
+- **WHY:** The old sustain loop used a fixed end point unrelated to the pitch period and then reset the read position to the wrong sample after its crossfade, leaving a step in the waveform on every loop (a click on sustained notes).
+- **WHAT:** Validates `find_loop_points`: the loop end is chosen where value and slope match the loop start.
+- **METHOD:** 3.5 s sine at 440 Hz (a non-integer number of samples per period). Checks the start index, minimum loop length, and that |tone[end] - tone[start]| and the slope difference are below 0.005.
+- **EXPECTED RESULT:** Value and slope gaps < 0.005; loop longer than a quarter of the buffer.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-25: Sustained Voice Has No Click At The Loop Wrap
+- **Module:** [rust/src/engine.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/engine.rs) (`test_sustained_voice_has_no_click_at_loop_wrap`)
+- **WHY:** End-to-end check of the voice renderer, including the equal-power blend before the loop end.
+- **WHAT:** Guards against steps in the voice output while a key is held longer than the cached tone.
+- **METHOD:** Renders a unit 440 Hz sine voice for 300,000 samples (the loop wraps more than once) and measures the maximum sample-to-sample step after the attack.
+- **EXPECTED RESULT:** Step < 0.075 (a clean 440 Hz unit sine steps at most 0.0627).
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-26: Release During Attack Starts From The Current Amplitude
+- **Module:** [rust/src/engine.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/engine.rs) (`test_release_during_attack_starts_from_current_amplitude`)
+- **WHY:** The old release path ignored the attack envelope, so a key released inside the 120 ms attack jumped to full amplitude and then faded: a loud click on short notes.
+- **WHAT:** Validates that voice output is tone x attack(age) x release(count) on every sample.
+- **METHOD:** Constant tone of 1.0, released after 10 ms. Checks the first release sample against the last pre-release sample, the maximum step during release, completion and a final value of zero.
+- **EXPECTED RESULT:** Gap < 0.01, step < 0.01, voice reports finished, ends at 0.0.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-27: Stop Button Fades To Silence Without A Step
+- **Module:** [rust/src/engine.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/engine.rs) (`test_stop_playback_fades_to_silence_without_a_step`)
+- **WHY:** `stop_playback` used to clear the playing flag, cutting the audio mid-waveform: a loud click on every Stop press.
+- **WHAT:** Validates the fade tail played by the mixer after Stop.
+- **METHOD:** Plays a constant 0.5 buffer through a `Mixer`, presses Stop, and inspects 4,608 following samples.
+- **EXPECTED RESULT:** First sample about 0.5, monotonically non-increasing during the 2,205-sample fade, maximum step < 0.002, exact silence afterwards.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-28: Pause And Resume Ramp Without A Step
+- **Module:** [rust/src/engine.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/engine.rs) (`test_pause_and_resume_ramp_without_a_step`)
+- **WHY:** Pause cut the audio abruptly, and Resume restarted at a non-zero sample, producing two clicks.
+- **WHAT:** Validates the fade-out on Pause and the fade-in on Resume.
+- **METHOD:** Same constant-buffer harness as UT-27: Pause, render, Resume, render.
+- **EXPECTED RESULT:** Pause fades to exactly 0.0 with steps < 0.002; resume begins below 0.01, has steps < 0.002 and reaches 0.5.
+- **ACTUAL RESULT:** Passed (28 tests in total pass in 0.22 s).
+
+---
+
 ## 4. How to Reproduce and Run Tests
 
 The test suite can be run directly from the command line using the native Cargo toolchain:

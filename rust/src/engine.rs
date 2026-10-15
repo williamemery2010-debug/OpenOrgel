@@ -143,11 +143,164 @@ impl ToneBank {
 // SHARED STATE
 // ---------------------------------------------------------------------------
 
+/// Half-width (samples) of the correlation window used to pick loop points.
+pub const LOOP_MATCH_HALF_WINDOW: usize = 96;
+/// Length (samples) of the equal-power blend placed just before the loop end.
+pub const LOOP_XFADE: usize = 64;
+/// Length (samples) of the anti-click fade applied when playback stops, pauses or resumes.
+pub const PLAYBACK_FADE_SAMPLES: usize = 2205; // 50 ms @ 44.1 kHz
+
+/// Finds a seamless sustain loop inside a rendered tone buffer.
+///
+/// The loop start is fixed at 4/7 of the buffer (2.0 s of a 3.5 s tone). The loop end is
+/// the candidate sample whose surrounding window (+/- `LOOP_MATCH_HALF_WINDOW` samples)
+/// has the smallest squared error against the window around the loop start. Because
+/// the stop tones are periodic, the minimum lands on a whole number of pitch periods,
+/// so jumping from `end` back to `start` is continuous in value and in slope.
+/// Returns `(start, end)` with `start < end <= wave.len()`.
+pub fn find_loop_points(wave: &[f32]) -> (usize, usize) {
+    let len = wave.len();
+    let w = LOOP_MATCH_HALF_WINDOW;
+    let start = len * 4 / 7;
+    let e_lo = start + len / 4;
+    let e_hi = len.saturating_sub(w + 1);
+    if len < 8 * w || start < w || e_lo >= e_hi {
+        return (0, len);
+    }
+    let reference = &wave[start - w..=start + w];
+    let mut best_cost = f32::MAX;
+    let mut best_end = e_hi;
+    for e in e_lo..=e_hi {
+        let candidate = &wave[e - w..=e + w];
+        let mut cost = 0.0f32;
+        for (a, b) in reference.iter().zip(candidate.iter()) {
+            let d = a - b;
+            cost += d * d;
+            if cost >= best_cost {
+                break;
+            }
+        }
+        if cost < best_cost {
+            best_cost = cost;
+            best_end = e;
+        }
+    }
+    (start, best_end)
+}
+
+/// A cached live tone together with its matched sustain loop.
+pub struct LiveTone {
+    pub data: Vec<f32>,
+    pub loop_start: usize,
+    pub loop_end: usize,
+}
+
+impl LiveTone {
+    pub fn new(data: Vec<f32>) -> Self {
+        let (loop_start, loop_end) = find_loop_points(&data);
+        LiveTone {
+            data,
+            loop_start,
+            loop_end,
+        }
+    }
+}
+
 struct Voice {
-    tone: Arc<Vec<f32>>,
-    phase: usize,
+    tone: Arc<LiveTone>,
+    /// Read position inside the tone buffer (wraps through the sustain loop).
+    pos: usize,
+    /// Samples since key-down; drives the attack envelope independently of `pos`.
+    age: usize,
     released: bool,
-    release_start: usize,
+    /// Samples since key-up; drives the release envelope.
+    rel_count: usize,
+}
+
+impl Voice {
+    fn new(tone: Arc<LiveTone>) -> Self {
+        Voice {
+            tone,
+            pos: 0,
+            age: 0,
+            released: false,
+            rel_count: 0,
+        }
+    }
+
+    fn release(&mut self) {
+        if !self.released {
+            self.released = true;
+            self.rel_count = 0;
+        }
+    }
+}
+
+/// Sounding voices. `ghosts` holds voices that were retriggered while still
+/// sounding: they finish their release instead of being cut off mid-waveform.
+#[derive(Default)]
+struct VoiceBank {
+    active: HashMap<u8, Voice>,
+    ghosts: Vec<Voice>,
+}
+
+/// Renders one voice into `live`. Returns true once the voice has fully decayed.
+///
+/// The output is `tone * attack(age) * release(rel_count)`. Both envelopes are
+/// evaluated on every sample, so a key released during its attack starts its
+/// release from the current (partial) amplitude rather than from full level.
+fn render_voice(
+    v: &mut Voice,
+    live: &mut [f32],
+    attack_tbl: &[f32],
+    release_tbl: &[f32],
+    xfade_tbl: &[f32],
+) -> bool {
+    let tone = v.tone.clone();
+    let wave = &tone.data[..];
+    let (ls, le) = (tone.loop_start, tone.loop_end);
+    let loop_len = le - ls;
+    let rel_n = release_tbl.len();
+    let xf = if ls >= xfade_tbl.len() && loop_len >= 2 * xfade_tbl.len() {
+        xfade_tbl.len()
+    } else {
+        0
+    };
+
+    for l in live.iter_mut() {
+        if v.released && v.rel_count >= rel_n {
+            return true;
+        }
+        let mut s = wave[v.pos];
+        if xf > 0 && v.pos + xf >= le {
+            // Blend the last `xf` samples with the matching samples one loop earlier,
+            // so the jump back to `ls` is exactly continuous.
+            let w = xfade_tbl[v.pos + xf - le];
+            s = (1.0 - w) * s + w * wave[v.pos - loop_len];
+        }
+        if v.age < attack_tbl.len() {
+            s *= attack_tbl[v.age];
+        }
+        if v.released {
+            s *= release_tbl[v.rel_count];
+            v.rel_count += 1;
+        }
+        *l += s;
+        v.age = v.age.saturating_add(1);
+        v.pos += 1;
+        if v.pos >= le {
+            v.pos = ls;
+        }
+    }
+    v.released && v.rel_count >= rel_n
+}
+
+/// Remaining samples of a song that was interrupted by stop, pause or silence.
+/// The mixer plays these out under a short fade so the cut never lands mid-waveform.
+pub struct FadeTail {
+    audio: Arc<Vec<f32>>,
+    idx: usize,
+    done: usize,
 }
 
 #[derive(Default)]
@@ -158,6 +311,24 @@ pub struct PlaybackState {
     pub paused: bool,
     pub notes: Arc<Vec<NoteSpan>>,
     pub starts: Arc<Vec<usize>>,
+    pub fade_tail: Option<FadeTail>,
+    /// Samples of fade-in still to apply (set on resume).
+    pub fade_in_left: usize,
+}
+
+impl PlaybackState {
+    /// Captures the audible audio at the current position as a fade-out tail.
+    fn begin_fade_out(&mut self) {
+        if self.playing && !self.paused && self.fade_tail.is_none() {
+            if let Some(a) = self.audio.as_ref() {
+                self.fade_tail = Some(FadeTail {
+                    audio: a.clone(),
+                    idx: self.idx,
+                    done: 0,
+                });
+            }
+        }
+    }
 }
 
 pub struct Rendered {
@@ -167,8 +338,8 @@ pub struct Rendered {
 
 pub struct Engine {
     pub bank: ToneBank,
-    live_tones: RwLock<HashMap<u8, Arc<Vec<f32>>>>,
-    voices: Mutex<HashMap<u8, Voice>>,
+    live_tones: RwLock<HashMap<u8, Arc<LiveTone>>>,
+    voices: Mutex<VoiceBank>,
     pub playback: Mutex<PlaybackState>,
     stops: Mutex<Vec<i32>>,
     a4: Mutex<f64>,
@@ -190,7 +361,7 @@ impl Engine {
         Arc::new(Engine {
             bank: ToneBank::default(),
             live_tones: RwLock::new(HashMap::new()),
-            voices: Mutex::new(HashMap::new()),
+            voices: Mutex::new(VoiceBank::default()),
             playback: Mutex::new(PlaybackState::default()),
             stops: Mutex::new(Vec::new()),
             a4: Mutex::new(440.0),
@@ -278,7 +449,7 @@ impl Engine {
                     if me.live_tones.read().contains_key(&note) {
                         return;
                     }
-                    let tone = Arc::new(me.bank.live_tone(temp.midi_to_freq(a4, note), &stops, chiff));
+                    let tone = Arc::new(LiveTone::new(me.bank.live_tone(temp.midi_to_freq(a4, note), &stops, chiff)));
                     let mut w = me.live_tones.write();
                     if me.generation.load(Ordering::SeqCst) == gen {
                         w.insert(note, tone);
@@ -308,7 +479,7 @@ impl Engine {
                     let a4 = self.a4();
                     let temp = self.temperament();
                     let chiff = self.chiff_volume();
-                    let t = Arc::new(self.bank.live_tone(temp.midi_to_freq(a4, note), &stops, chiff));
+                    let t = Arc::new(LiveTone::new(self.bank.live_tone(temp.midi_to_freq(a4, note), &stops, chiff)));
                     let mut w = self.live_tones.write();
                     if self.generation.load(Ordering::SeqCst) == gen {
                         w.insert(note, t.clone());
@@ -316,31 +487,30 @@ impl Engine {
                     t
                 }
             };
-            self.voices.lock().insert(
-                note,
-                Voice {
-                    tone,
-                    phase: 0,
-                    released: false,
-                    release_start: 0,
-                },
-            );
+            let mut bank = self.voices.lock();
+            // A key struck again while its previous voice is still sounding: let the old
+            // voice finish its release rather than cutting it off mid-waveform.
+            if let Some(mut old) = bank.active.remove(&note) {
+                old.release();
+                bank.ghosts.push(old);
+            }
+            bank.active.insert(note, Voice::new(tone));
         }
         self.soundfont.lock().note_on(note, 100);
     }
 
     pub fn note_off(&self, note: u8) {
-        if let Some(v) = self.voices.lock().get_mut(&note) {
-            if !v.released {
-                v.released = true;
-                v.release_start = v.phase;
-            }
+        if let Some(v) = self.voices.lock().active.get_mut(&note) {
+            v.release();
         }
         self.soundfont.lock().note_off(note);
     }
 
+    /// Releases every live voice through its normal release envelope (no hard cut).
     pub fn all_notes_off(&self) {
-        self.voices.lock().clear();
+        for v in self.voices.lock().active.values_mut() {
+            v.release();
+        }
         self.soundfont.lock().all_notes_off();
     }
 
@@ -352,17 +522,20 @@ impl Engine {
         let starts: Vec<usize> = notes.iter().map(|n| n.0).collect();
         *self.current_midi.lock() = Some(path);
         let mut pb = self.playback.lock();
+        pb.begin_fade_out(); // a song already playing fades out under the new one
         pb.audio = Some(Arc::new(rendered.audio));
         pb.notes = Arc::new(notes);
         pb.starts = Arc::new(starts);
         pb.idx = 0;
         pb.playing = true;
         pb.paused = false;
+        pb.fade_in_left = 0;
         self.song_finished.store(false, Ordering::SeqCst);
     }
 
     pub fn stop_playback(&self) {
         let mut pb = self.playback.lock();
+        pb.begin_fade_out();
         pb.playing = false;
         pb.paused = false;
         pb.idx = 0;
@@ -372,6 +545,7 @@ impl Engine {
     pub fn pause(&self) {
         let mut pb = self.playback.lock();
         if pb.playing {
+            pb.begin_fade_out();
             pb.paused = true;
         }
     }
@@ -379,6 +553,10 @@ impl Engine {
     pub fn resume(&self) {
         let mut pb = self.playback.lock();
         if pb.playing {
+            if pb.paused {
+                pb.fade_tail = None;
+                pb.fade_in_left = PLAYBACK_FADE_SAMPLES;
+            }
             pb.paused = false;
         }
     }
@@ -406,8 +584,10 @@ impl Engine {
     }
 
     /// Silences the current song playback buffer when all stops are pushed in.
+    /// The audible part is faded out first so the cut is not a click.
     pub fn silence_playback(&self) {
         let mut pb = self.playback.lock();
+        pb.begin_fade_out();
         if let Some(audio) = pb.audio.as_ref() {
             pb.audio = Some(Arc::new(vec![0.0; audio.len()]));
         }
@@ -504,7 +684,7 @@ impl Engine {
                 }
             }
         }
-        for (&n, _) in self.voices.lock().iter() {
+        for (&n, _) in self.voices.lock().active.iter() {
             pcs[(n % 12) as usize] = true;
             if n == 69 {
                 a4 = true;
@@ -524,6 +704,12 @@ pub struct Mixer {
     live: Vec<f32>,
     attack_tbl: Vec<f32>,
     release_tbl: Vec<f32>,
+    /// Rising equal-power weights for the loop-end blend.
+    xfade_tbl: Vec<f32>,
+    /// 1 -> 0 quarter-cosine used to fade a stopped/paused song out.
+    fade_out_tbl: Vec<f32>,
+    /// 0 -> 1 quarter-sine used to fade a resumed song in.
+    fade_in_tbl: Vec<f32>,
     tail_left: usize,
     done: Vec<u8>,
 }
@@ -538,12 +724,27 @@ impl Mixer {
         let release_tbl = (0..release_n)
             .map(|i| (i as f64 * std::f64::consts::FRAC_PI_2 / release_n as f64).cos() as f32)
             .collect();
+        let xfade_tbl = (0..LOOP_XFADE)
+            .map(|k| {
+                let t = (k + 1) as f64 / LOOP_XFADE as f64;
+                (t * std::f64::consts::FRAC_PI_2).sin().powi(2) as f32
+            })
+            .collect();
+        let fade_out_tbl = (0..PLAYBACK_FADE_SAMPLES)
+            .map(|i| (i as f64 * std::f64::consts::FRAC_PI_2 / PLAYBACK_FADE_SAMPLES as f64).cos() as f32)
+            .collect();
+        let fade_in_tbl = (0..PLAYBACK_FADE_SAMPLES)
+            .map(|i| (i as f64 * std::f64::consts::FRAC_PI_2 / PLAYBACK_FADE_SAMPLES as f64).sin() as f32)
+            .collect();
         Mixer {
             reverb: Reverb::for_venue(SAMPLE_RATE, engine.venue()),
             engine,
             live: vec![0.0; 4096],
             attack_tbl,
             release_tbl,
+            xfade_tbl,
+            fade_out_tbl,
+            fade_in_tbl,
             tail_left: 0,
             done: Vec::with_capacity(16),
         }
@@ -563,6 +764,8 @@ impl Mixer {
                 idx,
                 playing,
                 paused,
+                fade_tail,
+                fade_in_left,
                 ..
             } = &mut *pb;
             if *playing && !*paused {
@@ -570,7 +773,12 @@ impl Mixer {
                     let remaining = audio.len().saturating_sub(*idx);
                     let n = remaining.min(frames);
                     for i in 0..n {
-                        out[i] = audio[*idx + i] * vol;
+                        let mut g = vol;
+                        if *fade_in_left > 0 {
+                            g *= self.fade_in_tbl[PLAYBACK_FADE_SAMPLES - *fade_in_left];
+                            *fade_in_left -= 1;
+                        }
+                        out[i] = audio[*idx + i] * g;
                     }
                     *idx += n;
                     if n < frames {
@@ -578,6 +786,23 @@ impl Mixer {
                         self.engine.song_finished.store(true, Ordering::SeqCst);
                     }
                 }
+            }
+            // Song interrupted by stop/pause: play the remaining samples under a fade-out
+            // so the waveform reaches zero instead of being chopped (audible click).
+            let mut tail_finished = false;
+            if let Some(tail) = fade_tail.as_mut() {
+                for o in out.iter_mut() {
+                    if tail.done >= self.fade_out_tbl.len() || tail.idx >= tail.audio.len() {
+                        break;
+                    }
+                    *o += tail.audio[tail.idx] * self.fade_out_tbl[tail.done] * vol;
+                    tail.idx += 1;
+                    tail.done += 1;
+                }
+                tail_finished = tail.done >= self.fade_out_tbl.len() || tail.idx >= tail.audio.len();
+            }
+            if tail_finished {
+                *fade_tail = None;
             }
         }
 
@@ -588,73 +813,23 @@ impl Mixer {
         let live = &mut self.live[..frames];
         live.fill(0.0);
 
-        let rel_n = self.release_tbl.len();
         let mut any = false;
         {
-            let mut voices = self.engine.voices.lock();
-            if !voices.is_empty() {
+            let mut bank = self.engine.voices.lock();
+            if !bank.active.is_empty() || !bank.ghosts.is_empty() {
                 any = true;
                 self.done.clear();
-                for (&note, v) in voices.iter_mut() {
-                    let wave = &v.tone[..];
-                    let len = wave.len();
-                    let sustain_end = len.saturating_sub(rel_n);
-                    let mut loop_start = (2.0 * SAMPLE_RATE as f64) as usize;
-                    if loop_start >= sustain_end {
-                        loop_start = 0;
-                    }
-                    let loop_len = sustain_end.saturating_sub(loop_start).max(1);
-                    let xfade_len = 256.min(loop_len / 4);
-
-                    if !v.released {
-                        for l in live.iter_mut() {
-                            let s = if v.phase >= sustain_end {
-                                v.phase = loop_start;
-                                wave[v.phase]
-                            } else if v.phase >= sustain_end - xfade_len {
-                                // Seamless C^1 cross-fade between loop end and loop start to eliminate periodic click
-                                let k = v.phase - (sustain_end - xfade_len);
-                                let t = k as f32 / xfade_len as f32;
-                                let w = (t * std::f32::consts::FRAC_PI_2).sin().powi(2);
-                                let s_end = wave[v.phase];
-                                let s_start = wave[loop_start + k];
-                                (1.0 - w) * s_end + w * s_start
-                            } else {
-                                wave[v.phase]
-                            };
-
-                            let mut amp = s;
-                            if v.phase < self.attack_tbl.len() {
-                                amp *= self.attack_tbl[v.phase];
-                            }
-                            *l += amp;
-                            v.phase += 1;
-                        }
-                    } else {
-                        let mut dead = false;
-                        for l in live.iter_mut() {
-                            let rel_idx = v.phase.saturating_sub(v.release_start);
-                            if rel_idx >= rel_n {
-                                dead = true;
-                                break;
-                            }
-                            // Keep phase strictly within loop boundaries so sample buffer never truncates prematurely
-                            let p = if v.phase >= sustain_end {
-                                loop_start + (v.phase - sustain_end) % loop_len
-                            } else {
-                                v.phase
-                            };
-                            *l += wave[p] * self.release_tbl[rel_idx];
-                            v.phase += 1;
-                        }
-                        if dead || v.phase.saturating_sub(v.release_start) >= rel_n {
-                            self.done.push(note);
-                        }
+                for (&note, v) in bank.active.iter_mut() {
+                    if render_voice(v, live, &self.attack_tbl, &self.release_tbl, &self.xfade_tbl) {
+                        self.done.push(note);
                     }
                 }
                 for n in &self.done {
-                    voices.remove(n);
+                    bank.active.remove(n);
                 }
+                bank.ghosts.retain_mut(|v| {
+                    !render_voice(v, live, &self.attack_tbl, &self.release_tbl, &self.xfade_tbl)
+                });
             }
         }
 
@@ -921,4 +1096,136 @@ pub fn write_wav(path: &Path, audio: &[f32]) -> Result<(), String> {
         w.write_sample((s * 32767.0) as i16).map_err(|e| e.to_string())?;
     }
     w.finalize().map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn envelope_tables() -> (Vec<f32>, Vec<f32>, Vec<f32>) {
+        let attack_n = (ATTACK_SECONDS * SAMPLE_RATE as f64) as usize;
+        let release_n = (RELEASE_SECONDS * SAMPLE_RATE as f64) as usize;
+        let attack = (0..attack_n)
+            .map(|i| (i as f64 * std::f64::consts::FRAC_PI_2 / attack_n as f64).sin() as f32)
+            .collect();
+        let release = (0..release_n)
+            .map(|i| (i as f64 * std::f64::consts::FRAC_PI_2 / release_n as f64).cos() as f32)
+            .collect();
+        let xfade = (0..LOOP_XFADE)
+            .map(|k| {
+                let t = (k + 1) as f64 / LOOP_XFADE as f64;
+                (t * std::f64::consts::FRAC_PI_2).sin().powi(2) as f32
+            })
+            .collect();
+        (attack, release, xfade)
+    }
+
+    fn max_step(x: &[f32]) -> f32 {
+        x.windows(2).fold(0.0f32, |m, w| m.max((w[1] - w[0]).abs()))
+    }
+
+    #[test]
+    fn test_loop_points_are_seamless_for_periodic_tone() {
+        let n = (SAMPLE_RATE as f64 * TONE_SECONDS) as usize;
+        let tone: Vec<f32> = (0..n)
+            .map(|i| (2.0 * std::f64::consts::PI * 440.0 * i as f64 / SAMPLE_RATE as f64).sin() as f32)
+            .collect();
+        let (start, end) = find_loop_points(&tone);
+        assert_eq!(start, n * 4 / 7);
+        assert!(end > start + n / 4, "loop must be long enough to avoid audible repetition");
+        assert!(end + LOOP_MATCH_HALF_WINDOW < n);
+        // Jumping from `end` back to `start` must be continuous in value and in slope.
+        let value_gap = (tone[end] - tone[start]).abs();
+        let slope_gap = ((tone[end] - tone[end - 1]) - (tone[start] - tone[start - 1])).abs();
+        assert!(value_gap < 0.005, "value discontinuity {value_gap}");
+        assert!(slope_gap < 0.005, "slope discontinuity {slope_gap}");
+    }
+
+    #[test]
+    fn test_sustained_voice_has_no_click_at_loop_wrap() {
+        let n = (SAMPLE_RATE as f64 * TONE_SECONDS) as usize;
+        let tone: Vec<f32> = (0..n)
+            .map(|i| (2.0 * std::f64::consts::PI * 440.0 * i as f64 / SAMPLE_RATE as f64).sin() as f32)
+            .collect();
+        let (attack, release, xfade) = envelope_tables();
+        let mut voice = Voice::new(Arc::new(LiveTone::new(tone)));
+        let mut out = vec![0.0f32; 300_000]; // ~6.8 s: crosses the loop wrap more than once
+        for chunk in out.chunks_mut(256) {
+            assert!(!render_voice(&mut voice, chunk, &attack, &release, &xfade));
+        }
+        // A 440 Hz unit sine never steps more than 2*pi*440/44100 = 0.0627 per sample.
+        let step = max_step(&out[attack.len() + 10..]);
+        assert!(step < 0.075, "loop wrap produced a step of {step}");
+    }
+
+    #[test]
+    fn test_release_during_attack_starts_from_current_amplitude() {
+        let n = (SAMPLE_RATE as f64 * TONE_SECONDS) as usize;
+        let (attack, release, xfade) = envelope_tables();
+        let mut voice = Voice::new(Arc::new(LiveTone::new(vec![1.0f32; n])));
+        let mut out = vec![0.0f32; 441]; // 10 ms: well inside the 120 ms attack
+        render_voice(&mut voice, &mut out, &attack, &release, &xfade);
+        let level_at_release = *out.last().unwrap();
+        assert!(level_at_release < 0.2);
+
+        voice.release();
+        let mut tail = vec![0.0f32; release.len() + 64];
+        let finished = render_voice(&mut voice, &mut tail, &attack, &release, &xfade);
+        assert!(finished, "voice must report completion after its release");
+        assert!((tail[0] - level_at_release).abs() < 0.01, "release must not jump to full level");
+        assert!(max_step(&tail) < 0.01, "release produced a step of {}", max_step(&tail));
+        assert_eq!(*tail.last().unwrap(), 0.0);
+    }
+
+    fn running_mixer() -> (Arc<Engine>, Mixer) {
+        let engine = Engine::new();
+        let mixer = Mixer::new(engine.clone());
+        (engine, mixer)
+    }
+
+    fn render_samples(mixer: &mut Mixer, count: usize) -> Vec<f32> {
+        let mut all = Vec::with_capacity(count);
+        let mut block = vec![0.0f32; 256];
+        while all.len() < count {
+            mixer.render(&mut block);
+            all.extend_from_slice(&block);
+        }
+        all.truncate(count);
+        all
+    }
+
+    #[test]
+    fn test_stop_playback_fades_to_silence_without_a_step() {
+        let (engine, mut mixer) = running_mixer();
+        let audio = vec![0.5f32; SAMPLE_RATE as usize * 2];
+        engine.start_playback(Rendered { audio, notes: Vec::new() }, PathBuf::from("test.mid"));
+        let warm = render_samples(&mut mixer, 4096);
+        assert!((warm[4095] - 0.5).abs() < 1e-6);
+
+        engine.stop_playback();
+        let after = render_samples(&mut mixer, 4608);
+        assert!(after[0] > 0.499, "fade must start from the current level");
+        assert!(max_step(&after) < 0.002, "stop produced a step of {}", max_step(&after));
+        assert!(after[..PLAYBACK_FADE_SAMPLES].windows(2).all(|w| w[1] <= w[0] + 1e-6));
+        assert!(after[PLAYBACK_FADE_SAMPLES + 1..].iter().all(|s| *s == 0.0));
+    }
+
+    #[test]
+    fn test_pause_and_resume_ramp_without_a_step() {
+        let (engine, mut mixer) = running_mixer();
+        let audio = vec![0.5f32; SAMPLE_RATE as usize * 2];
+        engine.start_playback(Rendered { audio, notes: Vec::new() }, PathBuf::from("test.mid"));
+        render_samples(&mut mixer, 4096);
+
+        engine.pause();
+        let paused = render_samples(&mut mixer, 4608);
+        assert!(max_step(&paused) < 0.002);
+        assert_eq!(*paused.last().unwrap(), 0.0);
+
+        engine.resume();
+        let resumed = render_samples(&mut mixer, 4608);
+        assert!(resumed[0] < 0.01, "resume must start near zero, got {}", resumed[0]);
+        assert!(max_step(&resumed) < 0.002);
+        assert!((resumed[4607] - 0.5).abs() < 1e-6);
+    }
 }

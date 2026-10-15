@@ -439,3 +439,26 @@ PHASE 22: JEUX14 PERMANENT ON-DISK DE-CLICKING REWORK, SAMPLES DIRECTORY MODULAR
     2. Migrated loose files to `samples/` and `historical/` using directory structure reorganization.
     3. Updated embedded sample macros and packaging scripts.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 23: CLICK-FREE STOP/PAUSE/RELEASE, SEAMLESS LOOP MATCHING & GEDECKT STOPPED-PIPE REMODEL (October 15, 2026 - Prealpha_v2.0.10)
+--------------------------------------------------------------------------------
+* October 15, 2026:
+  - WHAT:
+    1. Click-free Stop, Pause, Resume and stop-all: engine.rs now plays the interrupted part of a song as a 50 ms fade-out tail (FadeTail) on Stop, Pause, restart-over-playing-song and "all stops pushed in"; Resume applies a 50 ms fade-in.
+    2. Rebuilt live voice playback: Voice now keeps a read position (pos), an age counter (attack) and a release counter (rel_count) separately. Output is tone * attack(age) * release(rel_count) on every sample.
+    3. Seamless sustain loops: new find_loop_points() chooses the loop end by minimum squared error between the windows around the loop start and each candidate end, so the loop wrap is continuous in value and slope. A 64-sample equal-power blend sits before the loop end.
+    4. Retriggered keys no longer cut the old voice: it moves to a ghost list and finishes its release. all_notes_off releases voices instead of clearing them.
+    5. Gedeckt 8', 4', 16' and 32' (stops 17-20) replaced by StopSynthesisModel::StoppedFlue, rendered by render_stopped_flue(): additive odd-partial spectrum, onset speech transient, slow per-partial amplitude drift, resonant breath noise and an onset spit/edge burst.
+    6. Eight new unit tests (UT-21 to UT-28); suite is 28 tests, all passing.
+  - WHY:
+    1. The creator reported a loud click on every stop. The Stop button set playing=false, which cut the song buffer mid-waveform (a full-amplitude step). Pause and Resume had the same fault, and Resume restarted from a non-zero sample.
+    2. The previous release path ignored the attack envelope, so a key released within the 120 ms attack jumped to full amplitude before fading. The previous sustain loop also reset the read position to loop_start after a crossfade that had already advanced loop_start + 256 samples, and the loop end had no relation to the pitch period, giving a step once per loop on held notes.
+    3. The creator reported that Gedeckt sounded artificial, like an early speech or vocoder synthesiser. The old model was a fixed-phase wavetable with a 650 Hz formant gain, no noise and no time evolution. The 16' and 32' tables used fractional harmonic numbers (0.5, 1.5, ...) that cannot fit in a one-cycle table, giving a wrong pitch with a discontinuity every cycle.
+  - HOW:
+    1. FadeTail holds an Arc of the song audio, its read index and a progress counter. PlaybackState::begin_fade_out() captures it only while playing and not paused; Mixer::render adds tail[idx] * cos(pi/2 * done/2205) * volume until it finishes. Resume sets fade_in_left = 2205 and the mixer multiplies by sin(pi/2 * k/2205).
+    2. render_voice() handles both attack and release envelopes in one pass, so release starts from the instantaneous attack amplitude. VoiceBank { active, ghosts } stores sounding and retriggered voices.
+    3. find_loop_points(): start = 4/7 of the buffer; the end is searched over the last quarter of the buffer using a +/-96-sample window with early-exit squared error. The 64-sample blend mixes wave[pos] with wave[pos - loop_len] using sin^2 weights, so the jump back to loop_start is exactly continuous. LiveTone caches (data, loop_start, loop_end) per note at refresh time.
+    4. render_stopped_flue(): partials at odd harmonics (1: 1.0, 3: 0.20, 5: 0.062, 7: 0.026, 9: 0.010, 11: 0.004) plus faint even residue, each with a soft 3 kHz roll-off, a bass tilt and a drift LFO (0.3 to 1.2 Hz, 1.5% to 8% depth). Upper partials start stronger and decay over 70 ms while the fundamental builds. Breath noise is xorshift white noise through two unit-rms two-pole resonators at f0 and 3*f0, scaled by a hiss level plus a 45 ms spit envelope that follows the chiff slider; a differenced-noise edge burst (18 ms) adds the consonant. pitch_ratio (1, 2, 0.5, 0.25) sets footage so the fundamental is placed correctly.
+    5. Tests: Goertzel single-bin DFT for spectrum and pitch tests; constant and sine voices for step-size tests of release, loop wrap, stop and pause/resume. See unit_tests_report.md (UT-21 to UT-28).
+================================================================================

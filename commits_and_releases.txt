@@ -1,8 +1,8 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-14 13:04:02
-Total Commits  : 90
+Updated At     : 2026-10-15 14:27:39
+Total Commits  : 91
 Total Releases : 30
 ================================================================================
 
@@ -168,7 +168,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-6ed166c  | 2026-10-14 | williamemery2010-deb | docs: sync history and releases for Prealpha_v2.0.9
+31b7510  | 2026-10-15 | williamemery2010-deb | fix(audio): click-free stop/pause/release, pitch-matched sustain loops, and Gedeckt stopped-pipe remodel
+85c822e  | 2026-10-14 | williamemery2010-deb | docs: sync history and releases for Prealpha_v2.0.9
 37f6843  | 2026-10-14 | williamemery2010-deb | refactor: reorganize project folders into samples/ and historical/, and permanently rework Jeux14.SF2 on disk
 7bbeb03  | 2026-10-14 | williamemery2010-deb | docs: update commits and releases history for Prealpha_v2.0.8
 de2ffd7  | 2026-10-14 | williamemery2010-deb | feat(dsp): sanitize SF2 loop clicks, add slew limiter, and overhaul Diapason 8' physical voicing

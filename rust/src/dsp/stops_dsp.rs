@@ -66,6 +66,9 @@ pub enum StopSynthesisModel {
         harmonic_factor: f64,
         base_freq: f64,
     },
+    /// Stopped (covered) wooden flue pipe: additive odd-partial model with wind noise.
+    /// `pitch_ratio` scales the key frequency (1.0 = 8', 2.0 = 4', 0.5 = 16', 0.25 = 32').
+    StoppedFlue { pitch_ratio: f64 },
 }
 
 pub struct StopDefinition {
@@ -293,41 +296,25 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
     StopDefinition {
         name: "Gedeckt 8'",
         id: 17,
-        model: StopSynthesisModel::Wavetable {
-            harmonics: &[(1.0, 1.0), (3.0, 0.5), (5.0, 0.2), (7.0, 0.08), (9.0, 0.03), (11.0, 0.01)],
-            dampening: 0.08,
-            is_celeste: false,
-        },
+        model: StopSynthesisModel::StoppedFlue { pitch_ratio: 1.0 },
     },
     // 18: Gedeckt 4'
     StopDefinition {
         name: "Gedeckt 4'",
         id: 18,
-        model: StopSynthesisModel::Wavetable {
-            harmonics: &[(2.0, 1.0), (6.0, 0.5), (10.0, 0.2), (14.0, 0.08), (18.0, 0.03), (22.0, 0.01)],
-            dampening: 0.02,
-            is_celeste: false,
-        },
+        model: StopSynthesisModel::StoppedFlue { pitch_ratio: 2.0 },
     },
     // 19: Gedeckt 16'
     StopDefinition {
         name: "Gedeckt 16'",
         id: 19,
-        model: StopSynthesisModel::Wavetable {
-            harmonics: &[(0.5, 1.0), (1.5, 0.5), (2.5, 0.2), (3.5, 0.08), (4.5, 0.03), (5.5, 0.01)],
-            dampening: 0.08,
-            is_celeste: false,
-        },
+        model: StopSynthesisModel::StoppedFlue { pitch_ratio: 0.5 },
     },
     // 20: Gedeckt 32'
     StopDefinition {
         name: "Gedeckt 32'",
         id: 20,
-        model: StopSynthesisModel::Wavetable {
-            harmonics: &[(0.25, 1.0), (0.75, 0.5), (1.25, 0.2), (1.75, 0.08), (2.25, 0.03), (2.75, 0.01)],
-            dampening: 0.08,
-            is_celeste: false,
-        },
+        model: StopSynthesisModel::StoppedFlue { pitch_ratio: 0.25 },
     },
     // 21: Cymbale Mixture
     StopDefinition {
@@ -503,6 +490,9 @@ pub fn render_stop_into(
             let mut fm = FmOperator::new(*cfg, sample_rate);
             fm.render(freq, sample_rate, out, sine_lut, wind_mod, chiff_scale);
         }
+        StopSynthesisModel::StoppedFlue { pitch_ratio } => {
+            render_stopped_flue(freq, *pitch_ratio, sample_rate, out, sine_lut, wind_mod, chiff_scale);
+        }
         StopSynthesisModel::Sampled {
             is_clarion,
             harmonic_factor,
@@ -559,9 +549,243 @@ pub fn render_stop_into(
     }
 }
 
+/// Partial table for a stopped (covered) wooden flue pipe.
+/// Tuple: (harmonic number, relative amplitude, onset boost, drift rate Hz, drift depth).
+///
+/// A pipe closed at one end resonates at odd multiples of its fundamental only, so the
+/// even partials are present only as faint residue from the mouth and stopper. The 3rd
+/// partial (a twelfth above the fundamental) is the characteristic Gedackt "chirp".
+/// `onset boost` makes the upper partials start stronger and settle (the pipe "speaks"
+/// upper partials first) while the fundamental builds up slightly more slowly.
+const STOPPED_PARTIALS: &[(f64, f64, f64, f64, f64)] = &[
+    (1.0, 1.000, -0.30, 0.31, 0.015),
+    (2.0, 0.016, 0.50, 0.53, 0.050),
+    (3.0, 0.200, 1.60, 0.47, 0.050),
+    (4.0, 0.010, 0.50, 0.71, 0.060),
+    (5.0, 0.062, 2.20, 0.83, 0.060),
+    (6.0, 0.005, 0.50, 0.59, 0.060),
+    (7.0, 0.026, 2.50, 1.07, 0.070),
+    (9.0, 0.010, 2.50, 0.97, 0.070),
+    (11.0, 0.004, 2.50, 1.21, 0.080),
+];
+
+/// Two-pole resonator used to colour white noise around a pipe resonance.
+struct NoiseResonator {
+    a1: f64,
+    a2: f64,
+    gain: f64,
+    y1: f64,
+    y2: f64,
+}
+
+impl NoiseResonator {
+    /// `centre` and `bandwidth` are in Hz. The gain is set so that uniform white noise
+    /// (rms 1/sqrt(3)) leaves the filter with approximately unit rms, which keeps the
+    /// breath level independent of the pitch of the pipe.
+    fn new(centre: f64, bandwidth: f64, sample_rate: f64) -> Self {
+        let r = (-std::f64::consts::PI * bandwidth / sample_rate).exp();
+        let theta = 2.0 * std::f64::consts::PI * centre / sample_rate;
+        let peak_norm = (1.0 - 2.0 * r * (2.0 * theta).cos() + r * r).sqrt();
+        let b0 = (1.0 - r) * peak_norm;
+        let rms_out = 0.5774 * (std::f64::consts::PI * bandwidth / sample_rate).sqrt();
+        NoiseResonator {
+            a1: 2.0 * r * theta.cos(),
+            a2: -r * r,
+            gain: b0 / rms_out.max(1e-6),
+            y1: 0.0,
+            y2: 0.0,
+        }
+    }
+
+    #[inline]
+    fn process(&mut self, x: f64) -> f64 {
+        let y = self.gain * x + self.a1 * self.y1 + self.a2 * self.y2;
+        self.y2 = self.y1;
+        self.y1 = y;
+        y
+    }
+}
+
+/// Renders a stopped wooden flue pipe (Gedeckt) into `out`.
+///
+/// The tone is additive: a dominant fundamental plus a weak odd-partial series, each
+/// partial with its own slow amplitude drift so the spectrum is alive instead of a fixed
+/// waveform. On top of that a real pipe has audible wind: a short broadband "spit" at the
+/// onset (scaled by `chiff_scale`), then a quiet breath hiss concentrated around the
+/// pipe resonances (fundamental and third partial).
+pub fn render_stopped_flue(
+    freq: f64,
+    pitch_ratio: f64,
+    sample_rate: u32,
+    out: &mut [f32],
+    sine_lut: &SineLut,
+    wind_mod: &[f32],
+    chiff_scale: f32,
+) {
+    let sr = sample_rate as f64;
+    let f0 = freq * pitch_ratio;
+    if f0 <= 0.0 || out.is_empty() {
+        return;
+    }
+    let nyquist = sr * 0.5;
+    let two_pi = 2.0 * std::f64::consts::PI;
+    let chiff = chiff_scale.max(0.0) as f64;
+
+    // Bass pipes keep a little more upper-partial colour, treble pipes are plainer.
+    let bass_tilt = (1.0 + 0.25 * (261.63 / f0).log2()).clamp(0.7, 1.5);
+
+    // (harmonic, amplitude, onset boost, drift rate, drift depth, drift phase)
+    let mut partials: Vec<(f64, f64, f64, f64, f64, f64)> = Vec::with_capacity(STOPPED_PARTIALS.len());
+    let mut amp_sum = 0.0;
+    for (i, &(k, a, boost, rate, depth)) in STOPPED_PARTIALS.iter().enumerate() {
+        let pf = f0 * k;
+        if pf >= nyquist * 0.9 {
+            continue;
+        }
+        let mut amp = a;
+        if k >= 3.0 {
+            amp *= bass_tilt;
+        }
+        // Soft high-frequency roll-off from the wooden walls and the stopper.
+        amp /= 1.0 + (pf / 3000.0).powi(2);
+        amp_sum += amp;
+        partials.push((k, amp, boost, rate, depth, 0.7 * i as f64 + 0.3));
+    }
+    let norm = 0.8 / amp_sum.max(1e-6);
+
+    let mut breath_low = NoiseResonator::new(f0, f0 * 0.35, sr);
+    let mut breath_high = if f0 * 3.0 < nyquist * 0.9 {
+        Some(NoiseResonator::new(f0 * 3.0, f0 * 0.75, sr))
+    } else {
+        None
+    };
+
+    // Deterministic noise so that the same pitch always renders the same tone.
+    let mut rng: u32 = ((f0 * 100.0) as u32) ^ 0x9E37_79B9;
+    if rng == 0 {
+        rng = 1;
+    }
+    let mut next_noise = move || -> f64 {
+        rng ^= rng << 13;
+        rng ^= rng >> 17;
+        rng ^= rng << 5;
+        (rng as f64 / u32::MAX as f64) * 2.0 - 1.0
+    };
+
+    let speech = (0.6 + 2.0 * chiff).clamp(0.0, 1.6);
+    let onset_decay = (-1.0 / (0.070 * sr)).exp();
+    let spit_decay = (-1.0 / (0.045 * sr)).exp();
+    let edge_decay = (-1.0 / (0.018 * sr)).exp();
+    let spit_level = 0.05 + 0.30 * chiff;
+    let edge_level = 0.02 + 0.12 * chiff;
+    let hiss_level = 0.012;
+
+    let step = f0 / sr;
+    let mut phase = 0.0f64;
+    let mut onset_env = 1.0f64;
+    let mut spit_env = 1.0f64;
+    let mut edge_env = 1.0f64;
+    let mut prev_white = 0.0f64;
+
+    for (i, sample) in out.iter_mut().enumerate() {
+        let t = i as f64 / sr;
+        let wind = if i < wind_mod.len() { wind_mod[i] as f64 } else { 0.0 };
+
+        let mut tone = 0.0f64;
+        for &(k, amp, boost, rate, depth, lfo_phase) in &partials {
+            let drift = 1.0 + depth * sine_lut.sin(two_pi * rate * t + lfo_phase) as f64;
+            let speak = 1.0 + boost * speech * onset_env;
+            tone += amp * speak * drift * sine_lut.sin(two_pi * k * phase) as f64;
+        }
+
+        let white = next_noise();
+        let mut breath = 0.7 * breath_low.process(white);
+        if let Some(res) = breath_high.as_mut() {
+            breath += 0.5 * res.process(white);
+        }
+        let edge = (white - prev_white) * edge_level * edge_env;
+        prev_white = white;
+        let noise = breath * (hiss_level + spit_level * spit_env) + edge;
+
+        *sample += (norm * tone + noise) as f32;
+
+        phase = (phase + step * (1.0 + wind * 0.002)).fract();
+        onset_env *= onset_decay;
+        spit_env *= spit_decay;
+        edge_env *= edge_decay;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Goertzel-style magnitude of `freq` over `x` (amplitude units).
+    fn tone_magnitude(x: &[f32], freq: f64, sample_rate: f64) -> f64 {
+        let (mut re, mut im) = (0.0f64, 0.0f64);
+        for (n, &s) in x.iter().enumerate() {
+            let a = 2.0 * std::f64::consts::PI * freq * n as f64 / sample_rate;
+            re += s as f64 * a.cos();
+            im -= s as f64 * a.sin();
+        }
+        2.0 * (re * re + im * im).sqrt() / x.len() as f64
+    }
+
+    #[test]
+    fn test_gedeckt_stopped_pipe_spectrum() {
+        // 441 Hz at 44.1 kHz is exactly 100 samples per period, so the analysis window of
+        // 10,000 samples holds a whole number of cycles of every harmonic.
+        let sine_lut = SineLut::new();
+        let wind = vec![0.0f32; 22050];
+        let mut out = vec![0.0f32; 22050];
+        render_stop_into(17, 441.0, 44100, &mut out, &sine_lut, &wind, 0.2);
+
+        assert!(out.iter().all(|s| s.is_finite()));
+        let peak = out.iter().fold(0.0f32, |m, v| m.max(v.abs()));
+        assert!(peak < 1.5, "Onset peak must stay bounded, got {peak}");
+        let steady_peak = out[11025..].iter().fold(0.0f32, |m, v| m.max(v.abs()));
+        assert!(steady_peak < 1.0, "Steady-state peak must leave headroom, got {steady_peak}");
+
+        let window = &out[11025..21025];
+        let m1 = tone_magnitude(window, 441.0, 44100.0);
+        let m2 = tone_magnitude(window, 882.0, 44100.0);
+        let m3 = tone_magnitude(window, 1323.0, 44100.0);
+        let m4 = tone_magnitude(window, 1764.0, 44100.0);
+        let m5 = tone_magnitude(window, 2205.0, 44100.0);
+
+        assert!(m1 > 5.0 * m3, "Fundamental must dominate: m1={m1}, m3={m3}");
+        assert!(m3 > 0.08 * m1, "Third partial must be audible: m1={m1}, m3={m3}");
+        assert!(m3 > 3.0 * m2.max(m4), "Odd partials must dominate even ones: m2={m2}, m3={m3}, m4={m4}");
+        assert!(m3 > m5, "Partials must fall away with height: m3={m3}, m5={m5}");
+    }
+
+    #[test]
+    fn test_gedeckt_16_foot_sounds_an_octave_below_key() {
+        // Key frequency 882 Hz; the 16' rank must sound its fundamental at 441 Hz.
+        let sine_lut = SineLut::new();
+        let wind = vec![0.0f32; 22050];
+        let mut out = vec![0.0f32; 22050];
+        render_stop_into(19, 882.0, 44100, &mut out, &sine_lut, &wind, 0.2);
+
+        let window = &out[11025..21025];
+        let sounding = tone_magnitude(window, 441.0, 44100.0);
+        let at_key = tone_magnitude(window, 882.0, 44100.0);
+        assert!(sounding > 15.0 * at_key, "16' fundamental must be at half the key pitch: {sounding} vs {at_key}");
+    }
+
+    #[test]
+    fn test_gedeckt_all_footages_render_finite_across_compass() {
+        let sine_lut = SineLut::new();
+        let wind = vec![0.0f32; 4410];
+        for id in 17..=20 {
+            for &f in &[16.35, 65.41, 261.63, 1046.5, 4186.0] {
+                let mut out = vec![0.0f32; 4410];
+                render_stop_into(id, f, 44100, &mut out, &sine_lut, &wind, 0.2);
+                assert!(out.iter().all(|s| s.is_finite() && s.abs() < 2.0), "stop {id} at {f} Hz");
+                assert!(out.iter().any(|s| s.abs() > 1e-4), "stop {id} at {f} Hz must not be silent");
+            }
+        }
+    }
 
     #[test]
     fn test_diapason_8_harmonic_registry_structure() {
