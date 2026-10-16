@@ -77,6 +77,7 @@ pub const STOPS: &[StopInfo] = &[
     StopInfo { name: "Gedeckt 4'", id: 18 },
     StopInfo { name: "Gedeckt 16'", id: 19 },
     StopInfo { name: "Gedeckt 32'", id: 20 },
+    StopInfo { name: "Gedeckt 2'", id: 31 },
     StopInfo { name: "Cymbale Mixture", id: 21 },
     StopInfo { name: "Plein Jeu Mixture", id: 22 },
     StopInfo { name: "Scharf Mixture", id: 23 },

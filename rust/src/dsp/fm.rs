@@ -80,8 +80,8 @@ impl FmOperator {
 
         for (i, sample) in out.iter_mut().enumerate() {
             let wind = if i < wind_mod.len() { wind_mod[i] as f64 } else { 0.0 };
-            let c_step = c_step_base * (1.0 + wind * 0.002);
-            let m_step = m_step_base * (1.0 + wind * 0.002);
+            let c_step = c_step_base * (1.0 + wind);
+            let m_step = m_step_base * (1.0 + wind);
 
             let rise = if i < rise_samples {
                 i as f64 / rise_samples as f64

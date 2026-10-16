@@ -75,8 +75,10 @@ impl Wavetable {
 
             let amp_scaled = (amp as f32) * damp * formant_gain * scale_damp;
             let step = factor * 2.0 * std::f64::consts::PI / TABLE_SIZE as f64;
+            // Disperse harmonic phase angles to avoid synthetic phase-0 impulse spikes
+            let phase_offset = (factor * 2.39996).sin() * std::f64::consts::PI;
             for i in 0..TABLE_SIZE {
-                let p = i as f64 * step;
+                let p = i as f64 * step + phase_offset;
                 wave[i] += amp_scaled * (p.sin() as f32);
             }
         }

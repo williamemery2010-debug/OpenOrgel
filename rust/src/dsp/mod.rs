@@ -33,6 +33,70 @@ pub fn clear_engine_cache() {
     // Allocation-free RAM buffers require no cache flush
 }
 
+/// Peak fractional frequency deviation of each wind component.
+/// A deviation of 0.001 equals 1.73 cents (1200 * log2(1.001)).
+const WIND_RESERVOIR_DEPTH: f64 = 0.0006; // shared bellows/reservoir sway, about 1.0 cent
+const WIND_PIPE_DEPTH: f64 = 0.0005; // periodic flutter of this pipe, about 0.9 cent
+const WIND_TURBULENCE_DEPTH: f64 = 0.0006; // random turbulence of this pipe, about 1.0 cent
+
+/// Builds the wind-pressure pitch modulation for one pipe (one stop at one pitch).
+///
+/// The returned values are fractional frequency deviations: renderers multiply their
+/// phase increment by `1.0 + wind[i]` directly. Three components are summed:
+/// 1. Reservoir sway at 0.9 Hz, identical for every pipe (all pipes share the bellows).
+/// 2. A periodic flutter whose rate (1.1 to 2.3 Hz) and phase depend on the pipe.
+/// 3. Smoothed random turbulence: random values every 1/7 s joined by raised-cosine
+///    interpolation, so the wobble never repeats exactly.
+///
+/// The pipe identity (pitch and stop id) seeds a SplitMix64 generator, so the result is
+/// deterministic for a given pipe but decorrelated between notes of a chord and between
+/// ranks on the same note. Peak deviation is about 0.0017 (about 3 cents).
+pub fn pipe_wind_modulation(
+    freq: f64,
+    stop_id: i32,
+    num_samples: usize,
+    sample_rate: u32,
+    sine_lut: &SineLut,
+) -> Vec<f32> {
+    let sr = sample_rate as f64;
+    let two_pi = 2.0 * std::f64::consts::PI;
+
+    let mut state = ((freq * 100.0).round() as i64 as u64)
+        ^ (stop_id as i64 as u64).wrapping_add(1).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+    let mut next_unit = move || -> f64 {
+        // SplitMix64: returns a uniform value in [0, 1).
+        state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^= z >> 31;
+        (z >> 11) as f64 / (1u64 << 53) as f64
+    };
+
+    let pipe_rate = 1.1 + 1.2 * next_unit();
+    let pipe_phase = two_pi * next_unit();
+
+    const KNOT_RATE: f64 = 7.0;
+    let knot_count = (num_samples as f64 / sr * KNOT_RATE).ceil() as usize + 2;
+    let knots: Vec<f64> = (0..knot_count).map(|_| 2.0 * next_unit() - 1.0).collect();
+
+    let mut wind = vec![0.0f32; num_samples];
+    for (n, w) in wind.iter_mut().enumerate() {
+        let t = n as f64 / sr;
+        let reservoir = WIND_RESERVOIR_DEPTH * sine_lut.sin(two_pi * 0.9 * t + 0.5) as f64;
+        let flutter = WIND_PIPE_DEPTH * sine_lut.sin(two_pi * pipe_rate * t + pipe_phase) as f64;
+
+        let kpos = t * KNOT_RATE;
+        let k = kpos as usize;
+        let frac = kpos - k as f64;
+        let blend = 0.5 - 0.5 * (std::f64::consts::PI * frac).cos();
+        let turbulence = WIND_TURBULENCE_DEPTH * (knots[k] * (1.0 - blend) + knots[k + 1] * blend);
+
+        *w = (reservoir + flutter + turbulence) as f32;
+    }
+    wind
+}
+
 /// Generates raw audio samples for a given pitch, duration, registration, and chiff volume.
 /// Automatically balances chiff across active stops to prevent transient multiplication.
 pub fn generate_tone(
@@ -55,19 +119,10 @@ pub fn generate_tone(
     let stop_norm = 1.0 / num_stops.sqrt();
     let effective_chiff = (chiff_volume * stop_norm).clamp(0.0, 1.5);
 
-    // Pre-calculate pipe wind modulation & aerodynamic turbulence
-    let mut wind_mod = vec![0.0f32; num_samples];
-    let sample_rate_f = sample_rate as f64;
-    for (n, w) in wind_mod.iter_mut().enumerate() {
-        let t = n as f64 / sample_rate_f;
-        let wobble = 0.0015 * sine_lut.sin(0.7 * 2.0 * std::f64::consts::PI * t + 0.5)
-            + 0.0010 * sine_lut.sin(1.3 * 2.0 * std::f64::consts::PI * t + 1.2)
-            + 0.0008 * sine_lut.sin(2.8 * 2.0 * std::f64::consts::PI * t + 2.3);
-        *w = wobble;
-    }
-
-    // Render every active stop directly into the accumulator with calibrated chiff
+    // Render every active stop directly into the accumulator with calibrated chiff.
+    // Each stop is a separate rank of pipes, so each gets its own wind modulation.
     for &id in stop_ids {
+        let wind_mod = pipe_wind_modulation(freq, id, num_samples, sample_rate, sine_lut);
         render_stop_into(id, freq, sample_rate, &mut out, sine_lut, &wind_mod, effective_chiff);
     }
 
@@ -110,5 +165,36 @@ mod tests {
         for s in &tone_zero_chiff {
             assert!(!s.is_nan() && !s.is_infinite());
         }
+    }
+
+    #[test]
+    fn test_wind_flutter_is_audible_and_decorrelated_per_pipe() {
+        let lut = SineLut::new();
+        let n = 44100 * 3;
+        let a = pipe_wind_modulation(440.0, 11, n, 44100, &lut);
+        let b = pipe_wind_modulation(440.0, 7, n, 44100, &lut); // other rank, same note
+        let c = pipe_wind_modulation(466.16, 11, n, 44100, &lut); // same rank, next note
+
+        // Peak pitch deviation in cents must be audible but stay in tune.
+        let peak = a.iter().fold(0.0f64, |m, &v| m.max((v as f64).abs()));
+        let peak_cents = 1200.0 * (1.0 + peak).log2();
+        assert!(peak_cents > 1.5 && peak_cents < 5.0, "peak wind deviation {peak_cents} cents");
+
+        // Deterministic for the same pipe.
+        assert_eq!(a, pipe_wind_modulation(440.0, 11, n, 44100, &lut));
+
+        let corr = |x: &[f32], y: &[f32]| -> f64 {
+            let (mut sxy, mut sxx, mut syy) = (0.0f64, 0.0f64, 0.0f64);
+            for (&p, &q) in x.iter().zip(y.iter()) {
+                sxy += p as f64 * q as f64;
+                sxx += p as f64 * p as f64;
+                syy += q as f64 * q as f64;
+            }
+            sxy / (sxx * syy).sqrt()
+        };
+        let r_ab = corr(&a, &b);
+        let r_ac = corr(&a, &c);
+        assert!(r_ab.abs() < 0.8, "ranks on one note must not wobble together: r={r_ab}");
+        assert!(r_ac.abs() < 0.8, "notes of a chord must not wobble together: r={r_ac}");
     }
 }

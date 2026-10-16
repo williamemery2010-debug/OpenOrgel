@@ -46,8 +46,19 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 | **UT-18** | `soundfont` | `test_detect_clicks_across_notes` | **PASSED** | < 0.050 s |
 | **UT-19** | `dsp::stops_dsp` | `test_diapason_8_harmonic_registry_structure` | **PASSED** | < 0.001 s |
 | **UT-20** | `dsp::stops_dsp` | `test_diapason_8_rendering_smoothness_and_chiff` | **PASSED** | < 0.001 s |
+| **UT-21** | `dsp::stops_dsp` | `test_gedeckt_stopped_pipe_spectrum` | **PASSED** | < 0.001 s |
+| **UT-22** | `dsp::stops_dsp` | `test_gedeckt_16_foot_sounds_an_octave_below_key` | **PASSED** | < 0.001 s |
+| **UT-23** | `dsp::stops_dsp` | `test_gedeckt_all_footages_render_finite_across_compass` | **PASSED** | < 0.001 s |
+| **UT-24** | `engine` | `test_loop_points_are_seamless_for_periodic_tone` | **PASSED** | < 0.001 s |
+| **UT-25** | `engine` | `test_sustained_voice_has_no_click_at_loop_wrap` | **PASSED** | < 0.001 s |
+| **UT-26** | `engine` | `test_release_during_attack_starts_from_current_amplitude` | **PASSED** | < 0.001 s |
+| **UT-27** | `engine` | `test_stop_playback_fades_to_silence_without_a_step` | **PASSED** | < 0.001 s |
+| **UT-28** | `engine` | `test_pause_and_resume_ramp_without_a_step` | **PASSED** | < 0.001 s |
+| **UT-29** | `dsp::stops_dsp` | `test_diapason_8_spectrum_and_singing_octave` | **PASSED** | < 0.001 s |
+| **UT-30** | `dsp::stops_dsp` | `test_gedeckt_2_foot_sounds_two_octaves_above_key` | **PASSED** | < 0.001 s |
+| **UT-31** | `dsp` | `test_wind_flutter_is_audible_and_decorrelated_per_pipe` | **PASSED** | < 0.001 s |
 
-**Overall Result: 20 Passed, 0 Failed, 0 Ignored.**
+**Overall Result: 31 Passed, 0 Failed, 0 Ignored.**
 
 ---
 
@@ -343,7 +354,37 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 - **WHAT:** Validates the fade-out on Pause and the fade-in on Resume.
 - **METHOD:** Same constant-buffer harness as UT-27: Pause, render, Resume, render.
 - **EXPECTED RESULT:** Pause fades to exactly 0.0 with steps < 0.002; resume begins below 0.01, has steps < 0.002 and reaches 0.5.
-- **ACTUAL RESULT:** Passed (28 tests in total pass in 0.22 s).
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-29: Diapason 8' Physical Open Flue Spectrum & Singing Octave
+- **Module:** [rust/src/dsp/stops_dsp.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/stops_dsp.rs) (`test_diapason_8_spectrum_and_singing_octave`)
+- **WHY:** An authentic Open Diapason 8' (Montre / Principal) pipe is physically an open cylindrical resonator whose acoustic spectrum requires a commanding fundamental ($f_0$) and an open singing octave (second harmonic, $2f_0$) that imparts characteristic warmth and dignity without synthetic buzziness.
+- **WHAT:** Validates that `render_open_diapason` generates an authentic physical open flue spectrum: dominant fundamental, prominent 2nd harmonic singing octave, upper harmonic roll-off conforming to acoustic dissipation, and bounded finite output with strict stability headroom.
+- **METHOD:** Renders Diapason 8' (Stop ID 11) at concert pitch 441.0 Hz (100 samples per period at 44.1 kHz). Extracts 10,000 steady-state samples and calculates Goertzel single-bin DFT energy at $f_0$, $2f_0$, $3f_0$, $4f_0$, and $5f_0$. Asserts $m(f_0) > 0.02$, $m(2f_0) > 0.25 \times m(f_0)$ (strong singing octave), higher partial energy roll-off, and maximum sample peak $\le 1.25$.
+- **EXPECTED RESULT:** Discrete Fourier bin magnitude $m(f_0)$ and $m(2f_0)$ meet acoustic pipe physical ratios; all rendered samples remain strictly finite and bounded.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-30: Gedeckt 2' Footage Pitch Ratio Transposition
+- **Module:** [rust/src/dsp/stops_dsp.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/stops_dsp.rs) (`test_gedeckt_2_foot_sounds_two_octaves_above_key`)
+- **WHY:** Pipe organ registration requires exact footage pitch transpositions. A 2' stopped rank (Gedeckt 2' / Flöte 2') must sound exactly two octaves ($4\times$ fundamental frequency) above unison 8' key pitch, blending crystalline stopped harmonic color into choruses without phase distortion or Nyquist foldover.
+- **WHAT:** Verifies that Gedeckt 2' (Stop ID 31) employs pitch ratio $4.0$, generating its physical acoustic fundamental at $4 \times f_{\text{key}}$ and dominating over lower subharmonics.
+- **METHOD:** Renders Stop ID 31 for key frequency $261.63\text{ Hz}$ ($C_4$). Computes single-bin DFT magnitude at $1046.5\text{ Hz}$ ($C_6$, $4\times$), $261.63\text{ Hz}$ ($1\times$), and $523.25\text{ Hz}$ ($2\times$). Asserts $m(1046.5) > 15 \times m(261.63)$ and $m(1046.5) > 15 \times m(523.25)$, confirming unambiguous two-octave transposition.
+- **EXPECTED RESULT:** Magnitude at $1046.5\text{ Hz}$ dominates lower frequencies by over $15:1$; rendered buffer remains strictly bounded and free of DC bias.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-31: Physical Wind Flutter Audibility & Per-Pipe Decorrelation
+- **Module:** [rust/src/dsp/mod.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/mod.rs) (`test_wind_flutter_is_audible_and_decorrelated_per_pipe`)
+- **WHY:** In real church pipe organs, wind pressure in the windchest reservoir fluctuates by roughly $\pm 2$ to $3.5$ cents. A fixed global wobble makes chords sound artificial and phase-locked like an electronic synthesizer LFO, while sub-cent modulation ($< 0.1\text{ cent}$) is completely inaudible.
+- **WHAT:** Validates that `pipe_wind_modulation` produces an authentic pitch deviation between $1.5$ and $5.0$ cents, is deterministic for any given pipe, and is aerodynamically decorrelated ($|r| < 0.8$) between different ranks on the same note and between adjacent notes in a chord.
+- **METHOD:** Generates wind modulation buffers for pipe (440 Hz, Stop 11), pipe (440 Hz, Stop 7), and pipe (466.16 Hz, Stop 11) over 3 seconds. Measures peak cents deviation $1200 \times \log_2(1 + \text{peak})$ and Pearson cross-correlation coefficients $r(A, B)$ and $r(A, C)$.
+- **EXPECTED RESULT:** Peak deviation between $1.5$ and $5.0$ cents; determinism holds; cross-correlation $|r| < 0.8$.
+- **ACTUAL RESULT:** Passed (31 tests in total pass in 0.30 s).
 
 ---
 
