@@ -128,9 +128,11 @@ pub fn generate_tone(
     }
 
     // Warm Cathedral Low-Shelf Bass & Low-Mid Foundation EQ:
-    // Applies a two-band low-pass shelf (sub-bass/bass below 240 Hz + warm chest body below 440 Hz)
-    // plus sub-bass pitch scaling so Diapason and Full Organ registrations have deep, commanding weight.
-    apply_bass_warmth_eq(&mut out, freq, sample_rate);
+    // Applied to foundation, principal, chorus, and reed stops; bypassed when only delicate
+    // airy 8' flutes (40..=44) are drawn so their high-frequency wind-jet breath stays light and airy.
+    if stop_ids.iter().any(|&id| !(40..=44).contains(&id)) {
+        apply_bass_warmth_eq(&mut out, freq, sample_rate);
+    }
 
     out
 }

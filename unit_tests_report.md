@@ -500,12 +500,18 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 
 ---
 
-### UT-42: Soft Flutey 8' Stops Warm Velvety Spectrum
+### UT-42: Distinct Airy 8' Flute Stops & Bold Open-Metal Diapason 8' Principal Contrast
 - **Module:** [rust/src/dsp/stops_dsp.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/stops_dsp.rs) (`test_soft_flute_8_stops_warm_velvety_spectrum`)
-- **WHY:** To provide warm, gentle 8' flute stops (`Harmonic Flute 8'` ID 40, `Hohlflöte 8'` ID 41, `Melodia 8'` ID 42, `Flauto Dolce 8'` ID 43, and `Rohrflöte 8'` ID 44), each stop must exhibit a fundamental-dominated spectrum with lush low-mid warmth, anti-nasal voicing, and silky high-frequency roll-off.
-- **WHAT:** Validates that all 5 soft 8' flute stops render finite waveforms with strong fundamental presence ($m_1 > 0.10$), fundamental dominance over the octave ($m_1 > 1.5 m_2$), and steep attenuation of high harmonics ($m_1 > 30 m_8$).
-- **METHOD:** Renders 22,050 samples of Stop IDs 40–44 at $441.0\text{ Hz}$ and computes Goertzel DFT magnitudes at $f_0$, $2f_0$, and $8f_0$.
-- **EXPECTED RESULT:** $m_1 > 0.10$, $m_1 > 1.5 m_2$, and $m_1 > 30 m_8$ for all 5 stops.
+- **WHY:** The 5 airy 8' flute stops (`Harmonic Flute 8'` ID 40, `Hohlflöte 8'` ID 41, `Melodia 8'` ID 42, `Flauto Dolce 8'` ID 43, and `Rohrflöte 8'` ID 44) must each possess a distinct organological harmonic architecture and prominent laminar wind-jet breath air (rather than sounding identical or "too whole"), while `Diapason 8'` (ID 11) must project a bold, commanding Principal harmonic chorus far stronger than `Rohrflöte 8'`.
+- **WHAT:** Validates that:
+  1. All 5 airy 8' flutes (`40..=44`) render finite waveforms with airy fundamentals ($m_1 > 0.08$).
+  2. `Harmonic Flute 8'` (40) exhibits an overblown 2nd-harmonic node ($m_2 > 0.65 m_1$).
+  3. `Hohlflöte 8'` (41) exhibits a hollow odd-harmonic wooden spectrum ($m_3 > 4.0 m_2$).
+  4. `Melodia 8'` (42) exhibits a pure even-harmonic open-wood spectrum ($m_2 > 8.0 m_3$).
+  5. `Rohrflöte 8'` (44) exhibits a prominent open-chimney 5th harmonic ($m_5 > 1.2 m_3$ and $m_5 > 5.0 m_2$).
+  6. `Diapason 8'` (11) produces more than $2.2\times$ the upper Principal chorus harmonic energy ($m_2 + m_3 + m_4$) of `Rohrflöte 8'` (44).
+- **METHOD:** Renders 22,050 samples of Stop IDs 11 and 40–44 at $441.0\text{ Hz}$ and evaluates Goertzel DFT magnitudes at $f_0, 2f_0, 3f_0, 4f_0, 5f_0$.
+- **EXPECTED RESULT:** All harmonic ratio invariants hold ($m_2 > 0.65 m_1$ for ID 40, $m_3 > 4.0 m_2$ for ID 41, $m_2 > 8.0 m_3$ for ID 42, $m_5 > 1.2 m_3$ for ID 44, and $d_{\text{upper}} > 2.2 r_{\text{upper}}$ for ID 11 vs ID 44).
 - **ACTUAL RESULT:** Passed.
 
 ---

@@ -661,3 +661,35 @@ PHASE 28: OPEN WARM ANTI-NASAL DIAPASON 8', DEEP SUB-BASS & MIDRANGE EQ, BOURDON
 
 
 
+--------------------------------------------------------------------------------
+PHASE 29: BOLD OPEN-METAL DIAPASON 8' PRINCIPAL CROWN & DISTINCT AIRY WIND-JET 8' FLUTES (October 27, 2026 - Prealpha_v2.0.16)
+--------------------------------------------------------------------------------
+* October 27, 2026:
+  - WHAT:
+    1. Bold Open-Metal Principal Revoicing of Diapason 8' (DIAPASON_PARTIALS, stop_registration_weight & render_open_diapason in rust/src/dsp/stops_dsp.rs):
+       - Restored commanding Principal output authority (norm increased from 0.58 to 0.85; stop_registration_weight(11) increased to 1.46) so Diapason 8' leads the Great Organ as a true Open Metal Principal rather than sounding soft or muted like a Rohrflöte.
+       - Expanded DIAPASON_PARTIALS from 10 to 14 spotted-metal Principal harmonics with assertive 2nd (0.720), 3rd (0.360), 4th (0.290), 5th (0.175), 6th (0.130), 7th (0.082), and 8th (0.062) partials plus 2nd-harmonic octave speech bloom (onset_boost = 0.18).
+       - Added an Open Spotted-Metal Principal Crown Formant centered at 2100 Hz (+42%) and extended upper wall radiation from 3300 Hz to 5800 Hz alongside a 1.2-3.2 kHz metallic labium wind-sheet resonator, while preserving the 150 Hz bass chest, 340 Hz midrange warmth, and 900 Hz anti-nasal dip (-16%).
+    2. 3-Stage Physical Flute Wind-Jet Air Engine & Distinct Organological Voicings for the 5 Airy 8' Flutes (render_soft_flute in rust/src/dsp/stops_dsp.rs & generate_tone in rust/src/dsp/mod.rs):
+       - Bypassed the heavy cathedral sub-bass EQ (apply_bass_warmth_eq) when only the delicate airy 8' flute stops (40..=44) are drawn so their fundamentals are never bloated into heavy, solid organ tones.
+       - Replaced the single low-frequency noise filter (0.007 gain at f0) in render_soft_flute with a 3-stage Physical Flute Wind-Jet Air Engine:
+         a) First-order high-passed laminar wind-sheet turbulence (y[n] = x[n] - 0.72*x[n-1]) fed through a high-frequency lip-sheet resonator (1.65-3.30 kHz, hiss_lvl = 0.16..0.23, spit_lvl = 0.26..0.36).
+         b) Pipe-specific harmonic cavity/chimney/node whisper resonator (2*f0, 3*f0, or 5*f0).
+         c) Acoustic vortex-shedding wind-sheet modulation (1.0 + jet_mod * sin(2*pi*phase + pi/2)) and pre-tone breathy onset chiff (air envelope rises 4x faster than the harmonic tone envelope).
+       - Differentiated each of the 5 flute stops with authentic pipe physics:
+         * Harmonic Flute 8' (ID 40): Double-length overblown silver concert flute with dominant 2nd harmonic (0.72 vs 0.78 fundamental), 4.8 Hz breath vibrato, octave overblow bloom, and 2850 Hz silver jet air.
+         * Hohlflöte 8' (ID 41): Wide triangular hollow wood flute with strongly suppressed even harmonics (2f0 = 0.06, 4f0 = 0.02) and prominent hollow odd harmonics (3f0 = 0.52, 5f0 = 0.18) plus 3*f0 wooden "kuh" attack.
+         * Melodia 8' (ID 42): Romantic inverted-mouth open wood flute with pure even-harmonic sweetness (2f0 = 0.56, 4f0 = 0.22) and deeply suppressed odd harmonics (3f0 = 0.03), slow 42 ms cushioned bloom, and -4.2 cent pitch scoop.
+         * Flauto Dolce 8' (ID 43): Whisper-soft inverted-conical Dolcan chamber flute (gain = 0.35) with a twin-pipe +0.55 Hz Unda-Maris companion shimmer and a prominent 3300 Hz silky air veil (hiss_lvl = 0.23).
+         * Rohrflöte 8' (ID 44): Metal chimney flute with stopped body (2f0 = 0.04, 4f0 = 0.02) + open chimney tube resonating the 5th harmonic (5f0 = 0.46 > 3f0 = 0.24) and 7th harmonic (0.14), plus 3100 Hz chimney whistle chiff.
+  - WHY:
+    1. The creator noted: "okay no the diapason is too soft and close to a rohrflute also all the new flutey things sound way too similar and too whole they are supposed to be AIRY".
+    2. In v2.0.15, Diapason 8' had its normalized gain reduced to 0.58, its 3rd-10th partials heavily attenuated, and its cutoff lowered to 3300 Hz while boosting the fundamental by 1.85x, which made it >90% fundamental with muted upper partials — acoustically resembling a soft Rohrflöte rather than a commanding Open Metal Principal.
+    3. Meanwhile, all 5 new 8' flutes in v2.0.15 had nearly identical harmonic decay curves, an inaudible breath level (0.007 * 0.54 = 0.0038 filtered only at f0 with zero high-frequency wind-sheet air), and were passed through the heavy sub-bass shelf EQ, making them sound solid, heavy ("too whole"), and nearly indistinguishable.
+  - HOW:
+    1. rust/src/dsp/stops_dsp.rs:
+       - Updated DIAPASON_PARTIALS (14 harmonics), stop_registration_weight, render_open_diapason, render_soft_flute, and UT-42 (test_soft_flute_8_stops_warm_velvety_spectrum).
+    2. rust/src/dsp/mod.rs:
+       - Updated generate_tone to bypass apply_bass_warmth_eq when only airy flute stops (40..=44) are active.
+================================================================================
+

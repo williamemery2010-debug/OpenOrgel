@@ -1,9 +1,9 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-26 22:05:01
-Total Commits  : 99
-Total Releases : 35
+Updated At     : 2026-10-27 10:38:33
+Total Commits  : 100
+Total Releases : 36
 ================================================================================
 
 🚀 RELEASES / TAGS
@@ -22,6 +22,11 @@ Version : Prealpha_v2.0.14
 Date    : 2026-10-26
 Commit  : a0ded5c
 Details : Prealpha_v2.0.14: Sympathetic Cathedral Diapason 8', warm low-shelf bass EQ, and Full Organ foundation weighting
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.15
+Date    : 2026-10-26
+Commit  : ff007d9
+Details : Prealpha_v2.0.15: Open warm Diapason 8', deep sub-bass/midrange EQ, Bourdon 16'/32' & new 16' ranks, soft 8' flutes, and real-time Dynamics slider
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.11
 Date    : 2026-10-16
@@ -193,7 +198,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-73ba8da  | 2026-10-26 | williamemery2010-deb | Prealpha_v2.0.15: Open warm anti-nasal Diapason 8', deep low-low sub-bass & midrange EQ, Bourdon 16'/32', 5 new 16' ranks, 5 soft 8' flutes & Dynamics slider
+0d5b5a7  | 2026-10-27 | williamemery2010-deb | Prealpha_v2.0.16: Bold open-metal Diapason 8' Principal crown & distinct airy wind-jet 8' flutes
+ff007d9  | 2026-10-26 | williamemery2010-deb | Prealpha_v2.0.15: Open warm anti-nasal Diapason 8', deep low-low sub-bass & midrange EQ, Bourdon 16'/32', 5 new 16' ranks, 5 soft 8' flutes & Dynamics slider
 a0ded5c  | 2026-10-26 | williamemery2010-deb | Prealpha_v2.0.14: Revoice Diapason 8' with sympathetic chest body, add warm low-shelf bass EQ & Full Organ foundation weighting
 6e628cd  | 2026-10-26 | williamemery2010-deb | Prealpha_v2.0.13: Rework Clarinet cylindrical odd-harmonic woodwind & Voix Celeste 8' dual-flue undulation; add 4-rank Cathedral Principal Chorus stop
 1085f5e  | 2026-10-26 | williamemery2010-deb | docs: sync history and releases for Prealpha_v2.0.12
