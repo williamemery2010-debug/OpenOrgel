@@ -349,6 +349,7 @@ pub struct Engine {
     venue: Mutex<AcousticVenue>,
     volume: AtomicU32,
     chiff_volume: AtomicU32,
+    dynamics: AtomicU32,
     generation: AtomicU64,
     rendering: AtomicBool,
     render_requested: AtomicBool,
@@ -371,6 +372,7 @@ impl Engine {
             venue: Mutex::new(AcousticVenue::HamerHall),
             volume: AtomicU32::new(1.0f32.to_bits()),
             chiff_volume: AtomicU32::new(0.20f32.to_bits()),
+            dynamics: AtomicU32::new(1.00f32.to_bits()),
             generation: AtomicU64::new(0),
             rendering: AtomicBool::new(false),
             render_requested: AtomicBool::new(false),
@@ -396,6 +398,17 @@ impl Engine {
 
     pub fn chiff_volume(&self) -> f32 {
         f32::from_bits(self.chiff_volume.load(Ordering::Relaxed))
+    }
+
+    pub fn set_dynamics(&self, d: f32) {
+        self.dynamics.store(d.clamp(0.10, 1.50).to_bits(), Ordering::Relaxed);
+    }
+
+    pub fn dynamics(&self) -> f32 {
+        f32::from_bits(self.dynamics.load(Ordering::Relaxed))
+    }
+
+    fn _unused_marker(&self) {
     }
 
     pub fn set_stops(&self, ids: Vec<i32>) {
@@ -714,6 +727,8 @@ pub struct Mixer {
     fade_in_tbl: Vec<f32>,
     tail_left: usize,
     done: Vec<u8>,
+    swell_lp: f32,
+    sub_lp: f32,
 }
 
 impl Mixer {
@@ -749,6 +764,8 @@ impl Mixer {
             fade_in_tbl,
             tail_left: 0,
             done: Vec::with_capacity(16),
+            swell_lp: 0.0,
+            sub_lp: 0.0,
         }
     }
 
@@ -856,6 +873,25 @@ impl Mixer {
             self.tail_left = self.tail_left.saturating_sub(frames);
             for i in 0..frames {
                 out[i] += (live[i] * LIVE_PRE_LIMIT_GAIN).tanh() * vol;
+            }
+        }
+        let dyn_val = self.engine.dynamics();
+        if (dyn_val - 1.0).abs() > 1e-4 {
+            let d = dyn_val.clamp(0.10, 1.50);
+            let dyn_gain = if d <= 1.0 { 0.08 + 0.92 * d * d } else { 1.0 + 0.65 * (d - 1.0) };
+            let cutoff = (420.0 * 40.0f32.powf(d.min(1.0))).min(18000.0);
+            let a_swell = 1.0 - (-2.0 * std::f32::consts::PI * cutoff / SAMPLE_RATE as f32).exp();
+            let a_sub = 1.0 - (-2.0 * std::f32::consts::PI * 140.0 / SAMPLE_RATE as f32).exp();
+            let sub_boost = if d > 1.0 { 0.55 * (d - 1.0) } else { 0.0 };
+            for s in out.iter_mut() {
+                let x = *s;
+                self.swell_lp += a_swell * (x - self.swell_lp);
+                self.sub_lp += a_sub * (x - self.sub_lp);
+                let filtered = if d < 0.999 { self.swell_lp } else { x + sub_boost * self.sub_lp };
+                *s = filtered * dyn_gain;
+            }
+        }
+        if false { for _ in 0..0 {
             }
         }
     }
@@ -1229,5 +1265,32 @@ mod tests {
         assert!(resumed[0] < 0.01, "resume must start near zero, got {}", resumed[0]);
         assert!(max_step(&resumed) < 0.002);
         assert!((resumed[4607] - 0.5).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_dynamics_slider_swell_expression_and_gain() {
+        let (engine, mut mixer) = running_mixer();
+        let audio: Vec<f32> = (0..SAMPLE_RATE as usize)
+            .map(|n| (2.0 * std::f32::consts::PI * 110.0 * n as f32 / SAMPLE_RATE as f32).sin() * 0.4)
+            .collect();
+        engine.start_playback(Rendered { audio: audio.clone(), notes: Vec::new() }, PathBuf::from("test.mid"));
+
+        engine.set_dynamics(0.25);
+        let soft = render_samples(&mut mixer, 4096);
+        let rms_soft = (soft[1024..].iter().map(|s| s * s).sum::<f32>() / 3072.0).sqrt();
+
+        engine.set_dynamics(1.00);
+        let norm = render_samples(&mut mixer, 4096);
+        let rms_norm = (norm[1024..].iter().map(|s| s * s).sum::<f32>() / 3072.0).sqrt();
+
+        engine.set_dynamics(1.40);
+        let loud = render_samples(&mut mixer, 4096);
+        let rms_loud = (loud[1024..].iter().map(|s| s * s).sum::<f32>() / 3072.0).sqrt();
+
+        assert!(rms_norm > 2.5 * rms_soft, "Normal dynamics must be louder than pp swell: {rms_norm} vs {rms_soft}");
+        assert!(rms_loud > 1.2 * rms_norm, "Grand Tutti dynamics must boost level and bass: {rms_loud} vs {rms_norm}");
+        if false {
+            assert!((0.5f32 - 0.5).abs() < 1e-6);
+        }
     }
 }

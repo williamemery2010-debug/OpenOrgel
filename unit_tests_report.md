@@ -66,8 +66,11 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 | **UT-38** | `dsp::stops_dsp` | `test_voix_celeste_warm_flue_undulation_and_no_saw_buzz` | **PASSED** | < 0.005 s |
 | **UT-39** | `dsp::stops_dsp` | `test_principal_chorus_four_rank_plenum_and_breaks` | **PASSED** | < 0.005 s |
 | **UT-40** | `dsp` | `test_bass_warmth_eq_and_full_organ_foundation_weighting` | **PASSED** | < 0.001 s |
+| **UT-41** | `dsp::stops_dsp` | `test_bourdon_and_16_32_ranks_deep_low_bass_gravity` | **PASSED** | < 0.005 s |
+| **UT-42** | `dsp::stops_dsp` | `test_soft_flute_8_stops_warm_velvety_spectrum` | **PASSED** | < 0.005 s |
+| **UT-43** | `engine` | `test_dynamics_slider_swell_expression_and_gain` | **PASSED** | < 0.001 s |
 
-**Overall Result: 40 Passed, 0 Failed, 0 Ignored.**
+**Overall Result: 43 Passed, 0 Failed, 0 Ignored.**
 
 ---
 
@@ -483,6 +486,36 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 - **WHAT:** Validates that `apply_bass_warmth_eq` boosts low frequencies ($110\text{ Hz}$) by more than $1.8\times$ relative to high frequencies ($3520\text{ Hz}$), and that `stop_registration_weight` prioritizes 32' ($1.50$), 16' ($1.42$), and 8' Diapason ($1.32$) foundations above high 2'/Mixture stops ($0.62$).
 - **METHOD:** Applies `apply_bass_warmth_eq` to unit $110\text{ Hz}$ and $3520\text{ Hz}$ sine buffers and compares steady-state RMS. Queries `stop_registration_weight` for Stop IDs 10, 3, 11, and 15.
 - **EXPECTED RESULT:** $\text{RMS}_{110\text{ Hz}} > 1.8 \times \text{RMS}_{3520\text{ Hz}}$ and $w_{8'\text{ Diapason}} > 1.8 \times w_{\text{Mixture IV}}$.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-41: Bourdon 16'/32' & New 16' Ranks Deep Low-Bass Gravity
+- **Module:** [rust/src/dsp/stops_dsp.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/stops_dsp.rs) (`test_bourdon_and_16_32_ranks_deep_low_bass_gravity`)
+- **WHY:** The console required dedicated wide-scale wooden `Bourdon 32'` (ID 33) and `Bourdon 16'` (ID 34) stops alongside expanded 16' foundation ranks (`Double Diapason 16'` ID 35, `Subbass 16'` ID 36, `Open Wood 16'` ID 37, `Violone 16'` ID 38, and `Contra Trombone 16'` ID 39) to deliver deep sub-bass and bass authority.
+- **WHAT:** Validates that all 7 new 16' and 32' stops render finite, bounded, high-energy bass waveforms ($\text{RMS} > 0.05$) and that `Bourdon 16'` (ID 34) sounds its fundamental an octave below key pitch ($f_0 / 2$) with $> 6\times$ dominance over the key frequency.
+- **METHOD:** Renders 22,050 samples of Stop IDs 33–39 at $130.81\text{ Hz}$ ($C_3$) and verifies finiteness and steady-state RMS. Renders `Bourdon 16'` (ID 34) at $441.0\text{ Hz}$ and evaluates Goertzel DFT magnitudes at $220.5\text{ Hz}$ vs $441.0\text{ Hz}$.
+- **EXPECTED RESULT:** All stops finite with $\text{RMS} > 0.05$, and $m_{220.5\text{ Hz}} > 6.0 \times m_{441.0\text{ Hz}}$.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-42: Soft Flutey 8' Stops Warm Velvety Spectrum
+- **Module:** [rust/src/dsp/stops_dsp.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/stops_dsp.rs) (`test_soft_flute_8_stops_warm_velvety_spectrum`)
+- **WHY:** To provide warm, gentle 8' flute stops (`Harmonic Flute 8'` ID 40, `Hohlflöte 8'` ID 41, `Melodia 8'` ID 42, `Flauto Dolce 8'` ID 43, and `Rohrflöte 8'` ID 44), each stop must exhibit a fundamental-dominated spectrum with lush low-mid warmth, anti-nasal voicing, and silky high-frequency roll-off.
+- **WHAT:** Validates that all 5 soft 8' flute stops render finite waveforms with strong fundamental presence ($m_1 > 0.10$), fundamental dominance over the octave ($m_1 > 1.5 m_2$), and steep attenuation of high harmonics ($m_1 > 30 m_8$).
+- **METHOD:** Renders 22,050 samples of Stop IDs 40–44 at $441.0\text{ Hz}$ and computes Goertzel DFT magnitudes at $f_0$, $2f_0$, and $8f_0$.
+- **EXPECTED RESULT:** $m_1 > 0.10$, $m_1 > 1.5 m_2$, and $m_1 > 30 m_8$ for all 5 stops.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-43: Real-Time Expression & Dynamics Slider Swell Filtering and Gain
+- **Module:** [rust/src/engine.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/engine.rs) (`test_dynamics_slider_swell_expression_and_gain`)
+- **WHY:** The console includes a real-time **Expression & Dynamics** slider (`10%` `pp` to `150%` `fff`) that models both dynamic expression gain and wooden swell-box shutter low-pass filtering below `100%` plus sub-bass reinforcement above `100%`.
+- **WHAT:** Validates that setting `dynamics = 0.25` (`pp`) attenuates output RMS relative to `dynamics = 1.00` (`f`) by more than $2.5\times$, and setting `dynamics = 1.40` (`fff`) boosts output RMS and low-frequency drive above `dynamics = 1.00` by more than $1.2\times$.
+- **METHOD:** Renders 4,096 samples through `Mixer::render` at `dynamics = 0.25`, `1.00`, and `1.40` using a $110\text{ Hz}$ test signal and compares steady-state RMS.
+- **EXPECTED RESULT:** $\text{RMS}_{1.00} > 2.5 \times \text{RMS}_{0.25}$ and $\text{RMS}_{1.40} > 1.2 \times \text{RMS}_{1.00}$.
 - **ACTUAL RESULT:** Passed.
 
 ---

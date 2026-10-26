@@ -625,5 +625,39 @@ PHASE 27: SYMPATHETIC CATHEDRAL DIAPASON 8' REVOICING, WARM LOW-SHELF BASS EQ & 
        - Applied stop_registration_weight in ToneBank::summed_tone and ToneBank::live_tone.
 ================================================================================
 
+--------------------------------------------------------------------------------
+PHASE 28: OPEN WARM ANTI-NASAL DIAPASON 8', DEEP SUB-BASS & MIDRANGE EQ, BOURDON 16'/32' & EXPANDED 16' RANKS, SOFT 8' FLUTES & REAL-TIME DYNAMICS SLIDER (October 26, 2026 - Prealpha_v2.0.15)
+--------------------------------------------------------------------------------
+* October 26, 2026:
+  - WHAT:
+    1. Open, Warm, Non-Nasal Revoicing of Diapason 8' (DIAPASON_PARTIALS & render_open_diapason in rust/src/dsp/stops_dsp.rs):
+       - Reduced the nasal odd harmonics in DIAPASON_PARTIALS (3rd harmonic twelfth reduced from 0.280 to 0.205, 5th harmonic tierce reduced from 0.085 to 0.052) while strengthening the open-pipe 2nd harmonic octave (0.620) and 4th harmonic double-octave (0.170).
+       - Replaced the previous 680 Hz nasal formant and +0.20 Hz beating oscillator (which caused a phase-cancellation comb notch at t = 2.5 s inside the sustain loop) with a deep sub-bass/bass chest resonance (~145 Hz, +42%), an open singing midrange resonance (~330 Hz, +36%), an acoustic anti-nasal scoop (~920 Hz, -18%), and a phase-locked sub-octave wooden windchest coupling (0.5 * f0).
+       - Lowered the upper breath resonator cap from 800 Hz to 460 Hz (1.5 * f0) to eliminate nasal breath whistle.
+    2. Deep Low-Low Sub-Bass & Open Midrange Cathedral Contour EQ (apply_bass_warmth_eq in rust/src/dsp/mod.rs & shaped_amplitude in rust/src/dsp/pipe.rs):
+       - Upgraded apply_bass_warmth_eq to a 4-band contour: 2nd-order 125 Hz low-low sub-bass shelf (+1.10x), 240 Hz warm bass shelf (+0.58x), 240-580 Hz open midrange presence band (+0.44x), and 780-1180 Hz anti-nasal scoop (-0.18x), plus sub-bass pitch scaling below 340 Hz (up to 3.1x).
+       - Added sub-240 Hz fundamental and 2nd-harmonic reinforcement in pipe::shaped_amplitude so PhysicalPipe 16'/32' stops retain massive low-end fundamentals after RMS normalization.
+    3. Bourdon 16' & 32' Ranks and Expanded 16' Foundation Ranks (Stop IDs 33-39):
+       - Added Bourdon 32' (ID 33) and Bourdon 16' (ID 34) using StopSynthesisModel::BourdonFlue (render_bourdon_flue) with wide-scale stopped wooden voicing, sub-harmonic/resultant bass gravity, 95 Hz & 240 Hz wooden cavity formants, and 3rd-order 1100 Hz wall damping.
+       - Added Double Diapason 16' (ID 35), Subbass 16' (ID 36), Open Wood 16' (ID 37, StopSynthesisModel::OpenWoodBass / render_open_wood_bass), Violone 16' (ID 38, VOICING_VIOLONE_16), and Contra Trombone 16' (ID 39, VOICING_TROMBONE_16).
+    4. Five New Soft Flutey 8' Stops (Stop IDs 40-44, StopSynthesisModel::SoftFlute / render_soft_flute):
+       - Added Harmonic Flute 8' (ID 40), Hohlflöte 8' (ID 41), Melodia 8' (ID 42), Flauto Dolce 8' (ID 43), and Rohrflöte 8' (ID 44) to the 8' Ranks column, each with bespoke harmonic tables, warm 280-360 Hz midrange formants, anti-nasal voicing, and cushioned S-curve speech.
+    5. Real-Time Expression & Dynamics Slider (app.rs, engine.rs, settings.rs):
+       - Added an "Expression & Dynamics" slider (10% pp Soft Swell to 150% fff Grand Tutti, persisted in Settings) to System Configuration.
+       - Implemented real-time swell-box shutter low-pass filtering (420 Hz to 18 kHz) + quadratic dynamic expression scaling + Grand Tutti sub-bass reinforcement in Mixer::render.
+       - Added unit tests UT-41, UT-42, and UT-43 (43 unit tests total, all passing).
+  - WHY:
+    1. The creator requested: "diapason sounds a bit nasally, and I want a lot more of the low low bass and for it to be a bit more open and warm. I also want bourdon ranks for 16 and 32 and a bunch more 16 ranks and i think midrange needs to come out a bit more. I also want a dynamics slider and some more soft flutey stops for 8'".
+    2. Diapason 8' sounded nasally because its 680 Hz formant and 0.280 3rd harmonic emphasized the 600-1000 Hz nasal band, while the +0.20 Hz secondary oscillator reached 180-degree phase cancellation at t = 2.5 s inside the sustain loop, hollowing out the fundamental and leaving a comb-filtered nasal tone.
+    3. Adding a 2nd-order 125 Hz sub-bass shelf, 240-580 Hz midrange boost, 920 Hz anti-nasal scoop, dedicated 16'/32' Bourdons and 16' flue/string/reed foundations, 5 soft 8' flutes, and a real-time Expression & Dynamics slider delivers deep low-low bass, warm open midrange, and expressive dynamic control.
+  - HOW:
+    1. rust/src/dsp/stops_dsp.rs & rust/src/stops.rs:
+       - Added StopIds 33..=44, SoftFluteVariant, BourdonFlue, OpenWoodBass, SoftFlute, VOICING_VIOLONE_16, VOICING_TROMBONE_16, render_bourdon_flue, render_open_wood_bass, render_soft_flute, and re-engineered render_open_diapason.
+    2. rust/src/dsp/mod.rs & rust/src/dsp/pipe.rs:
+       - Upgraded apply_bass_warmth_eq and pipe::shaped_amplitude.
+    3. rust/src/engine.rs, rust/src/app.rs, rust/src/settings.rs:
+       - Added dynamics state, GUI slider with dynamic markings (pp, mp, mf, f, fff), settings persistence, and real-time Mixer swell/dynamics DSP.
+================================================================================
+
 
 

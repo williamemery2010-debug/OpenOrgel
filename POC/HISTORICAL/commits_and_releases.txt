@@ -1,9 +1,9 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-26 21:20:25
-Total Commits  : 98
-Total Releases : 34
+Updated At     : 2026-10-26 22:05:01
+Total Commits  : 99
+Total Releases : 35
 ================================================================================
 
 🚀 RELEASES / TAGS
@@ -17,6 +17,11 @@ Version : Prealpha_v2.0.13
 Date    : 2026-10-26
 Commit  : 6e628cd
 Details : Prealpha_v2.0.13: Cylindrical Clarinet 8'/4' rework, Voix Celeste 8' dual-flue overhaul, and 4-rank Principal Chorus stop
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.14
+Date    : 2026-10-26
+Commit  : a0ded5c
+Details : Prealpha_v2.0.14: Sympathetic Cathedral Diapason 8', warm low-shelf bass EQ, and Full Organ foundation weighting
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.11
 Date    : 2026-10-16
@@ -188,7 +193,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-4e503cd  | 2026-10-26 | williamemery2010-deb | Prealpha_v2.0.14: Revoice Diapason 8' with sympathetic chest body, add warm low-shelf bass EQ & Full Organ foundation weighting
+73ba8da  | 2026-10-26 | williamemery2010-deb | Prealpha_v2.0.15: Open warm anti-nasal Diapason 8', deep low-low sub-bass & midrange EQ, Bourdon 16'/32', 5 new 16' ranks, 5 soft 8' flutes & Dynamics slider
+a0ded5c  | 2026-10-26 | williamemery2010-deb | Prealpha_v2.0.14: Revoice Diapason 8' with sympathetic chest body, add warm low-shelf bass EQ & Full Organ foundation weighting
 6e628cd  | 2026-10-26 | williamemery2010-deb | Prealpha_v2.0.13: Rework Clarinet cylindrical odd-harmonic woodwind & Voix Celeste 8' dual-flue undulation; add 4-rank Cathedral Principal Chorus stop
 1085f5e  | 2026-10-26 | williamemery2010-deb | docs: sync history and releases for Prealpha_v2.0.12
 c971936  | 2026-10-26 | williamemery2010-deb | feat(dsp): overhaul all native organ stops with physically modeled acoustics, multi-rank compound choruses & crossfaded sampling

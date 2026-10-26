@@ -275,6 +275,10 @@ pub fn shaped_amplitude(v: &PipeVoicing, k: usize, f0: f64, sample_rate: f64) ->
     if k >= 2 {
         a *= (1.0 + v.bass_tilt * (261.63 / f0).log2()).clamp(0.6, 1.6);
     }
+    if k <= 2 && f <= 240.0 {
+        let low_factor = ((240.0 - f) / 240.0).clamp(0.0, 1.0);
+        a *= if k == 1 { 1.0 + 0.75 * low_factor } else { 1.0 + 0.38 * low_factor };
+    }
     for &(fc, width, boost) in v.formants {
         let d = (f / fc).log2() / width.max(0.05);
         a *= 1.0 + boost * (-d * d).exp();

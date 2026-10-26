@@ -59,6 +59,15 @@ pub struct CompoundRank {
     pub detune_cents: f64,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SoftFluteVariant {
+    HarmonicFlute,
+    Hohlflote,
+    Melodia,
+    FlautoDolce,
+    Rohrflote,
+}
+
 #[derive(Clone)]
 pub enum StopSynthesisModel {
     /// Flue rank defined by a harmonic table (kept for backward compatibility).
@@ -77,9 +86,23 @@ pub enum StopSynthesisModel {
     },
     /// Stopped (covered) wooden flue pipe: additive odd-partial model with wind noise.
     StoppedFlue { pitch_ratio: f64 },
+    /// Wide-scale heavy wooden stopped Bourdon / Subbass (16' & 32') with deep sub-bass gravity
+    /// and acoustic resultant reinforcement.
+    BourdonFlue {
+        pitch_ratio: f64,
+        sub_harmonic: f64,
+    },
+    /// Large-scale open timber pedal/manual bass pipe (Open Wood 16') with thunderous fundamental
+    /// and warm open octave body.
+    OpenWoodBass { pitch_ratio: f64 },
+    /// Soft, velvety 8' flute family (Harmonic Flute, Hohlflöte, Melodia, Flauto Dolce, Rohrflöte).
+    SoftFlute {
+        variant: SoftFluteVariant,
+        pitch_ratio: f64,
+    },
     /// Open cylindrical metal flue pipe (Open Diapason / Principal / Montre):
     /// full integer harmonic series with singing octave warmth, acoustic phase dispersion,
-    /// vocal mouth radiation formant (~850 Hz), articulate languid speech transient ("chirrup"),
+    /// warm chest/midrange resonances (~150 Hz & ~340 Hz), anti-nasal scoop (~900 Hz),
     /// independent harmonic micro-drift, and physical air-column breath turbulence.
     OpenDiapason { pitch_ratio: f64 },
     /// Physically modeled organ pipe rank (Chebyshev harmonic synthesis, dynamic speech build-up,
@@ -586,6 +609,62 @@ pub const VOICING_CORNET_FLUTE: PipeVoicing = PipeVoicing {
     flicker: 0.018,
 };
 
+// VIOLONE 16' (Warm wooden/spotted-metal 16' string-principal bass with rich cellistic low-midrange):
+pub const VOICING_VIOLONE_16: PipeVoicing = PipeVoicing {
+    spectrum: &[1.0, 0.88, 0.62, 0.46, 0.34, 0.24, 0.16, 0.11, 0.07, 0.04],
+    extend_db_per_oct: -13.0,
+    max_harmonics: 18,
+    even_scale: 1.0,
+    even_restore_hz: 0.0,
+    formants: &[(160.0, 1.1, 1.5), (380.0, 1.0, 1.2)],
+    rolloff_hz: 2600.0,
+    bass_tilt: 0.32,
+    speech_cycles: 12.0,
+    speech_min_s: 0.022,
+    speech_max_s: 0.080,
+    upper_lead: 0.22,
+    overshoot_harmonic: 2,
+    overshoot: 0.18,
+    upper_overshoot: 0.10,
+    onset_cents: -3.5,
+    onset_time_s: 0.026,
+    phase_coherence: 0.18,
+    breath: 0.010,
+    chiff: 0.26,
+    chiff_harmonic: 2.5,
+    chiff_cycles: 9.0,
+    jitter: 0.006,
+    flicker: 0.020,
+};
+
+// CONTRA TROMBONE / POSAUNE 16' (Majestic full-length wooden/brass pedal & manual reed with deep bass foundation):
+pub const VOICING_TROMBONE_16: PipeVoicing = PipeVoicing {
+    spectrum: &[1.0, 0.96, 0.82, 0.68, 0.54, 0.42, 0.30, 0.20, 0.13, 0.08],
+    extend_db_per_oct: -14.0,
+    max_harmonics: 20,
+    even_scale: 1.0,
+    even_restore_hz: 0.0,
+    formants: &[(150.0, 1.2, 1.7), (360.0, 1.1, 1.4)],
+    rolloff_hz: 2800.0,
+    bass_tilt: 0.42,
+    speech_cycles: 12.0,
+    speech_min_s: 0.024,
+    speech_max_s: 0.090,
+    upper_lead: -0.10,
+    overshoot_harmonic: 0,
+    overshoot: 0.0,
+    upper_overshoot: 0.10,
+    onset_cents: -5.5,
+    onset_time_s: 0.030,
+    phase_coherence: 0.72,
+    breath: 0.006,
+    chiff: 0.16,
+    chiff_harmonic: 2.2,
+    chiff_cycles: 9.0,
+    jitter: 0.007,
+    flicker: 0.024,
+};
+
 // ---------------------------------------------------------------------------
 // COMPOUND STOP RANKS DEFINITIONS
 // ---------------------------------------------------------------------------
@@ -912,6 +991,110 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
         id: 32,
         model: StopSynthesisModel::PrincipalChorus,
     },
+    // 33: Bourdon 32'
+    StopDefinition {
+        name: "Bourdon 32'",
+        id: 33,
+        model: StopSynthesisModel::BourdonFlue {
+            pitch_ratio: 0.25,
+            sub_harmonic: 0.22,
+        },
+    },
+    // 34: Bourdon 16'
+    StopDefinition {
+        name: "Bourdon 16'",
+        id: 34,
+        model: StopSynthesisModel::BourdonFlue {
+            pitch_ratio: 0.5,
+            sub_harmonic: 0.16,
+        },
+    },
+    // 35: Double Diapason 16'
+    StopDefinition {
+        name: "Double Diapason 16'",
+        id: 35,
+        model: StopSynthesisModel::OpenDiapason { pitch_ratio: 0.5 },
+    },
+    // 36: Subbass 16'
+    StopDefinition {
+        name: "Subbass 16'",
+        id: 36,
+        model: StopSynthesisModel::BourdonFlue {
+            pitch_ratio: 0.5,
+            sub_harmonic: 0.28,
+        },
+    },
+    // 37: Open Wood 16'
+    StopDefinition {
+        name: "Open Wood 16'",
+        id: 37,
+        model: StopSynthesisModel::OpenWoodBass { pitch_ratio: 0.5 },
+    },
+    // 38: Violone 16'
+    StopDefinition {
+        name: "Violone 16'",
+        id: 38,
+        model: StopSynthesisModel::PhysicalPipe {
+            voicing: &VOICING_VIOLONE_16,
+            pitch_ratio: 0.5,
+            gain: 1.25,
+        },
+    },
+    // 39: Contra Trombone 16'
+    StopDefinition {
+        name: "Contra Trombone 16'",
+        id: 39,
+        model: StopSynthesisModel::PhysicalPipe {
+            voicing: &VOICING_TROMBONE_16,
+            pitch_ratio: 0.5,
+            gain: 1.25,
+        },
+    },
+    // 40: Harmonic Flute 8'
+    StopDefinition {
+        name: "Harmonic Flute 8'",
+        id: 40,
+        model: StopSynthesisModel::SoftFlute {
+            variant: SoftFluteVariant::HarmonicFlute,
+            pitch_ratio: 1.0,
+        },
+    },
+    // 41: Hohlflöte 8'
+    StopDefinition {
+        name: "Hohlflöte 8'",
+        id: 41,
+        model: StopSynthesisModel::SoftFlute {
+            variant: SoftFluteVariant::Hohlflote,
+            pitch_ratio: 1.0,
+        },
+    },
+    // 42: Melodia 8'
+    StopDefinition {
+        name: "Melodia 8'",
+        id: 42,
+        model: StopSynthesisModel::SoftFlute {
+            variant: SoftFluteVariant::Melodia,
+            pitch_ratio: 1.0,
+        },
+    },
+    // 43: Flauto Dolce 8'
+    StopDefinition {
+        name: "Flauto Dolce 8'",
+        id: 43,
+        model: StopSynthesisModel::SoftFlute {
+            variant: SoftFluteVariant::FlautoDolce,
+            pitch_ratio: 1.0,
+        },
+    },
+    // 44: Rohrflöte 8'
+    StopDefinition {
+        name: "Rohrflöte 8'",
+        id: 44,
+        model: StopSynthesisModel::SoftFlute {
+            variant: SoftFluteVariant::Rohrflote,
+            pitch_ratio: 1.0,
+        },
+    },
 ];
 
 /// Render a single physically modeled pipe rank into `out`.
@@ -1106,6 +1289,15 @@ pub fn render_stop_into(
         }
         StopSynthesisModel::StoppedFlue { pitch_ratio } => {
             render_stopped_flue(freq, *pitch_ratio, sample_rate, out, sine_lut, wind_mod, chiff_scale);
+        }
+        StopSynthesisModel::BourdonFlue { pitch_ratio, sub_harmonic } => {
+            render_bourdon_flue(freq, *pitch_ratio, *sub_harmonic, sample_rate, out, sine_lut, wind_mod, chiff_scale);
+        }
+        StopSynthesisModel::OpenWoodBass { pitch_ratio } => {
+            render_open_wood_bass(freq, *pitch_ratio, sample_rate, out, sine_lut, wind_mod, chiff_scale);
+        }
+        StopSynthesisModel::SoftFlute { variant, pitch_ratio } => {
+            render_soft_flute(freq, *pitch_ratio, *variant, sample_rate, out, sine_lut, wind_mod, chiff_scale);
         }
         StopSynthesisModel::Sampled { is_clarion, harmonic_factor, base_freq } => {
             render_sampled_pipe(*is_clarion, *harmonic_factor, *base_freq, freq, sample_rate, out, wind_mod);
@@ -1424,47 +1616,46 @@ pub fn render_stopped_flue(
 /// higher partials provide silvery pipe brilliance.
 /// Phase dispersion offsets prevent unnatural phase coherence spikes (which cause artificial buzzy synth tones).
 pub const DIAPASON_PARTIALS: &[(f64, f64, f64, f64, f64, f64)] = &[
-    (1.0, 1.000, 0.00, 0.0, 0.28, 0.012), // Fundamental 8' (full, noble, foundational body)
-    (2.0, 0.580, 1.35, 0.0, 0.42, 0.020), // Octave 4' (vital singing open pipe warmth)
-    (3.0, 0.280, 2.70, 0.0, 0.55, 0.025), // Twelfth 2-2/3' (vocal pipe presence)
-    (4.0, 0.160, 0.90, 0.0, 0.68, 0.030), // Fifteenth 2' (clarity and definition)
-    (5.0, 0.085, 3.14, 0.0, 0.79, 0.035), // Tierce 1-3/5' (rich spotted metal warmth)
-    (6.0, 0.048, 1.80, 0.0, 0.88, 0.040), // Nineteenth 1-1/3' (silvery brilliance)
-    (7.0, 0.024, 0.45, 0.0, 0.95, 0.045), // Septième (mild natural overtone color)
-    (8.0, 0.015, 2.20, 0.0, 1.05, 0.050), // Twenty-second 1'
-    (9.0, 0.009, 1.10, 0.0, 1.15, 0.050),
-    (10.0, 0.005, 2.85, 0.0, 1.25, 0.050),
+    (1.0, 1.000, 0.00, 0.0, 0.28, 0.012), // Fundamental 8' (deep, warm, open foundational body)
+    (2.0, 0.620, 1.35, 0.0, 0.42, 0.018), // Octave 4' (strong open-pipe singing warmth)
+    (3.0, 0.205, 2.70, 0.0, 0.55, 0.022), // Twelfth 2-2/3' (controlled to eliminate nasal honk)
+    (4.0, 0.170, 0.90, 0.0, 0.68, 0.026), // Fifteenth 2' (open pipe clarity and roundness)
+    (5.0, 0.052, 3.14, 0.0, 0.79, 0.030), // Tierce 1-3/5' (gentle spotted-metal warmth, non-nasal)
+    (6.0, 0.038, 1.80, 0.0, 0.88, 0.034), // Nineteenth 1-1/3' (silvery open sheen)
+    (7.0, 0.014, 0.45, 0.0, 0.95, 0.038), // Septième (trace natural overtone)
+    (8.0, 0.011, 2.20, 0.0, 1.05, 0.042), // Twenty-second 1'
+    (9.0, 0.005, 1.10, 0.0, 1.15, 0.045),
+    (10.0, 0.003, 2.85, 0.0, 1.25, 0.045),
 ];
 
 /// Organological registration balance weight for each stop in multi-stop and Full Organ (Tutti) mixes.
 ///
-/// On the console, 16 of the 31 stops are high-pitched 4', 2', and Mixture stops. If every stop is summed
-/// with equal 1.0 weight, drawing Full Organ drowns the 32', 16', and 8' foundations under 16 upper-octave
-/// and mixture ranks, making the organ sound thin and hollow. Weighting the 32'/16' pedal & manual bass
-/// ranks (1.45x) and 8' unison foundations (1.25x) above 4' octaves (0.88x) and 2'/Mixtures (0.62x)
-/// preserves authentic cathedral gravitas in any registration.
+/// Weighting the 32'/16' pedal & manual bass ranks (1.50x-1.62x) and 8' unison foundations (1.22x-1.36x)
+/// above 4' octaves (0.88x) and 2'/Mixtures (0.60x) preserves authentic cathedral gravitas and warm
+/// midrange fullness in any registration.
 pub fn stop_registration_weight(stop_id: i32) -> f32 {
     match stop_id {
-        // 32' & 16' Sub-Bass and Foundation Ranks (deep cathedral gravity)
-        10 | 20 => 1.50,          // Contrabassoon 32', Gedeckt 32'
-        2 | 3 | 4 | 19 | 27 => 1.42, // Bassoon 16', Bombarde 16', Ophicleide 16', Gedeckt 16', Acoustic Flue 16'
+        // 32' Sub-Bass Ranks (colossal cathedral gravity)
+        10 | 20 | 33 => 1.62, // Contrabassoon 32', Gedeckt 32', Bourdon 32'
+        // 16' Manual & Pedal Foundation Ranks
+        2 | 3 | 4 | 19 | 27 | 34 | 35 | 36 | 37 | 38 | 39 => 1.50,
         // 8' Principal Foundation & Chorus Ranks
-        11 | 32 => 1.32,          // Diapason 8', Principal Chorus
-        0 | 1 | 6 | 16 | 17 | 24 | 25 | 30 => 1.20, // 8' Flues, Strings, and Reeds
+        11 | 32 => 1.36, // Diapason 8', Principal Chorus
+        0 | 1 | 6 | 16 | 17 | 24 | 25 | 30 | 40 | 41 | 42 | 43 | 44 => 1.22,
         // 4' Octave & Solo Mutation Ranks
         7 | 8 | 9 | 12 | 13 | 18 | 26 | 28 => 0.88,
         // 2' Super-Octaves & High Mixtures (silvery crown without hollowing out the bass)
-        5 | 14 | 15 | 21 | 22 | 23 | 29 | 31 => 0.62,
+        5 | 14 | 15 | 21 | 22 | 23 | 29 | 31 => 0.60,
         _ => 1.0,
     }
 }
 
-/// Renders an authentic Open Diapason (Principal / Montre 8') open cylindrical flue pipe.
+/// Renders an authentic Open Diapason (Principal / Montre 8' & Double Diapason 16') open cylindrical flue pipe.
 ///
-/// Models a rich cathedral Open Diapason with deep fundamental weight, warm low-mid chest resonance
-/// (~260 Hz) + vocal mouth cut-up presence (~680 Hz), a subtle sympathetic secondary pipe/wall coupling
-/// (+0.20 Hz slow acoustic breadth so a single rank never sounds flat or empty), per-harmonic S-curve
-/// speech envelopes, wind-foot onset pitch scoop (-2.2 cents), and dual air-column breath resonators.
+/// Voiced for a wide, open, warm, non-nasal cathedral character with deep low-low bass reinforcement
+/// (< 160 Hz), rich open midrange chest body (~320 Hz), an acoustic anti-nasal scoop (~920 Hz),
+/// phase-coherent sub-octave windchest resonance, per-harmonic S-curve speech envelopes, and warm
+/// low-register air-column breath.
 pub fn render_open_diapason(
     freq: f64,
     pitch_ratio: f64,
@@ -1483,13 +1674,15 @@ pub fn render_open_diapason(
     let two_pi = 2.0 * std::f64::consts::PI;
     let chiff = chiff_scale.max(0.0) as f64;
 
-    // Töpfer Normalmensur scaling: bass pipes gain deep foundational weight; treble pipes round warmly.
-    let bass_tilt = (1.0 + 0.24 * (261.63 / f0).log2()).clamp(0.78, 1.48);
-    // Extra fundamental body weight in the bass and tenor registers so Diapason never feels empty.
-    let fund_weight = (1.0 + 0.16 * (320.0 / f0).log2().max(0.0)).clamp(1.0, 1.38);
+    // Gentle Töpfer scaling on upper partials so bass pipes do not become nasal or buzzy
+    let bass_tilt = (1.0 + 0.14 * (261.63 / f0).log2()).clamp(0.82, 1.26);
+    // Strong low-low bass & tenor fundamental reinforcement so Diapason has deep open authority
+    let fund_weight = (1.0 + 0.34 * (320.0 / f0).log2().max(0.0)).clamp(1.0, 1.85);
+    // Singing open octave reinforcement in the bass and midrange
+    let oct_weight = (1.0 + 0.18 * (320.0 / f0).log2().max(0.0)).clamp(1.0, 1.40);
 
-    // Tuple: (k, main_amp, symp_amp, phase_off, symp_phase_off, attack_samples, rate, depth, lfo_phase)
-    let mut partials: Vec<(f64, f64, f64, f64, f64, f64, f64, f64, f64)> =
+    // Tuple: (k, amp, phase_off, attack_samples, rate, depth, lfo_phase)
+    let mut partials: Vec<(f64, f64, f64, f64, f64, f64, f64)> =
         Vec::with_capacity(DIAPASON_PARTIALS.len());
     let mut base_amp_sum = 0.0;
     for (i, &(k, a, phase_off, _boost, rate, depth)) in DIAPASON_PARTIALS.iter().enumerate() {
@@ -1501,54 +1694,56 @@ pub fn render_open_diapason(
 
         let mut amp = if (k - 1.0).abs() < 0.1 {
             a * fund_weight
+        } else if (k - 2.0).abs() < 0.1 {
+            a * oct_weight
         } else {
             a * bass_tilt
         };
 
-        // Warm low-mid pipe body resonance (~260 Hz) + vocal mouth cut-up presence (~680 Hz)
-        let d_body = (pf / 260.0).log2() / 1.15;
-        let d_mouth = (pf / 680.0).log2() / 1.05;
-        let formant_gain = (1.0 + 0.28 * (-d_body * d_body).exp())
-            * (1.0 + 0.22 * (-d_mouth * d_mouth).exp());
+        // Deep sub-bass/bass chest warmth (~145 Hz) + rich open midrange body (~330 Hz)
+        let d_sub = (pf / 145.0).log2() / 1.25;
+        let d_mid = (pf / 330.0).log2() / 1.15;
+        // Anti-nasal scoop centered around 920 Hz (eliminates pinched/nasal 700-1200 Hz honk)
+        let d_nasal = (pf / 920.0).log2() / 0.72;
+        let formant_gain = (1.0 + 0.42 * (-d_sub * d_sub).exp())
+            * (1.0 + 0.36 * (-d_mid * d_mid).exp())
+            * (1.0 - 0.18 * (-d_nasal * d_nasal).exp());
         amp *= formant_gain;
 
-        // Smooth open metal wall dissipation above 3.8 kHz
-        amp /= 1.0 + (pf / 3800.0).powi(2);
+        // Smooth open metal wall dissipation above 3.3 kHz for round, warm openness
+        amp /= 1.0 + (pf / 3300.0).powi(2);
 
-        // Sympathetic secondary pipe/chest resonance (strong on fundamental & octave for 3D fullness)
-        let symp_amp = amp * (0.24 / k.sqrt());
-        let symp_phase_off = phase_off + 1.92 + 0.61 * i as f64;
-        // Upper flue partials speak slightly ahead of the heavy 8' fundamental (natural flue physics)
-        let attack_s = (0.022 * k.powf(-0.22)).clamp(0.009, 0.026);
+        let attack_s = (0.022 * k.powf(-0.20)).clamp(0.010, 0.026);
         let attack_samples = (attack_s * sr).max(1.0);
 
         partials.push((
             k,
             amp,
-            symp_amp,
             phase_off,
-            symp_phase_off,
             attack_samples,
             rate,
             depth,
             0.65 * i as f64 + 0.25,
         ));
     }
-    // Normalise against base_amp_sum so bass/formant warmth adds real body instead of being divided out
-    let norm = 0.64 / base_amp_sum.max(1e-6);
+    let norm = 0.58 / base_amp_sum.max(1e-6);
 
-    // Physical air-column breath resonators:
-    // Low resonator at pipe fundamental f0 (bandwidth 0.25 f0)
-    let mut breath_low = NoiseResonator::new(f0, (f0 * 0.25).max(10.0), sr);
-    // Upper vocal resonance at octave 2*f0 or cut-up formant
-    let breath_center = (f0 * 2.0).min(800.0);
+    // Phase-locked sub-octave wooden windchest coupling for warm 16'/32' acoustic gravity
+    let sub_oct_gain = if f0 >= 42.0 && f0 <= 520.0 {
+        0.13 * ((520.0 - f0) / 478.0).clamp(0.2, 1.0)
+    } else {
+        0.0
+    };
+
+    // Physical air-column breath resonators kept in the warm low-mid register (no high nasal whistle)
+    let mut breath_low = NoiseResonator::new(f0, (f0 * 0.28).max(10.0), sr);
+    let breath_center = (f0 * 1.5).min(460.0);
     let mut breath_mid = if breath_center < nyquist * 0.9 {
-        Some(NoiseResonator::new(breath_center, (breath_center * 0.38).max(20.0), sr))
+        Some(NoiseResonator::new(breath_center, (breath_center * 0.42).max(20.0), sr))
     } else {
         None
     };
 
-    // Deterministic PRNG keyed to pitch for repeatable, artifact-free synthesis
     let mut rng: u32 = ((f0 * 100.0) as u32) ^ 0x55AA_A55A;
     if rng == 0 {
         rng = 1;
@@ -1560,22 +1755,19 @@ pub fn render_open_diapason(
         (rng as f64 / u32::MAX as f64) * 2.0 - 1.0
     };
 
-    // Speech dynamics: genuine band-passed breath noise, labium edge burst, and wind-foot pitch settle
-    let spit_decay = (-1.0 / (0.030 * sr)).exp();  // 30 ms languid vortex
-    let edge_decay = (-1.0 / (0.014 * sr)).exp();  // 14 ms high-frequency lip edge
-    let spit_level = 0.04 + 0.28 * chiff;
-    let edge_level = 0.015 + 0.10 * chiff;
-    let hiss_level = 0.009; // quiet, warm continuous air column presence
+    let spit_decay = (-1.0 / (0.030 * sr)).exp();
+    let edge_decay = (-1.0 / (0.014 * sr)).exp();
+    let spit_level = 0.032 + 0.22 * chiff;
+    let edge_level = 0.012 + 0.08 * chiff;
+    let hiss_level = 0.007;
 
-    let mut onset_cents = -2.2f64;
+    let mut onset_cents = -2.0f64;
     let onset_decay = (-1.0 / (0.018 * sr)).exp();
     const CENTS_TO_RATIO: f64 = 0.000_577_622_65;
 
     let step_main = f0 / sr;
-    // Slow 0.20 Hz sympathetic chest coupling (5-second period: adds 3D acoustic fullness without vibrato)
-    let step_symp = (f0 + 0.20) / sr;
     let mut phase_main = 0.0f64;
-    let mut phase_symp = 0.17f64;
+    let mut phase_sub = 0.0f64;
     let mut spit_env = 1.0f64;
     let mut edge_env = 1.0f64;
     let mut prev_white = 0.0f64;
@@ -1586,20 +1778,23 @@ pub fn render_open_diapason(
         let wind = if i < wind_mod.len() { wind_mod[i] as f64 } else { 0.0 };
 
         let mut tone = 0.0f64;
-        for &(k, amp, symp_amp, phase_off, symp_phase_off, attack_samples, rate, depth, lfo_phase) in &partials {
-            // Smooth S-curve per-partial speech build-up
+        for &(k, amp, phase_off, attack_samples, rate, depth, lfo_phase) in &partials {
             let u = (n_f / attack_samples).min(1.0);
             let env = 0.5 - 0.5 * (std::f64::consts::PI * u).cos();
             let drift = 1.0 + depth * sine_lut.sin(two_pi * rate * t + lfo_phase) as f64;
             let p_main = two_pi * (k * phase_main) + phase_off;
-            let p_symp = two_pi * (k * phase_symp) + symp_phase_off;
-            tone += env * drift * (amp * sine_lut.sin(p_main) as f64 + symp_amp * sine_lut.sin(p_symp) as f64);
+            tone += env * drift * amp * sine_lut.sin(p_main) as f64;
+        }
+        if sub_oct_gain > 0.0 {
+            let u_sub = (n_f / (0.028 * sr)).min(1.0);
+            let env_sub = 0.5 - 0.5 * (std::f64::consts::PI * u_sub).cos();
+            tone += env_sub * sub_oct_gain * sine_lut.sin(two_pi * phase_sub + 0.45) as f64;
         }
 
         let white = next_noise();
-        let mut breath = 0.68 * breath_low.process(white);
+        let mut breath = 0.72 * breath_low.process(white);
         if let Some(res) = breath_mid.as_mut() {
-            breath += 0.42 * res.process(white);
+            breath += 0.35 * res.process(white);
         }
         let edge = (white - prev_white) * edge_level * edge_env;
         prev_white = white;
@@ -1608,11 +1803,342 @@ pub fn render_open_diapason(
         *sample += (norm * tone + noise) as f32;
 
         let pitch_bend = 1.0 + onset_cents * CENTS_TO_RATIO;
-        phase_main = (phase_main + step_main * (1.0 + wind) * pitch_bend).fract();
-        phase_symp = (phase_symp + step_symp * (1.0 - 0.6 * wind) * pitch_bend).fract();
+        let delta = step_main * (1.0 + wind) * pitch_bend;
+        phase_main = (phase_main + delta).fract();
+        phase_sub = (phase_sub + 0.5 * delta).fract();
         onset_cents *= onset_decay;
         spit_env *= spit_decay;
         edge_env *= edge_decay;
+    }
+}
+
+/// Partial table for wide-scale stopped wooden Bourdon 16' / 32' and Subbass 16' pipes.
+/// Tuple: (harmonic_k, amplitude, phase_offset, drift_rate_hz, drift_depth).
+pub const BOURDON_PARTIALS: &[(f64, f64, f64, f64, f64)] = &[
+    (1.0, 1.000, 0.00, 0.24, 0.012), // Colossal stopped wooden fundamental
+    (2.0, 0.065, 1.15, 0.37, 0.022), // Warm wide-mouth octave presence
+    (3.0, 0.135, 2.30, 0.46, 0.028), // Dark, round wooden quint (twelfth)
+    (4.0, 0.015, 0.65, 0.58, 0.032),
+    (5.0, 0.030, 1.85, 0.71, 0.035), // Soft wooden tierce warmth
+    (7.0, 0.008, 2.75, 0.89, 0.040),
+];
+
+/// Renders a heavy, wide-scale stopped wooden Bourdon 16' / 32' or Subbass 16' pipe.
+///
+/// Features deep sub-bass fundamental reinforcement, acoustic resultant / sub-harmonic gravity
+/// coupling, warm wooden chest resonances (~95 Hz & ~240 Hz), steep wooden wall roll-off (~1100 Hz),
+/// and a cushioned wooden wind-foot speech envelope.
+pub fn render_bourdon_flue(
+    freq: f64,
+    pitch_ratio: f64,
+    sub_harmonic: f64,
+    sample_rate: u32,
+    out: &mut [f32],
+    sine_lut: &SineLut,
+    wind_mod: &[f32],
+    chiff_scale: f32,
+) {
+    let sr = sample_rate as f64;
+    let f0 = freq * pitch_ratio;
+    if f0 <= 0.0 || out.is_empty() {
+        return;
+    }
+    let nyquist = sr * 0.5;
+    let two_pi = 2.0 * std::f64::consts::PI;
+    let chiff = chiff_scale.max(0.0) as f64;
+
+    let low_bass_boost = (1.0 + 0.42 * (180.0 / f0.max(16.0)).log2().max(0.0)).clamp(1.0, 2.10);
+
+    let mut partials: Vec<(f64, f64, f64, f64, f64, f64)> = Vec::with_capacity(BOURDON_PARTIALS.len());
+    let mut base_sum = 0.0;
+    for (i, &(k, base_a, phase_off, rate, depth)) in BOURDON_PARTIALS.iter().enumerate() {
+        let pf = f0 * k;
+        if pf >= nyquist * 0.88 {
+            continue;
+        }
+        base_sum += base_a;
+        let mut amp = if (k - 1.0).abs() < 0.1 {
+            base_a * low_bass_boost
+        } else {
+            base_a
+        };
+        // Deep wooden cavity resonance (~95 Hz & ~240 Hz)
+        let d_sub = (pf / 95.0).log2() / 1.3;
+        let d_wood = (pf / 240.0).log2() / 1.1;
+        amp *= (1.0 + 0.45 * (-d_sub * d_sub).exp()) * (1.0 + 0.28 * (-d_wood * d_wood).exp());
+        // Thick wooden pipe wall damping above 1100 Hz
+        let r = pf / 1100.0;
+        amp /= 1.0 + r * r * r;
+
+        partials.push((k, amp, phase_off, rate, depth, 0.73 * i as f64 + 0.35));
+    }
+    let norm = 0.68 / base_sum.max(1e-6);
+
+    let mut breath_low = NoiseResonator::new(f0.max(20.0), (f0 * 0.30).max(8.0), sr);
+    let mut rng: u32 = ((f0 * 100.0) as u32) ^ 0xB002_D016;
+    if rng == 0 {
+        rng = 1;
+    }
+    let mut next_noise = move || -> f64 {
+        rng ^= rng << 13;
+        rng ^= rng >> 17;
+        rng ^= rng << 5;
+        (rng as f64 / u32::MAX as f64) * 2.0 - 1.0
+    };
+
+    let spit_decay = (-1.0 / (0.042 * sr)).exp();
+    let spit_level = 0.035 + 0.20 * chiff;
+    let hiss_level = 0.008;
+    let mut spit_env = 1.0f64;
+
+    let step = f0 / sr;
+    let mut phase = 0.0f64;
+    let mut phase_sub = 0.0f64;
+    let attack_len = (0.028 * sr).max(1.0);
+
+    for (i, sample) in out.iter_mut().enumerate() {
+        let t = i as f64 / sr;
+        let wind = if i < wind_mod.len() { wind_mod[i] as f64 } else { 0.0 };
+        let u = (i as f64 / attack_len).min(1.0);
+        let env = 0.5 - 0.5 * (std::f64::consts::PI * u).cos();
+
+        let mut tone = 0.0f64;
+        for &(k, amp, phase_off, rate, depth, lfo_phase) in &partials {
+            let drift = 1.0 + depth * sine_lut.sin(two_pi * rate * t + lfo_phase) as f64;
+            tone += amp * env * drift * sine_lut.sin(two_pi * k * phase + phase_off) as f64;
+        }
+        // Sub-harmonic / resultant bass reinforcement
+        if f0 >= 38.0 {
+            tone += sub_harmonic * env * sine_lut.sin(two_pi * phase_sub + 0.5) as f64;
+        } else {
+            // In the 32' sub-bass octave (< 38 Hz), reinforce 1st and 1.5x acoustic resultant
+            tone += sub_harmonic * env * (0.70 * sine_lut.sin(two_pi * phase) as f64
+                + 0.35 * sine_lut.sin(two_pi * 3.0 * phase_sub + 0.8) as f64);
+        }
+
+        let white = next_noise();
+        let noise = breath_low.process(white) * (hiss_level + spit_level * spit_env) * env;
+        *sample += (norm * tone + noise) as f32;
+
+        let d_phase = step * (1.0 + wind);
+        phase = (phase + d_phase).fract();
+        phase_sub = (phase_sub + 0.5 * d_phase).fract();
+        spit_env *= spit_decay;
+    }
+}
+
+/// Renders a large-scale English Cathedral Open Wood 16' bass pipe.
+pub fn render_open_wood_bass(
+    freq: f64,
+    pitch_ratio: f64,
+    sample_rate: u32,
+    out: &mut [f32],
+    sine_lut: &SineLut,
+    wind_mod: &[f32],
+    chiff_scale: f32,
+) {
+    const OPEN_WOOD_PARTIALS: &[(f64, f64, f64, f64, f64)] = &[
+        (1.0, 1.000, 0.00, 0.25, 0.012), // Thunderous open timber fundamental
+        (2.0, 0.600, 1.20, 0.38, 0.018), // Warm open octave body
+        (3.0, 0.165, 2.40, 0.51, 0.024), // Round twelfth
+        (4.0, 0.125, 0.80, 0.64, 0.028), // Open double-octave
+        (5.0, 0.042, 1.95, 0.77, 0.032),
+        (6.0, 0.022, 2.85, 0.90, 0.036),
+    ];
+
+    let sr = sample_rate as f64;
+    let f0 = freq * pitch_ratio;
+    if f0 <= 0.0 || out.is_empty() {
+        return;
+    }
+    let nyquist = sr * 0.5;
+    let two_pi = 2.0 * std::f64::consts::PI;
+    let chiff = chiff_scale.max(0.0) as f64;
+    let bass_boost = (1.0 + 0.40 * (200.0 / f0.max(16.0)).log2().max(0.0)).clamp(1.0, 2.0);
+
+    let mut partials = Vec::with_capacity(OPEN_WOOD_PARTIALS.len());
+    let mut base_sum = 0.0;
+    for (i, &(k, a, phase_off, rate, depth)) in OPEN_WOOD_PARTIALS.iter().enumerate() {
+        let pf = f0 * k;
+        if pf >= nyquist * 0.88 {
+            continue;
+        }
+        base_sum += a;
+        let mut amp = if k <= 2.0 { a * bass_boost } else { a };
+        let d_chest = (pf / 120.0).log2() / 1.25;
+        let d_mid = (pf / 290.0).log2() / 1.15;
+        amp *= (1.0 + 0.44 * (-d_chest * d_chest).exp()) * (1.0 + 0.32 * (-d_mid * d_mid).exp());
+        amp /= 1.0 + (pf / 1650.0).powi(2);
+        partials.push((k, amp, phase_off, rate, depth, 0.67 * i as f64 + 0.2));
+    }
+    let norm = 0.66 / base_sum.max(1e-6);
+
+    let mut breath_low = NoiseResonator::new(f0.max(20.0), (f0 * 0.28).max(8.0), sr);
+    let mut rng: u32 = ((f0 * 100.0) as u32) ^ 0x09E4_800D;
+    if rng == 0 {
+        rng = 1;
+    }
+    let mut next_noise = move || -> f64 {
+        rng ^= rng << 13;
+        rng ^= rng >> 17;
+        rng ^= rng << 5;
+        (rng as f64 / u32::MAX as f64) * 2.0 - 1.0
+    };
+
+    let spit_decay = (-1.0 / (0.036 * sr)).exp();
+    let spit_level = 0.032 + 0.18 * chiff;
+    let hiss_level = 0.008;
+    let mut spit_env = 1.0f64;
+    let step = f0 / sr;
+    let mut phase = 0.0f64;
+    let attack_len = (0.025 * sr).max(1.0);
+
+    for (i, sample) in out.iter_mut().enumerate() {
+        let t = i as f64 / sr;
+        let wind = if i < wind_mod.len() { wind_mod[i] as f64 } else { 0.0 };
+        let u = (i as f64 / attack_len).min(1.0);
+        let env = 0.5 - 0.5 * (std::f64::consts::PI * u).cos();
+
+        let mut tone = 0.0f64;
+        for &(k, amp, phase_off, rate, depth, lfo_phase) in &partials {
+            let drift = 1.0 + depth * sine_lut.sin(two_pi * rate * t + lfo_phase) as f64;
+            tone += amp * env * drift * sine_lut.sin(two_pi * k * phase + phase_off) as f64;
+        }
+        let white = next_noise();
+        let noise = breath_low.process(white) * (hiss_level + spit_level * spit_env) * env;
+        *sample += (norm * tone + noise) as f32;
+
+        phase = (phase + step * (1.0 + wind)).fract();
+        spit_env *= spit_decay;
+    }
+}
+
+/// Renders soft, warm, velvety 8' flute stops (Harmonic Flute 8', Hohlflöte 8', Melodia 8',
+/// Flauto Dolce 8', and Rohrflöte 8').
+pub fn render_soft_flute(
+    freq: f64,
+    pitch_ratio: f64,
+    variant: SoftFluteVariant,
+    sample_rate: u32,
+    out: &mut [f32],
+    sine_lut: &SineLut,
+    wind_mod: &[f32],
+    chiff_scale: f32,
+) {
+    const HARMONIC_FLUTE_SPEC: &[(f64, f64, f64)] = &[
+        (1.0, 1.000, 0.00),
+        (2.0, 0.520, 1.30), // Singing harmonic node octave
+        (3.0, 0.105, 2.50),
+        (4.0, 0.065, 0.85),
+        (5.0, 0.020, 1.95),
+        (6.0, 0.008, 2.90),
+    ];
+    const HOHLFLOTE_SPEC: &[(f64, f64, f64)] = &[
+        (1.0, 1.000, 0.00), // Wide hollow wooden fundamental
+        (2.0, 0.320, 1.45),
+        (3.0, 0.195, 2.65), // Warm wooden twelfth
+        (4.0, 0.050, 0.90),
+        (5.0, 0.032, 2.10),
+    ];
+    const MELODIA_SPEC: &[(f64, f64, f64)] = &[
+        (1.0, 1.000, 0.00), // Creamy romantic open wood flute
+        (2.0, 0.440, 1.20),
+        (3.0, 0.125, 2.40),
+        (4.0, 0.075, 0.70),
+        (5.0, 0.022, 1.80),
+    ];
+    const FLAUTO_DOLCE_SPEC: &[(f64, f64, f64)] = &[
+        (1.0, 1.000, 0.00), // Whisper-soft inverted conical chamber flute
+        (2.0, 0.290, 1.35),
+        (3.0, 0.075, 2.55),
+        (4.0, 0.035, 0.95),
+    ];
+    const ROHRFLOTE_SPEC: &[(f64, f64, f64)] = &[
+        (1.0, 1.000, 0.00), // Chimney flute fundamental
+        (2.0, 0.095, 1.15), // Open chimney even-harmonic trace
+        (3.0, 0.165, 2.35), // Stopped twelfth
+        (4.0, 0.035, 0.65),
+        (5.0, 0.115, 1.85), // Signature sweet chimney 5th partial
+        (6.0, 0.012, 2.75),
+    ];
+
+    let (spec, formant_hz, cutoff_hz, gain, attack_s) = match variant {
+        SoftFluteVariant::HarmonicFlute => (HARMONIC_FLUTE_SPEC, 360.0, 2300.0, 0.56, 0.024),
+        SoftFluteVariant::Hohlflote     => (HOHLFLOTE_SPEC,      280.0, 1750.0, 0.58, 0.026),
+        SoftFluteVariant::Melodia       => (MELODIA_SPEC,        340.0, 2000.0, 0.56, 0.026),
+        SoftFluteVariant::FlautoDolce   => (FLAUTO_DOLCE_SPEC,   310.0, 1650.0, 0.44, 0.030),
+        SoftFluteVariant::Rohrflote     => (ROHRFLOTE_SPEC,      330.0, 2100.0, 0.54, 0.024),
+    };
+
+    let sr = sample_rate as f64;
+    let f0 = freq * pitch_ratio;
+    if f0 <= 0.0 || out.is_empty() {
+        return;
+    }
+    let nyquist = sr * 0.5;
+    let two_pi = 2.0 * std::f64::consts::PI;
+    let chiff = chiff_scale.max(0.0) as f64;
+    let fund_warmth = (1.0 + 0.25 * (300.0 / f0).log2().max(0.0)).clamp(1.0, 1.55);
+
+    let mut partials = Vec::with_capacity(spec.len());
+    let mut base_sum = 0.0;
+    for (i, &(k, a, phase_off)) in spec.iter().enumerate() {
+        let pf = f0 * k;
+        if pf >= nyquist * 0.88 {
+            continue;
+        }
+        base_sum += a;
+        let mut amp = if (k - 1.0).abs() < 0.1 { a * fund_warmth } else { a };
+        // Warm low-midrange flute body resonance + anti-nasal dip at 920 Hz
+        let d_form = (pf / formant_hz).log2() / 1.15;
+        let d_nasal = (pf / 920.0).log2() / 0.70;
+        amp *= (1.0 + 0.36 * (-d_form * d_form).exp()) * (1.0 - 0.16 * (-d_nasal * d_nasal).exp());
+        amp /= 1.0 + (pf / cutoff_hz).powi(2);
+
+        let rate = 0.29 + 0.14 * i as f64;
+        let depth = 0.014 + 0.005 * i as f64;
+        partials.push((k, amp, phase_off, rate, depth, 0.77 * i as f64 + 0.3));
+    }
+    let norm = gain / base_sum.max(1e-6);
+
+    let mut breath_low = NoiseResonator::new(f0.max(25.0), (f0 * 0.30).max(10.0), sr);
+    let mut rng: u32 = ((f0 * 100.0) as u32) ^ (variant as u32).wrapping_mul(0x7F4A_7C15);
+    if rng == 0 {
+        rng = 1;
+    }
+    let mut next_noise = move || -> f64 {
+        rng ^= rng << 13;
+        rng ^= rng >> 17;
+        rng ^= rng << 5;
+        (rng as f64 / u32::MAX as f64) * 2.0 - 1.0
+    };
+
+    let spit_decay = (-1.0 / (0.032 * sr)).exp();
+    let spit_level = (0.022 + 0.14 * chiff) * gain;
+    let hiss_level = 0.007 * gain;
+    let mut spit_env = 1.0f64;
+    let step = f0 / sr;
+    let mut phase = 0.0f64;
+    let attack_len = (attack_s * sr).max(1.0);
+
+    for (i, sample) in out.iter_mut().enumerate() {
+        let t = i as f64 / sr;
+        let wind = if i < wind_mod.len() { wind_mod[i] as f64 } else { 0.0 };
+        let u = (i as f64 / attack_len).min(1.0);
+        let env = 0.5 - 0.5 * (std::f64::consts::PI * u).cos();
+
+        let mut tone = 0.0f64;
+        for &(k, amp, phase_off, rate, depth, lfo_phase) in &partials {
+            let drift = 1.0 + depth * sine_lut.sin(two_pi * rate * t + lfo_phase) as f64;
+            tone += amp * env * drift * sine_lut.sin(two_pi * k * phase + phase_off) as f64;
+        }
+
+        let white = next_noise();
+        let noise = breath_low.process(white) * (hiss_level + spit_level * spit_env) * env;
+        *sample += (norm * tone + noise) as f32;
+
+        phase = (phase + step * (1.0 + wind)).fract();
+        spit_env *= spit_decay;
     }
 }
 
@@ -2005,11 +2531,15 @@ fn render_principal_chorus_rank(
         if k >= 2.0 {
             amp *= bass_tilt;
         }
-        // Open Diapason mouth cut-up radiation formant (~850 Hz)
-        let formant_octave_dist = (pf / 850.0).log2();
-        let formant_gain = 1.0 + 0.35 * (-formant_octave_dist * formant_octave_dist * 0.75).exp();
+        // Warm low-midrange open body (~160 Hz & ~340 Hz) + anti-nasal scoop (~920 Hz)
+        let d_sub = (pf / 160.0).log2() / 1.25;
+        let d_mid = (pf / 340.0).log2() / 1.15;
+        let d_nasal = (pf / 920.0).log2() / 0.72;
+        let formant_gain = (1.0 + 0.36 * (-d_sub * d_sub).exp())
+            * (1.0 + 0.30 * (-d_mid * d_mid).exp())
+            * (1.0 - 0.16 * (-d_nasal * d_nasal).exp());
         amp *= formant_gain;
-        amp /= 1.0 + (pf / 4500.0).powi(2);
+        amp /= 1.0 + (pf / 3800.0).powi(2);
 
         amp_sum += amp;
         let lfo_phase = (0.65 * i as f64 + phase_rot) % two_pi;
@@ -2481,6 +3011,51 @@ mod tests {
         let mut high_out = vec![0.0f32; 4410];
         render_stop_into(32, 2000.0, 44100, &mut high_out, &sine_lut, &wind, 0.2);
         assert!(high_out.iter().all(|s| s.is_finite() && s.abs() < 2.0));
+    }
+
+    #[test]
+    fn test_bourdon_and_16_32_ranks_deep_low_bass_gravity() {
+        let sine_lut = SineLut::new();
+        let wind = vec![0.0f32; 22050];
+
+        // Verify Bourdon 32' (33), Bourdon 16' (34), Double Diapason 16' (35),
+        // Subbass 16' (36), Open Wood 16' (37), Violone 16' (38), Contra Trombone 16' (39)
+        for &id in &[33, 34, 35, 36, 37, 38, 39] {
+            let mut out = vec![0.0f32; 22050];
+            render_stop_into(id, 130.81, 44100, &mut out, &sine_lut, &wind, 0.2);
+            assert!(out.iter().all(|s| s.is_finite()), "Stop {id} produced non-finite samples");
+            let rms = (out[11025..].iter().map(|s| s * s).sum::<f32>() / 11025.0).sqrt();
+            assert!(rms > 0.05, "16'/32' stop {id} steady RMS {rms} is too quiet");
+        }
+
+        // Verify Bourdon 16' (34) at key 441 Hz sounds its fundamental at 220.5 Hz
+        let mut b16 = vec![0.0f32; 22050];
+        render_stop_into(34, 441.0, 44100, &mut b16, &sine_lut, &wind, 0.2);
+        let win16 = &b16[11025..21025];
+        let f_16 = tone_magnitude(win16, 220.5, 44100.0);
+        let f_key = tone_magnitude(win16, 441.0, 44100.0);
+        assert!(f_16 > 6.0 * f_key, "Bourdon 16' fundamental at 220.5 Hz must dominate: {f_16} vs {f_key}");
+    }
+
+    #[test]
+    fn test_soft_flute_8_stops_warm_velvety_spectrum() {
+        let sine_lut = SineLut::new();
+        let wind = vec![0.0f32; 22050];
+
+        // Test Harmonic Flute 8' (40), Hohlflöte 8' (41), Melodia 8' (42),
+        // Flauto Dolce 8' (43), and Rohrflöte 8' (44)
+        for &id in &[40, 41, 42, 43, 44] {
+            let mut out = vec![0.0f32; 22050];
+            render_stop_into(id, 441.0, 44100, &mut out, &sine_lut, &wind, 0.2);
+            assert!(out.iter().all(|s| s.is_finite()));
+            let window = &out[11025..21025];
+            let m1 = tone_magnitude(window, 441.0, 44100.0);
+            let m2 = tone_magnitude(window, 882.0, 44100.0);
+            let m8 = tone_magnitude(window, 441.0 * 8.0, 44100.0);
+            assert!(m1 > 0.10, "Soft flute {id} fundamental must be warm and present: m1={m1}");
+            assert!(m1 > 1.5 * m2, "Soft flute {id} fundamental must dominate octave: m1={m1}, m2={m2}");
+            assert!(m1 > 30.0 * m8, "Soft flute {id} must have silky high rolloff: m1={m1}, m8={m8}");
+        }
     }
 }
 

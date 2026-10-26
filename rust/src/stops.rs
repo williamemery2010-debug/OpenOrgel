@@ -89,6 +89,18 @@ pub const STOPS: &[StopInfo] = &[
     StopInfo { name: "Acoustic Flue 2'", id: 29 },
     StopInfo { name: "Clarion 8'", id: 30 },
     StopInfo { name: "Principal Chorus", id: 32 },
+    StopInfo { name: "Bourdon 32'", id: 33 },
+    StopInfo { name: "Bourdon 16'", id: 34 },
+    StopInfo { name: "Double Diapason 16'", id: 35 },
+    StopInfo { name: "Subbass 16'", id: 36 },
+    StopInfo { name: "Open Wood 16'", id: 37 },
+    StopInfo { name: "Violone 16'", id: 38 },
+    StopInfo { name: "Contra Trombone 16'", id: 39 },
+    StopInfo { name: "Harmonic Flute 8'", id: 40 },
+    StopInfo { name: "Hohlflöte 8'", id: 41 },
+    StopInfo { name: "Melodia 8'", id: 42 },
+    StopInfo { name: "Flauto Dolce 8'", id: 43 },
+    StopInfo { name: "Rohrflöte 8'", id: 44 },
 ];
 
 /// The stop that is pulled out when the console first wakes up.

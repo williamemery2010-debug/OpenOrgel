@@ -18,6 +18,8 @@ pub struct Settings {
     pub venue: String,
     #[serde(default = "default_chiff_volume")]
     pub chiff_volume: f32,
+    #[serde(default = "default_dynamics")]
+    pub dynamics: f32,
 }
 
 fn default_temperament() -> String {
@@ -32,6 +34,10 @@ fn default_chiff_volume() -> f32 {
     0.20
 }
 
+fn default_dynamics() -> f32 {
+    1.00
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Settings {
@@ -42,6 +48,7 @@ impl Default for Settings {
             temperament: default_temperament(),
             venue: default_venue(),
             chiff_volume: default_chiff_volume(),
+            dynamics: default_dynamics(),
         }
     }
 }

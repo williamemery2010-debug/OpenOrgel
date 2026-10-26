@@ -135,32 +135,49 @@ pub fn generate_tone(
     out
 }
 
-/// Applies a warm acoustic low-shelf bass equalizer and sub-bass foundation boost to `out`.
+/// Applies a multi-band cathedral acoustic contour (sub-bass shelf, bass warmth, open midrange
+/// boost, and anti-nasal presence scoop) to `out`.
 ///
-/// Combines a 240 Hz deep bass shelf (+3.8 dB) and a 440 Hz warm low-mid body shelf (+1.6 dB)
-/// with smooth pitch-dependent bass reinforcement below 320 Hz.
+/// Combines a 2nd-order 125 Hz low-low sub-bass shelf, a 240 Hz bass body shelf, a 220-580 Hz
+/// open midrange presence boost, and a 780-1180 Hz anti-nasal scoop with smooth pitch-dependent
+/// sub-bass reinforcement below 340 Hz.
 pub fn apply_bass_warmth_eq(out: &mut [f32], freq: f64, sample_rate: u32) {
     if out.is_empty() {
         return;
     }
     let sr = sample_rate as f64;
     let two_pi = 2.0 * std::f64::consts::PI;
-    let a_sub = 1.0 - (-two_pi * 240.0 / sr).exp();
-    let a_warm = 1.0 - (-two_pi * 440.0 / sr).exp();
-    let mut lp_sub = 0.0f64;
-    let mut lp_warm = 0.0f64;
+    let a_125 = 1.0 - (-two_pi * 125.0 / sr).exp();
+    let a_240 = 1.0 - (-two_pi * 240.0 / sr).exp();
+    let a_580 = 1.0 - (-two_pi * 580.0 / sr).exp();
+    let a_780 = 1.0 - (-two_pi * 780.0 / sr).exp();
+    let a_1180 = 1.0 - (-two_pi * 1180.0 / sr).exp();
 
-    let pitch_bass_boost = if freq < 320.0 {
-        (320.0 / freq.max(16.0)).powf(0.42).clamp(1.0, 2.8)
+    let mut lp_sub1 = 0.0f64;
+    let mut lp_sub2 = 0.0f64;
+    let mut lp_240 = 0.0f64;
+    let mut lp_580 = 0.0f64;
+    let mut lp_780 = 0.0f64;
+    let mut lp_1180 = 0.0f64;
+
+    let pitch_bass_boost = if freq < 340.0 {
+        (340.0 / freq.max(16.0)).powf(0.46).clamp(1.0, 3.1)
     } else {
         1.0
     };
 
     for s in out.iter_mut() {
         let x = *s as f64;
-        lp_sub += a_sub * (x - lp_sub);
-        lp_warm += a_warm * (x - lp_warm);
-        let eq_val = (x + 0.55 * lp_sub + 0.22 * lp_warm) * pitch_bass_boost;
+        lp_sub1 += a_125 * (x - lp_sub1);
+        lp_sub2 += a_125 * (lp_sub1 - lp_sub2);
+        lp_240 += a_240 * (x - lp_240);
+        lp_580 += a_580 * (x - lp_580);
+        lp_780 += a_780 * (x - lp_780);
+        lp_1180 += a_1180 * (x - lp_1180);
+
+        let mid_band = lp_580 - lp_240;
+        let nasal_band = lp_1180 - lp_780;
+        let eq_val = (x + 1.10 * lp_sub2 + 0.58 * lp_240 + 0.44 * mid_band - 0.18 * nasal_band) * pitch_bass_boost;
         *s = eq_val as f32;
     }
 }

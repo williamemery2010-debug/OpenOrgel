@@ -275,6 +275,7 @@ pub struct OrgelApp {
     pub temperament: Temperament,
     pub venue: AcousticVenue,
     pub chiff_volume: f32,
+    pub dynamics: f32,
 }
 
 impl OrgelApp {
@@ -301,11 +302,13 @@ impl OrgelApp {
         let venue = AcousticVenue::from_str_name(&settings.venue);
         let volume = settings.volume.clamp(0.0, 1.0);
         let chiff_volume = settings.chiff_volume.clamp(0.0, 1.0);
+        let dynamics = settings.dynamics.clamp(0.10, 1.50);
         engine.set_a4(tuning as f64);
         engine.set_temperament(temperament);
         engine.set_venue(venue);
         engine.set_volume(volume);
         engine.set_chiff_volume(chiff_volume);
+        engine.set_dynamics(dynamics);
 
         let audio = AudioOutput::start(engine.clone());
         if let Err(e) = &audio {
@@ -328,6 +331,7 @@ impl OrgelApp {
             venue,
             volume,
             chiff_volume,
+            dynamics,
             midi_devices: Vec::new(),
             midi_selected: "None".to_string(),
             midi_conn: None,
@@ -1216,6 +1220,39 @@ impl OrgelApp {
                 }
                 if r.drag_stopped() {
                     self.settings.volume = self.volume;
+                    self.settings.save();
+                }
+            });
+            ui.add_space(6.0);
+
+            inner_card(ui, |ui| {
+                let dyn_tag = if self.dynamics < 0.30 {
+                    "pp (Soft Swell)"
+                } else if self.dynamics < 0.60 {
+                    "mp (Warm)"
+                } else if self.dynamics < 0.90 {
+                    "mf (Balanced)"
+                } else if self.dynamics <= 1.08 {
+                    "f (Full Open)"
+                } else {
+                    "fff (Grand Tutti)"
+                };
+                ui.label(bold(format!("Expression & Dynamics [{dyn_tag}]:"), 13.0).color(TEXT_FG));
+                ui.spacing_mut().slider_width = (ui.available_width() - 60.0).max(80.0);
+                let r = ui.add(
+                    egui::Slider::new(&mut self.dynamics, 0.10..=1.50)
+                        .show_value(true)
+                        .custom_formatter(|v, _| format!("{:.0}%", v * 100.0))
+                        .custom_parser(|s| s.trim_end_matches('%').parse::<f64>().ok().map(|v| v / 100.0)),
+                );
+                if r.changed() {
+                    self.engine.set_dynamics(self.dynamics);
+                }
+                if r.drag_stopped() {
+                    self.settings.dynamics = self.dynamics;
+                    self.settings.save();
+                }
+                if false {
                     self.settings.save();
                 }
             });
