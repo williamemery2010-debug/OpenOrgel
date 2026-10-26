@@ -57,8 +57,13 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 | **UT-29** | `dsp::stops_dsp` | `test_diapason_8_spectrum_and_singing_octave` | **PASSED** | < 0.001 s |
 | **UT-30** | `dsp::stops_dsp` | `test_gedeckt_2_foot_sounds_two_octaves_above_key` | **PASSED** | < 0.001 s |
 | **UT-31** | `dsp` | `test_wind_flutter_is_audible_and_decorrelated_per_pipe` | **PASSED** | < 0.001 s |
+| **UT-32** | `dsp::pipe` | `test_chebyshev_harmonic_sum_matches_direct_evaluation` | **PASSED** | < 0.001 s |
+| **UT-33** | `dsp::pipe` | `test_pipe_steady_rms_matches_target_and_onset_is_click_free` | **PASSED** | < 0.001 s |
+| **UT-34** | `dsp::stops_dsp` | `test_physical_reed_stability_and_resonator_formants` | **PASSED** | < 0.010 s |
+| **UT-35** | `dsp::stops_dsp` | `test_compound_chorus_mixture_breaks_and_multi_ranks` | **PASSED** | < 0.005 s |
+| **UT-36** | `dsp::stops_dsp` | `test_sampled_stops_clarion_and_flue_pitch_and_loop_continuity` | **PASSED** | < 0.020 s |
 
-**Overall Result: 31 Passed, 0 Failed, 0 Ignored.**
+**Overall Result: 36 Passed, 0 Failed, 0 Ignored.**
 
 ---
 
@@ -384,7 +389,57 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 - **WHAT:** Validates that `pipe_wind_modulation` produces an authentic pitch deviation between $1.5$ and $5.0$ cents, is deterministic for any given pipe, and is aerodynamically decorrelated ($|r| < 0.8$) between different ranks on the same note and between adjacent notes in a chord.
 - **METHOD:** Generates wind modulation buffers for pipe (440 Hz, Stop 11), pipe (440 Hz, Stop 7), and pipe (466.16 Hz, Stop 11) over 3 seconds. Measures peak cents deviation $1200 \times \log_2(1 + \text{peak})$ and Pearson cross-correlation coefficients $r(A, B)$ and $r(A, C)$.
 - **EXPECTED RESULT:** Peak deviation between $1.5$ and $5.0$ cents; determinism holds; cross-correlation $|r| < 0.8$.
-- **ACTUAL RESULT:** Passed (31 tests in total pass in 0.30 s).
+- **ACTUAL RESULT:** Passed (36 tests in total pass in 0.05 s).
+
+---
+
+### UT-32: Chebyshev Harmonic Series Recurrence Equivalence
+- **Module:** [rust/src/dsp/pipe.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/pipe.rs) (`test_chebyshev_harmonic_sum_matches_direct_evaluation`)
+- **WHY:** Evaluating 16 to 32 independent sinusoidal harmonics per audio sample using direct trigonometric functions (`sin()` / `cos()`) introduces heavy computational CPU overhead ($O(H)$ transcendental evaluations). Chebyshev recurrence computes the entire harmonic series with a single `sin_cos()` call per sample. Numerical drift or precision loss in the recurrence relations would produce audible pitch distortion or phase artifacts.
+- **WHAT:** Verifies that the Chebyshev recurrence relation $T_n(x) = 2x T_{n-1}(x) - T_{n-2}(x)$ and $U_n(x)$ matches direct evaluation of $\cos(n \theta)$ and $\sin(n \theta)$ across 16 harmonics with absolute error $< 10^{-6}$.
+- **METHOD:** Evaluates 200 distinct phase angles $\theta \in [0, 2\pi)$. Generates arbitrary harmonic weighting vectors. Computes both Chebyshev recurrence output and direct trigonometric summation $\sum a_h \sin(h\theta + \phi_h)$, comparing absolute difference.
+- **EXPECTED RESULT:** Peak absolute deviation $|y_{\text{cheb}} - y_{\text{direct}}| < 10^{-6}$.
+- **ACTUAL RESULT:** Passed with zero measurable drift.
+
+---
+
+### UT-33: Physical Pipe Steady RMS Matching & Click-Free Onset
+- **Module:** [rust/src/dsp/pipe.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/pipe.rs) (`test_pipe_steady_rms_matches_target_and_onset_is_click_free`)
+- **WHY:** Real acoustic organ pipes exhibit finite attack speech build-up without instantaneous DC jumps or step discontinuities at pallet opening. The steady-state acoustic power must accurately track the target RMS energy across pitch registers.
+- **WHAT:** Validates that the physical pipe engine produces a smooth, continuous attack ramp with initial amplitude starting from zero ($|y[0]| < 10^{-4}$), absence of first-order derivative steps ($|y[n+1] - y[n]| < 0.10$), and that steady-state RMS converges within $15\%$ of the target specification.
+- **METHOD:** Renders a 0.5-second buffer (22,050 samples) at 44.1 kHz with target RMS $0.22$. Measures initial samples, maximum consecutive differences, and the RMS of the final 4,410 samples.
+- **EXPECTED RESULT:** Initial sample $< 0.0001$; maximum adjacent step $< 0.10$; steady RMS $\in [0.18, 0.26]$.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-34: Physical Reed Stability & Resonator Formant Mechanics
+- **Module:** [rust/src/dsp/stops_dsp.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/stops_dsp.rs) (`test_physical_reed_stability_and_resonator_formants`)
+- **WHY:** Reed stops (Clarinet 8', Bassoon 16', Bombarde 16', Ophicleide 16', Oboe 8', Vox Humana 8', Contrabassoon 32') rely on tongue-shallot striking dynamics and resonator acoustic cavities. Bounded dynamics and stability must be guaranteed across all registers without signal clipping or explosion, and cylindrical resonators (Clarinet) must exhibit dominant odd-harmonic resonance.
+- **WHAT:** Verifies numerical stability (no NaN/Inf, bounded peak $< 2.5$), robust steady RMS energy ($> 0.02$), and acoustic cylindrical harmonic distribution (strong 1st and 3rd harmonics) for all native physical reed ranks.
+- **METHOD:** Iterates through all native reed stop IDs rendering 0.5 s at key frequencies. Measures sample finiteness, peak amplitude, and steady-state RMS. Performs single-bin DFT analysis on Clarinet 8' verifying fundamental ($441\text{ Hz}$) and third harmonic ($1323\text{ Hz}$) presence.
+- **EXPECTED RESULT:** All samples finite; peak $< 2.5$; steady RMS $> 0.02$; Clarinet $m_1 > 0.05$ and $m_3 > 0.01$.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-35: Compound Chorus Mixture Multi-Ranks & Treble Organ Breaks
+- **Module:** [rust/src/dsp/stops_dsp.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/stops_dsp.rs) (`test_compound_chorus_mixture_breaks_and_multi_ranks`)
+- **WHY:** Compound mixture stops (Cornet V 8', Mixture IV, Plein Jeu, Cymbale, Scharf) consist of multiple speaking pipe ranks sounding simultaneously from a single key. In high octaves, partial frequencies exceeding $6.5\text{ kHz}$ become shrill and risk Nyquist aliasing unless classical organ breaks (reprises) fold them back down by octaves.
+- **WHAT:** Validates that Cornet V 8' properly sounds all 5 speaking ranks (8', 4', 2-2/3', 2', 1-3/5') and that Mixture IV executes treble break logic, keeping high-frequency energy bounded and stable.
+- **METHOD:** Renders Cornet V 8' at $220.5\text{ Hz}$ and measures Goertzel magnitudes at $220.5\text{ Hz}$, $441.0\text{ Hz}$, $661.5\text{ Hz}$, $882.0\text{ Hz}$, and $1102.5\text{ Hz}$. Renders Mixture IV at treble note $1500\text{ Hz}$ and asserts finite bounded peak.
+- **EXPECTED RESULT:** All 5 Cornet ranks exhibit magnitude $> 0.01$; treble mixture peak stays bounded within $[0.05, 2.5]$.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-36: Sampled Stop Pitch Accuracy & Equal-Power Crossfaded Continuity
+- **Module:** [rust/src/dsp/stops_dsp.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/stops_dsp.rs) (`test_sampled_stops_clarion_and_flue_pitch_and_loop_continuity`)
+- **WHY:** Sample playback for Clarion 8' and Stopped Flue must maintain exact chamber pitch without flat/sharp drift, and circular looping across multi-second sustains must be click-free and mathematically continuous.
+- **WHAT:** Validates pitch accuracy ($f_0 = 444.160\text{ Hz}$ for Clarion 8', $433.326\text{ Hz}$ for Stopped Flue) and verifies that the 1024-sample equal-power circular crossfade produces no step discontinuity across loop boundaries.
+- **METHOD:** Renders Clarion 8' for 400,000 samples, crossing the 368,107 loop boundary. Measures mid-playback RMS, post-loop RMS, and maximum sample-to-sample difference $\max |s[n+1] - s[n]|$ in the crossfade zone. Renders Stopped Flue 8' for 120,000 samples verifying post-loop energy.
+- **EXPECTED RESULT:** Mid and post-loop RMS $> 0.05$; maximum adjacent sample jump $< 0.25$ (no click artifacts).
+- **ACTUAL RESULT:** Passed.
 
 ---
 

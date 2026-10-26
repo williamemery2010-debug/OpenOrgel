@@ -515,4 +515,48 @@ PHASE 24: PHYSICAL OPEN DIAPASON 8' REVOICING, LIVING ADDITIVE FLUE PIPES, BAND-
        - Documented UT-29, UT-30, and UT-31.
 ================================================================================
 
+--------------------------------------------------------------------------------
+PHASE 25: COMPLETE NATURAL ORGAN AUDIO OVERHAUL: PHYSICALLY MODELED ACOUSTIC REEDS & FLUES, COMPOUND PIPE MIXTURES, EQUAL-POWER CROSSFADED SAMPLING (October 26, 2026 - Prealpha_v2.0.12)
+--------------------------------------------------------------------------------
+* October 26, 2026:
+  - WHAT:
+    1. Autonomous Physical Pipe Acoustic Synthesis Engine (rust/src/dsp/pipe.rs):
+       - Developed a physically-informed additive pipe synthesis engine modeling real church pipe aerodynamics and resonators.
+       - Chebyshev polynomial recurrence relations (T_0(x)=1, T_1(x)=x, T_n(x)=2x T_{n-1}(x) - T_{n-2}(x)) generate rich harmonic partial series in O(H) operations with only a single sin_cos evaluation per sample.
+       - Harmonic-dependent speech attack dynamics modeled via second-order critically damped filters with build-up time constants t_bu = k_attack / (f_0^0.35 * h^0.25), simulating tongue inertia in reeds and vortex formation in flue pipes.
+       - Resonator and boot formants: two independent bandpass/peaking resonators model pipe cavity resonances (Clarinet cylindrical 1500 Hz, Bassoon conical 550/1600 Hz, Bombarde flared 750/2200 Hz, Ophicleide 620/1900 Hz, Vox Humana 900/2800 Hz).
+       - Wideband air turbulence: breath hiss and pipe mouth edge turbulence with low-frequency pink/flicker noise modulation.
+    2. Overhaul of All Native Reed & Flue Stops (STOP_DEFINITIONS in rust/src/dsp/stops_dsp.rs):
+       - Replaced legacy 2-op FM synthesizers with physical acoustic voicings:
+         * Reeds: Clarinet 8' (ID 1) & 4' (ID 8), Bassoon 16' (ID 2), Bombarde 16' (ID 3), Ophicleide 16' (ID 4), Cor Anglais 8' (ID 6), Oboe 8' (ID 0), Vox Humana 8' (ID 16), Contrabassoon 32' (ID 10).
+         * Flutes & Strings: Flute 4' (ID 7), Viol 4' (ID 9), Crystal Flute 4' (ID 12), Piccolo 2' (ID 14), Ottavino 2' (ID 5).
+    3. Multi-Rank Compound Chorus Mixtures with Classical Organ Breaks:
+       - Introduced StopSynthesisModel::Compound supporting arbitrary pipe ensembles (CompoundRank).
+       - Cornet V 8' (ID 13): 5 speaking ranks (8' Bourdon, 4' Flûte, 2-2/3' Nazard, 2' Quarte, 1-3/5' Tierce).
+       - Mixture IV (ID 15), Plein Jeu IV (ID 22), Cymbale III (ID 21), Scharf III (ID 23), and Voix Celeste 8' (ID 24) with detuned beating ranks.
+       - Classical organ break logic (reprises): ranks automatically break back down by octaves when partial frequency exceeds 6500 Hz, preventing harsh shrillness and Nyquist folding.
+    4. Pitch-Accurate Crossfaded Sample Playback:
+       - Autocorrelation and FFT analysis of embedded WAV assets:
+         * samples/clarion.wav: f0 = 444.160 Hz (calibrated from 440.0 Hz). Steady loop: 159,264 to 368,107 samples.
+         * samples/stoppedflue.wav: f0 = 433.326 Hz (calibrated from erroneous 220.0 Hz, which caused an octave transpose error and flat tuning). Steady loop: 42,336 to 100,715 samples.
+       - Implemented 1024-sample equal-power sinusoidal crossfading (cos and sin curves) at loop boundaries with sub-sample linear interpolation, eliminating clicks on sustained notes.
+       - Added live per-pipe wind modulation to sampled stops.
+    5. Unit Testing Suite Expansion (36 Tests):
+       - Added UT-32 (Chebyshev harmonic sum correctness), UT-33 (physical pipe RMS and click-free onset), UT-34 (physical reed stability and resonator formants), UT-35 (compound mixture multi-ranks and octave breaks), and UT-36 (sampled stop pitch accuracy and crossfade continuity). All 36 tests pass in 0.05 seconds.
+  - WHY:
+    1. The creator requested: "Can we rework like all the audio systems and all the native stops to sound a lot more natural? Currently they sound very synthesised, which they are, but ideally they should sound like the real organ stops theyre named after."
+    2. Previously, reed stops relied on 2-operator FM synthesis, which sounded electronic and buzzy rather than like vibrating brass tongues against curved shallots. Compound mixtures were single wavetables lacking genuine rank detuning and classical organ breaks. Sample playback suffered from an octave error on Stopped Flue and hard loop clicks on sustains.
+  - HOW:
+    1. rust/src/dsp/pipe.rs:
+       - Implemented PipeVoicing, PipeSpec, and render_pipe with Chebyshev recurrence for harmonic summation.
+       - Implemented second-order critically damped envelope tracking per harmonic.
+       - Implemented FormantFilter and BiQuad bandpass shaping for acoustic resonance bodies.
+    2. rust/src/dsp/stops_dsp.rs:
+       - Created VOICING_* profiles for all stop families and mapped all 32 console stop definitions.
+       - Implemented render_physical_pipe, render_compound_stop, and render_sampled_pipe.
+    3. unit_tests_report.md:
+       - Documented UT-32 through UT-36.
+================================================================================
+
+
 

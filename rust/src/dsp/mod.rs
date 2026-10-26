@@ -5,6 +5,7 @@
 //! with zero external compilation dependencies.
 
 pub mod fm;
+pub mod pipe;
 pub mod reverb;
 pub mod stops_dsp;
 pub mod wavetable;
