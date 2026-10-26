@@ -1,12 +1,17 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-26 12:59:38
-Total Commits  : 95
-Total Releases : 32
+Updated At     : 2026-10-26 13:00:30
+Total Commits  : 96
+Total Releases : 33
 ================================================================================
 
 🚀 RELEASES / TAGS
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.12
+Date    : 2026-10-26
+Commit  : c971936
+Details : OpenOrgel Prealpha v2.0.12: Physically Modeled Acoustic Reeds & Flues, Multi-Rank Mixtures, and Pitch-Accurate Crossfaded Sampling
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.11
 Date    : 2026-10-16
@@ -178,7 +183,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-4357d9b  | 2026-10-26 | williamemery2010-deb | feat(dsp): overhaul all native organ stops with physically modeled acoustics, multi-rank compound choruses & crossfaded sampling
+c2c0bed  | 2026-10-26 | williamemery2010-deb | docs: sync history and releases for Prealpha_v2.0.12
+c971936  | 2026-10-26 | williamemery2010-deb | feat(dsp): overhaul all native organ stops with physically modeled acoustics, multi-rank compound choruses & crossfaded sampling
 aef4005  | 2026-10-16 | williamemery2010-deb | docs: sync history and releases for Prealpha_v2.0.11
 cb4730a  | 2026-10-16 | williamemery2010-deb | fix(dsp): overhaul Open Diapason 8' physical voicing, living additive flue, band-passed noise chiff, decorrelated wind flutter & add Gedeckt 2'
 2102243  | 2026-10-15 | williamemery2010-deb | docs: sync history and releases for Prealpha_v2.0.10
