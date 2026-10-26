@@ -103,13 +103,14 @@ impl ToneBank {
             return acc;
         }
         let stop_norm = 1.0 / (stops.len() as f32).sqrt().max(1.0);
-        let mut add = |tone: &[f32]| {
+        let mut add = |tone: &[f32], w: f32| {
             for (a, b) in acc.iter_mut().zip(tone.iter()) {
-                *a += *b * stop_norm;
+                *a += *b * stop_norm * w;
             }
         };
         for &s in stops {
-            add(&self.stop_tone(freq, duration, Some(s), chiff_vol, stops.len()));
+            let w = dsp::stops_dsp::stop_registration_weight(s);
+            add(&self.stop_tone(freq, duration, Some(s), chiff_vol, stops.len()), w);
         }
         acc
     }
@@ -124,13 +125,14 @@ impl ToneBank {
             return acc;
         }
         let count = stops.len().max(1) as f32;
-        let mut add = |tone: &[f32]| {
+        let mut add = |tone: &[f32], w: f32| {
             for (a, b) in acc.iter_mut().zip(tone.iter()) {
-                *a += *b;
+                *a += *b * w;
             }
         };
         for &s in stops {
-            add(&self.stop_tone(freq, TONE_SECONDS, Some(s), chiff_vol, stops.len()));
+            let w = dsp::stops_dsp::stop_registration_weight(s);
+            add(&self.stop_tone(freq, TONE_SECONDS, Some(s), chiff_vol, stops.len()), w);
         }
         for a in acc.iter_mut() {
             *a /= count;

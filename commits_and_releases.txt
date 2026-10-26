@@ -1,9 +1,9 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-26 14:33:33
-Total Commits  : 97
-Total Releases : 33
+Updated At     : 2026-10-26 21:20:25
+Total Commits  : 98
+Total Releases : 34
 ================================================================================
 
 🚀 RELEASES / TAGS
@@ -12,6 +12,11 @@ Version : Prealpha_v2.0.12
 Date    : 2026-10-26
 Commit  : 1085f5e
 Details : OpenOrgel Prealpha v2.0.12: Physically Modeled Acoustic Reeds & Flues, Multi-Rank Mixtures, and Pitch-Accurate Crossfaded Sampling
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.13
+Date    : 2026-10-26
+Commit  : 6e628cd
+Details : Prealpha_v2.0.13: Cylindrical Clarinet 8'/4' rework, Voix Celeste 8' dual-flue overhaul, and 4-rank Principal Chorus stop
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.11
 Date    : 2026-10-16
@@ -183,7 +188,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-34526ef  | 2026-10-26 | williamemery2010-deb | Prealpha_v2.0.13: Rework Clarinet cylindrical odd-harmonic woodwind & Voix Celeste 8' dual-flue undulation; add 4-rank Cathedral Principal Chorus stop
+4e503cd  | 2026-10-26 | williamemery2010-deb | Prealpha_v2.0.14: Revoice Diapason 8' with sympathetic chest body, add warm low-shelf bass EQ & Full Organ foundation weighting
+6e628cd  | 2026-10-26 | williamemery2010-deb | Prealpha_v2.0.13: Rework Clarinet cylindrical odd-harmonic woodwind & Voix Celeste 8' dual-flue undulation; add 4-rank Cathedral Principal Chorus stop
 1085f5e  | 2026-10-26 | williamemery2010-deb | docs: sync history and releases for Prealpha_v2.0.12
 c971936  | 2026-10-26 | williamemery2010-deb | feat(dsp): overhaul all native organ stops with physically modeled acoustics, multi-rank compound choruses & crossfaded sampling
 aef4005  | 2026-10-16 | williamemery2010-deb | docs: sync history and releases for Prealpha_v2.0.11

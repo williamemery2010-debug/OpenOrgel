@@ -127,15 +127,42 @@ pub fn generate_tone(
         render_stop_into(id, freq, sample_rate, &mut out, sine_lut, &wind_mod, effective_chiff);
     }
 
-    // Sub-bass acoustic pipe boost for deep pedal stops
-    if freq < 250.0 {
-        let bass_boost = (250.0 / freq).sqrt() as f32;
-        for s in out.iter_mut() {
-            *s *= bass_boost;
-        }
-    }
+    // Warm Cathedral Low-Shelf Bass & Low-Mid Foundation EQ:
+    // Applies a two-band low-pass shelf (sub-bass/bass below 240 Hz + warm chest body below 440 Hz)
+    // plus sub-bass pitch scaling so Diapason and Full Organ registrations have deep, commanding weight.
+    apply_bass_warmth_eq(&mut out, freq, sample_rate);
 
     out
+}
+
+/// Applies a warm acoustic low-shelf bass equalizer and sub-bass foundation boost to `out`.
+///
+/// Combines a 240 Hz deep bass shelf (+3.8 dB) and a 440 Hz warm low-mid body shelf (+1.6 dB)
+/// with smooth pitch-dependent bass reinforcement below 320 Hz.
+pub fn apply_bass_warmth_eq(out: &mut [f32], freq: f64, sample_rate: u32) {
+    if out.is_empty() {
+        return;
+    }
+    let sr = sample_rate as f64;
+    let two_pi = 2.0 * std::f64::consts::PI;
+    let a_sub = 1.0 - (-two_pi * 240.0 / sr).exp();
+    let a_warm = 1.0 - (-two_pi * 440.0 / sr).exp();
+    let mut lp_sub = 0.0f64;
+    let mut lp_warm = 0.0f64;
+
+    let pitch_bass_boost = if freq < 320.0 {
+        (320.0 / freq.max(16.0)).powf(0.42).clamp(1.0, 2.8)
+    } else {
+        1.0
+    };
+
+    for s in out.iter_mut() {
+        let x = *s as f64;
+        lp_sub += a_sub * (x - lp_sub);
+        lp_warm += a_warm * (x - lp_warm);
+        let eq_val = (x + 0.55 * lp_sub + 0.22 * lp_warm) * pitch_bass_boost;
+        *s = eq_val as f32;
+    }
 }
 
 #[cfg(test)]
@@ -197,5 +224,35 @@ mod tests {
         let r_ac = corr(&a, &c);
         assert!(r_ab.abs() < 0.8, "ranks on one note must not wobble together: r={r_ab}");
         assert!(r_ac.abs() < 0.8, "notes of a chord must not wobble together: r={r_ac}");
+    }
+
+    #[test]
+    fn test_bass_warmth_eq_and_full_organ_foundation_weighting() {
+        // Verify low-shelf EQ boosts bass frequencies (110 Hz) more than high treble (3520 Hz)
+        let sr = 44100;
+        let mut bass_wave: Vec<f32> = (0..4410)
+            .map(|n| (2.0 * std::f64::consts::PI * 110.0 * n as f64 / sr as f64).sin() as f32 * 0.25)
+            .collect();
+        let mut treble_wave: Vec<f32> = (0..4410)
+            .map(|n| (2.0 * std::f64::consts::PI * 3520.0 * n as f64 / sr as f64).sin() as f32 * 0.25)
+            .collect();
+
+        apply_bass_warmth_eq(&mut bass_wave, 110.0, sr);
+        apply_bass_warmth_eq(&mut treble_wave, 3520.0, sr);
+
+        let bass_rms = (bass_wave[1000..].iter().map(|s| s * s).sum::<f32>() / 3410.0).sqrt();
+        let treble_rms = (treble_wave[1000..].iter().map(|s| s * s).sum::<f32>() / 3410.0).sqrt();
+        assert!(
+            bass_rms > 1.8 * treble_rms,
+            "Bass EQ must reinforce low frequencies over high frequencies: bass_rms={bass_rms}, treble_rms={treble_rms}"
+        );
+
+        // Verify Full Organ registration weights prioritize 32'/16'/8' foundations over 2'/Mixtures
+        let w_32 = stops_dsp::stop_registration_weight(10);      // Contrabassoon 32'
+        let w_16 = stops_dsp::stop_registration_weight(3);       // Bombarde 16'
+        let w_diapason = stops_dsp::stop_registration_weight(11); // Diapason 8'
+        let w_mixture = stops_dsp::stop_registration_weight(15);  // Mixture IV
+        assert!(w_32 > w_diapason && w_16 > w_diapason);
+        assert!(w_diapason > 1.8 * w_mixture, "8' Diapason must outweigh high mixtures in Full Organ");
     }
 }

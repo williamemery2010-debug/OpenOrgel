@@ -65,8 +65,9 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 | **UT-37** | `dsp::stops_dsp` | `test_clarinet_cylindrical_odd_harmonic_hollow_woodwind_spectrum` | **PASSED** | < 0.002 s |
 | **UT-38** | `dsp::stops_dsp` | `test_voix_celeste_warm_flue_undulation_and_no_saw_buzz` | **PASSED** | < 0.005 s |
 | **UT-39** | `dsp::stops_dsp` | `test_principal_chorus_four_rank_plenum_and_breaks` | **PASSED** | < 0.005 s |
+| **UT-40** | `dsp` | `test_bass_warmth_eq_and_full_organ_foundation_weighting` | **PASSED** | < 0.001 s |
 
-**Overall Result: 39 Passed, 0 Failed, 0 Ignored.**
+**Overall Result: 40 Passed, 0 Failed, 0 Ignored.**
 
 ---
 
@@ -472,6 +473,16 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 - **WHAT:** Verifies that `Principal Chorus` (Stop ID 32) is registered in `STOPS` and `STOP_DEFINITIONS`, synthesizes all 4 chorus ranks ($8'$, $4'$, $2\text{-}2/3'$, $2'$) with strong spectral presence at $1\times, 2\times, 3\times, 4\times$ key frequency, and folds high-treble ranks back safely below Nyquist.
 - **METHOD:** Renders Stop ID 32 at $220.5\text{ Hz}$ ($A_3$) and measures Goertzel magnitudes at $220.5\text{ Hz}$, $441.0\text{ Hz}$, $661.5\text{ Hz}$, and $882.0\text{ Hz}$. Renders a high treble note ($2000\text{ Hz}$) and checks sample finiteness and peak headroom ($< 2.0$).
 - **EXPECTED RESULT:** All four chorus ranks exhibit strong presence ($m_{8'} > 0.08$, $m_{4'} > 0.06$, $m_{2\text{-}2/3'} > 0.03$, $m_{2'} > 0.03$) and treble break output remains finite and bounded.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-40: Warm Cathedral Bass Shelf EQ & Full Organ Foundation Weighting
+- **Module:** [rust/src/dsp/mod.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/mod.rs) (`test_bass_warmth_eq_and_full_organ_foundation_weighting`)
+- **WHY:** Because 16 of the 31 console stops are high-pitched 4', 2', and Mixture stops, summing all drawn stops with equal $1.0$ weight caused Full Organ (*Tutti*) registrations to sound top-heavy and hollow. Additionally, Diapason and foundation ranks require warm low-shelf bass reinforcement ($< 240\text{ Hz}$ and $< 440\text{ Hz}$) to reproduce cathedral chest weight.
+- **WHAT:** Validates that `apply_bass_warmth_eq` boosts low frequencies ($110\text{ Hz}$) by more than $1.8\times$ relative to high frequencies ($3520\text{ Hz}$), and that `stop_registration_weight` prioritizes 32' ($1.50$), 16' ($1.42$), and 8' Diapason ($1.32$) foundations above high 2'/Mixture stops ($0.62$).
+- **METHOD:** Applies `apply_bass_warmth_eq` to unit $110\text{ Hz}$ and $3520\text{ Hz}$ sine buffers and compares steady-state RMS. Queries `stop_registration_weight` for Stop IDs 10, 3, 11, and 15.
+- **EXPECTED RESULT:** $\text{RMS}_{110\text{ Hz}} > 1.8 \times \text{RMS}_{3520\text{ Hz}}$ and $w_{8'\text{ Diapason}} > 1.8 \times w_{\text{Mixture IV}}$.
 - **ACTUAL RESULT:** Passed.
 
 ---

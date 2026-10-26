@@ -599,31 +599,31 @@ pub const CORNET_V_RANKS: &[CompoundRank] = &[
 ];
 
 pub const MIXTURE_IV_RANKS: &[CompoundRank] = &[
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 3.0, gain: 0.42, detune_cents: 0.0 }, // 19th (1-1/3')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 4.0, gain: 0.38, detune_cents: 0.0 }, // 22nd (1')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 6.0, gain: 0.32, detune_cents: 0.0 }, // 26th (2/3')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 8.0, gain: 0.28, detune_cents: 0.0 }, // 29th (1/2')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 3.0, gain: 0.34, detune_cents: 0.0 }, // 19th (1-1/3')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 4.0, gain: 0.30, detune_cents: 0.0 }, // 22nd (1')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 6.0, gain: 0.24, detune_cents: 0.0 }, // 26th (2/3')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 8.0, gain: 0.20, detune_cents: 0.0 }, // 29th (1/2')
 ];
 
 pub const PLEIN_JEU_RANKS: &[CompoundRank] = &[
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 2.0, gain: 0.48, detune_cents: 0.0 }, // 15th (2')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 3.0, gain: 0.42, detune_cents: 0.0 }, // 19th (1-1/3')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 4.0, gain: 0.38, detune_cents: 0.0 }, // 22nd (1')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 6.0, gain: 0.32, detune_cents: 0.0 }, // 26th (2/3')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 8.0, gain: 0.26, detune_cents: 0.0 }, // 29th (1/2')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 2.0, gain: 0.40, detune_cents: 0.0 }, // 15th (2')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 3.0, gain: 0.34, detune_cents: 0.0 }, // 19th (1-1/3')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 4.0, gain: 0.30, detune_cents: 0.0 }, // 22nd (1')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 6.0, gain: 0.24, detune_cents: 0.0 }, // 26th (2/3')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 8.0, gain: 0.19, detune_cents: 0.0 }, // 29th (1/2')
 ];
 
 pub const CYMBALE_RANKS: &[CompoundRank] = &[
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 4.0, gain: 0.46, detune_cents: 0.0 }, // 22nd (1')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 6.0, gain: 0.38, detune_cents: 0.0 }, // 26th (2/3')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 8.0, gain: 0.32, detune_cents: 0.0 }, // 29th (1/2')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 4.0, gain: 0.36, detune_cents: 0.0 }, // 22nd (1')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 6.0, gain: 0.28, detune_cents: 0.0 }, // 26th (2/3')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 8.0, gain: 0.22, detune_cents: 0.0 }, // 29th (1/2')
 ];
 
 pub const SCHARF_RANKS: &[CompoundRank] = &[
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 3.0, gain: 0.42, detune_cents: 0.0 }, // 19th (1-1/3')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 4.0, gain: 0.38, detune_cents: 0.0 }, // 22nd (1')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 5.0, gain: 0.34, detune_cents: 0.0 }, // 17th (Tierce 1-3/5')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 6.0, gain: 0.30, detune_cents: 0.0 }, // 26th (2/3')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 3.0, gain: 0.34, detune_cents: 0.0 }, // 19th (1-1/3')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 4.0, gain: 0.30, detune_cents: 0.0 }, // 22nd (1')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 5.0, gain: 0.26, detune_cents: 0.0 }, // 17th (Tierce 1-3/5')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 6.0, gain: 0.22, detune_cents: 0.0 }, // 26th (2/3')
 ];
 
 pub const VOIX_CELESTE_RANKS: &[CompoundRank] = &[
@@ -1436,11 +1436,35 @@ pub const DIAPASON_PARTIALS: &[(f64, f64, f64, f64, f64, f64)] = &[
     (10.0, 0.005, 2.85, 0.0, 1.25, 0.050),
 ];
 
+/// Organological registration balance weight for each stop in multi-stop and Full Organ (Tutti) mixes.
+///
+/// On the console, 16 of the 31 stops are high-pitched 4', 2', and Mixture stops. If every stop is summed
+/// with equal 1.0 weight, drawing Full Organ drowns the 32', 16', and 8' foundations under 16 upper-octave
+/// and mixture ranks, making the organ sound thin and hollow. Weighting the 32'/16' pedal & manual bass
+/// ranks (1.45x) and 8' unison foundations (1.25x) above 4' octaves (0.88x) and 2'/Mixtures (0.62x)
+/// preserves authentic cathedral gravitas in any registration.
+pub fn stop_registration_weight(stop_id: i32) -> f32 {
+    match stop_id {
+        // 32' & 16' Sub-Bass and Foundation Ranks (deep cathedral gravity)
+        10 | 20 => 1.50,          // Contrabassoon 32', Gedeckt 32'
+        2 | 3 | 4 | 19 | 27 => 1.42, // Bassoon 16', Bombarde 16', Ophicleide 16', Gedeckt 16', Acoustic Flue 16'
+        // 8' Principal Foundation & Chorus Ranks
+        11 | 32 => 1.32,          // Diapason 8', Principal Chorus
+        0 | 1 | 6 | 16 | 17 | 24 | 25 | 30 => 1.20, // 8' Flues, Strings, and Reeds
+        // 4' Octave & Solo Mutation Ranks
+        7 | 8 | 9 | 12 | 13 | 18 | 26 | 28 => 0.88,
+        // 2' Super-Octaves & High Mixtures (silvery crown without hollowing out the bass)
+        5 | 14 | 15 | 21 | 22 | 23 | 29 | 31 => 0.62,
+        _ => 1.0,
+    }
+}
+
 /// Renders an authentic Open Diapason (Principal / Montre 8') open cylindrical flue pipe.
 ///
-/// Models the full integer harmonic series with singing octave warmth, acoustic phase dispersion,
-/// vocal mouth radiation formant (~850 Hz), articulate band-passed breath noise speech chiff,
-/// independent harmonic micro-drift, and physical air-column breath turbulence.
+/// Models a rich cathedral Open Diapason with deep fundamental weight, warm low-mid chest resonance
+/// (~260 Hz) + vocal mouth cut-up presence (~680 Hz), a subtle sympathetic secondary pipe/wall coupling
+/// (+0.20 Hz slow acoustic breadth so a single rank never sounds flat or empty), per-harmonic S-curve
+/// speech envelopes, wind-foot onset pitch scoop (-2.2 cents), and dual air-column breath resonators.
 pub fn render_open_diapason(
     freq: f64,
     pitch_ratio: f64,
@@ -1459,44 +1483,67 @@ pub fn render_open_diapason(
     let two_pi = 2.0 * std::f64::consts::PI;
     let chiff = chiff_scale.max(0.0) as f64;
 
-    // Töpfer Normalmensur acoustic scaling:
-    // Bass pipes below Middle C gain foundational round warmth and weight;
-    // Treble pipes round off gently into pure, singing cathedral tones.
-    let bass_tilt = (1.0 + 0.22 * (261.63 / f0).log2()).clamp(0.75, 1.45);
+    // Töpfer Normalmensur scaling: bass pipes gain deep foundational weight; treble pipes round warmly.
+    let bass_tilt = (1.0 + 0.24 * (261.63 / f0).log2()).clamp(0.78, 1.48);
+    // Extra fundamental body weight in the bass and tenor registers so Diapason never feels empty.
+    let fund_weight = (1.0 + 0.16 * (320.0 / f0).log2().max(0.0)).clamp(1.0, 1.38);
 
-    // Pre-calculate partials with mouth formant and high-frequency dissipation
-    let mut partials: Vec<(f64, f64, f64, f64, f64, f64, f64)> = Vec::with_capacity(DIAPASON_PARTIALS.len());
-    let mut amp_sum = 0.0;
-    for (i, &(k, a, phase_off, boost, rate, depth)) in DIAPASON_PARTIALS.iter().enumerate() {
+    // Tuple: (k, main_amp, symp_amp, phase_off, symp_phase_off, attack_samples, rate, depth, lfo_phase)
+    let mut partials: Vec<(f64, f64, f64, f64, f64, f64, f64, f64, f64)> =
+        Vec::with_capacity(DIAPASON_PARTIALS.len());
+    let mut base_amp_sum = 0.0;
+    for (i, &(k, a, phase_off, _boost, rate, depth)) in DIAPASON_PARTIALS.iter().enumerate() {
         let pf = f0 * k;
         if pf >= nyquist * 0.9 {
             continue;
         }
-        let mut amp = a;
-        if k >= 2.0 {
-            amp *= bass_tilt;
-        }
+        base_amp_sum += a;
 
-        // Acoustic mouth cut-up radiation formant (~850 Hz peak, typical of open diapasons)
-        let formant_octave_dist = (pf / 850.0).log2();
-        let formant_gain = 1.0 + 0.35 * (-formant_octave_dist * formant_octave_dist * 0.75).exp();
+        let mut amp = if (k - 1.0).abs() < 0.1 {
+            a * fund_weight
+        } else {
+            a * bass_tilt
+        };
+
+        // Warm low-mid pipe body resonance (~260 Hz) + vocal mouth cut-up presence (~680 Hz)
+        let d_body = (pf / 260.0).log2() / 1.15;
+        let d_mouth = (pf / 680.0).log2() / 1.05;
+        let formant_gain = (1.0 + 0.28 * (-d_body * d_body).exp())
+            * (1.0 + 0.22 * (-d_mouth * d_mouth).exp());
         amp *= formant_gain;
 
-        // Open metal pipe acoustic dissipation above 4.5 kHz
-        amp /= 1.0 + (pf / 4500.0).powi(2);
+        // Smooth open metal wall dissipation above 3.8 kHz
+        amp /= 1.0 + (pf / 3800.0).powi(2);
 
-        amp_sum += amp;
-        partials.push((k, amp, phase_off, boost, rate, depth, 0.65 * i as f64 + 0.25));
+        // Sympathetic secondary pipe/chest resonance (strong on fundamental & octave for 3D fullness)
+        let symp_amp = amp * (0.24 / k.sqrt());
+        let symp_phase_off = phase_off + 1.92 + 0.61 * i as f64;
+        // Upper flue partials speak slightly ahead of the heavy 8' fundamental (natural flue physics)
+        let attack_s = (0.022 * k.powf(-0.22)).clamp(0.009, 0.026);
+        let attack_samples = (attack_s * sr).max(1.0);
+
+        partials.push((
+            k,
+            amp,
+            symp_amp,
+            phase_off,
+            symp_phase_off,
+            attack_samples,
+            rate,
+            depth,
+            0.65 * i as f64 + 0.25,
+        ));
     }
-    let norm = 0.88 / amp_sum.max(1e-6);
+    // Normalise against base_amp_sum so bass/formant warmth adds real body instead of being divided out
+    let norm = 0.64 / base_amp_sum.max(1e-6);
 
     // Physical air-column breath resonators:
     // Low resonator at pipe fundamental f0 (bandwidth 0.25 f0)
-    let mut breath_low = NoiseResonator::new(f0, f0 * 0.25, sr);
+    let mut breath_low = NoiseResonator::new(f0, (f0 * 0.25).max(10.0), sr);
     // Upper vocal resonance at octave 2*f0 or cut-up formant
-    let breath_center = (f0 * 2.0).min(900.0);
+    let breath_center = (f0 * 2.0).min(800.0);
     let mut breath_mid = if breath_center < nyquist * 0.9 {
-        Some(NoiseResonator::new(breath_center, breath_center * 0.40, sr))
+        Some(NoiseResonator::new(breath_center, (breath_center * 0.38).max(20.0), sr))
     } else {
         None
     };
@@ -1513,37 +1560,46 @@ pub fn render_open_diapason(
         (rng as f64 / u32::MAX as f64) * 2.0 - 1.0
     };
 
-    // Speech dynamics: genuine band-passed breath noise and labium edge burst
+    // Speech dynamics: genuine band-passed breath noise, labium edge burst, and wind-foot pitch settle
     let spit_decay = (-1.0 / (0.030 * sr)).exp();  // 30 ms languid vortex
     let edge_decay = (-1.0 / (0.014 * sr)).exp();  // 14 ms high-frequency lip edge
     let spit_level = 0.04 + 0.28 * chiff;
     let edge_level = 0.015 + 0.10 * chiff;
     let hiss_level = 0.009; // quiet, warm continuous air column presence
 
-    let step = f0 / sr;
-    let mut phase = 0.0f64;
+    let mut onset_cents = -2.2f64;
+    let onset_decay = (-1.0 / (0.018 * sr)).exp();
+    const CENTS_TO_RATIO: f64 = 0.000_577_622_65;
+
+    let step_main = f0 / sr;
+    // Slow 0.20 Hz sympathetic chest coupling (5-second period: adds 3D acoustic fullness without vibrato)
+    let step_symp = (f0 + 0.20) / sr;
+    let mut phase_main = 0.0f64;
+    let mut phase_symp = 0.17f64;
     let mut spit_env = 1.0f64;
     let mut edge_env = 1.0f64;
     let mut prev_white = 0.0f64;
-    let tone_attack_len = (0.018 * sr).max(1.0);
 
     for (i, sample) in out.iter_mut().enumerate() {
         let t = i as f64 / sr;
+        let n_f = i as f64;
         let wind = if i < wind_mod.len() { wind_mod[i] as f64 } else { 0.0 };
 
         let mut tone = 0.0f64;
-        let tone_attack = (i as f64 / tone_attack_len).min(1.0);
-        for &(k, amp, phase_off, _boost, rate, depth, lfo_phase) in &partials {
+        for &(k, amp, symp_amp, phase_off, symp_phase_off, attack_samples, rate, depth, lfo_phase) in &partials {
+            // Smooth S-curve per-partial speech build-up
+            let u = (n_f / attack_samples).min(1.0);
+            let env = 0.5 - 0.5 * (std::f64::consts::PI * u).cos();
             let drift = 1.0 + depth * sine_lut.sin(two_pi * rate * t + lfo_phase) as f64;
-            // Phase dispersion + partial oscillation
-            let partial_phase = two_pi * (k * phase) + phase_off;
-            tone += amp * tone_attack * drift * sine_lut.sin(partial_phase) as f64;
+            let p_main = two_pi * (k * phase_main) + phase_off;
+            let p_symp = two_pi * (k * phase_symp) + symp_phase_off;
+            tone += env * drift * (amp * sine_lut.sin(p_main) as f64 + symp_amp * sine_lut.sin(p_symp) as f64);
         }
 
         let white = next_noise();
-        let mut breath = 0.65 * breath_low.process(white);
+        let mut breath = 0.68 * breath_low.process(white);
         if let Some(res) = breath_mid.as_mut() {
-            breath += 0.45 * res.process(white);
+            breath += 0.42 * res.process(white);
         }
         let edge = (white - prev_white) * edge_level * edge_env;
         prev_white = white;
@@ -1551,7 +1607,10 @@ pub fn render_open_diapason(
 
         *sample += (norm * tone + noise) as f32;
 
-        phase = (phase + step * (1.0 + wind)).fract();
+        let pitch_bend = 1.0 + onset_cents * CENTS_TO_RATIO;
+        phase_main = (phase_main + step_main * (1.0 + wind) * pitch_bend).fract();
+        phase_symp = (phase_symp + step_symp * (1.0 - 0.6 * wind) * pitch_bend).fract();
+        onset_cents *= onset_decay;
         spit_env *= spit_decay;
         edge_env *= edge_decay;
     }

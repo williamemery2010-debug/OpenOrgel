@@ -596,5 +596,34 @@ PHASE 26: CYLINDRICAL CLARINET REED REWORK, DUAL-FLUE VOIX CELESTE 8' OVERHAUL &
        - Documented UT-37, UT-38, and UT-39.
 ================================================================================
 
+--------------------------------------------------------------------------------
+PHASE 27: SYMPATHETIC CATHEDRAL DIAPASON 8' REVOICING, WARM LOW-SHELF BASS EQ & FULL ORGAN (TUTTI) FOUNDATION WEIGHTING (October 26, 2026 - Prealpha_v2.0.14)
+--------------------------------------------------------------------------------
+* October 26, 2026:
+  - WHAT:
+    1. Open Diapason 8' (ID 11) Sympathetic Cathedral Chest Revoicing (render_open_diapason in rust/src/dsp/stops_dsp.rs):
+       - Added a warm low-mid pipe-body resonance centered at 260 Hz (+28%) paired with a 680 Hz vocal mouth cut-up formant (+22%) and bass fundamental reinforcement (fund_weight up to 1.38x below 320 Hz).
+       - Fixed normalization so formant and bass tilt gains are normalized against unboosted base_amp_sum rather than dividing down the fundamental amplitude.
+       - Added a subtle secondary sympathetic open-flue pipe/wall coupling (+0.20 Hz slow 5-second acoustic breadth at 0.24 / sqrt(k) relative amplitude) with independent phase dispersion and counter-phased wind modulation, eliminating the flat, empty 1D single-oscillator character.
+       - Replaced the simultaneous linear attack ramp with per-harmonic S-curve speech envelopes (tau_k = 22 ms * k^-0.22) and a -2.2 cent wind-foot onset pitch scoop over 18 ms.
+    2. Warm Cathedral Low-Shelf Bass & Low-Mid Equalizer (apply_bass_warmth_eq in rust/src/dsp/mod.rs):
+       - Implemented a dual 1-pole low-pass shelf equalizer in generate_tone boosting sub-bass/bass (< 240 Hz by +0.55 linear shelf) and warm low-mid chest body (< 440 Hz by +0.22 linear shelf), combined with smooth pitch-dependent bass reinforcement below 320 Hz.
+    3. Full Organ (Tutti) Organological Foundation Weighting (stop_registration_weight in stops_dsp.rs & ToneBank in engine.rs):
+       -Weighted 32' stops (1.50x), 16' stops (1.42x), Diapason 8' & Principal Chorus (1.32x), and 8' foundations (1.20x) above 4' octaves (0.88x) and 2'/Mixtures (0.62x), and gently trimmed high mixture rank gains by ~20%.
+       - Added UT-40 (test_bass_warmth_eq_and_full_organ_foundation_weighting); all 40 unit tests pass.
+  - WHY:
+    1. The creator noted: "Very quickly diapason sounds a bit empty and fake and when using the full organ everything feels hollow so maybe just EQ the bass louder slightly".
+    2. Previously, render_open_diapason boosted partials around 850 Hz and then normalized by the boosted sum, which attenuated the fundamental in the bass/tenor registers, while all 10 harmonics ramped linearly in lockstep as a single 1D oscillator.
+    3. Furthermore, because 16 of the 31 console stops are high-pitched 4', 2', and Mixture stops, summing all drawn stops with equal 1.0 weight caused Full Organ registrations to be dominated by 1-6 kHz upper ranks, making the overall sound feel hollow and bass-shy.
+  - HOW:
+    1. rust/src/dsp/stops_dsp.rs:
+       - Re-engineered render_open_diapason with dual-phase sympathetic pipe coupling, 260/680 Hz body/mouth formants, S-curve harmonic speech, and base_amp_sum normalization.
+       - Added stop_registration_weight(stop_id) and calibrated MIXTURE_IV_RANKS, PLEIN_JEU_RANKS, CYMBALE_RANKS, and SCHARF_RANKS.
+    2. rust/src/dsp/mod.rs:
+       - Added apply_bass_warmth_eq and integrated it into generate_tone.
+    3. rust/src/engine.rs:
+       - Applied stop_registration_weight in ToneBank::summed_tone and ToneBank::live_tone.
+================================================================================
+
 
 
