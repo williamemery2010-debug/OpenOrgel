@@ -62,8 +62,11 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 | **UT-34** | `dsp::stops_dsp` | `test_physical_reed_stability_and_resonator_formants` | **PASSED** | < 0.010 s |
 | **UT-35** | `dsp::stops_dsp` | `test_compound_chorus_mixture_breaks_and_multi_ranks` | **PASSED** | < 0.005 s |
 | **UT-36** | `dsp::stops_dsp` | `test_sampled_stops_clarion_and_flue_pitch_and_loop_continuity` | **PASSED** | < 0.020 s |
+| **UT-37** | `dsp::stops_dsp` | `test_clarinet_cylindrical_odd_harmonic_hollow_woodwind_spectrum` | **PASSED** | < 0.002 s |
+| **UT-38** | `dsp::stops_dsp` | `test_voix_celeste_warm_flue_undulation_and_no_saw_buzz` | **PASSED** | < 0.005 s |
+| **UT-39** | `dsp::stops_dsp` | `test_principal_chorus_four_rank_plenum_and_breaks` | **PASSED** | < 0.005 s |
 
-**Overall Result: 36 Passed, 0 Failed, 0 Ignored.**
+**Overall Result: 39 Passed, 0 Failed, 0 Ignored.**
 
 ---
 
@@ -439,6 +442,36 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 - **WHAT:** Validates pitch accuracy ($f_0 = 444.160\text{ Hz}$ for Clarion 8', $433.326\text{ Hz}$ for Stopped Flue) and verifies that the 1024-sample equal-power circular crossfade produces no step discontinuity across loop boundaries.
 - **METHOD:** Renders Clarion 8' for 400,000 samples, crossing the 368,107 loop boundary. Measures mid-playback RMS, post-loop RMS, and maximum sample-to-sample difference $\max |s[n+1] - s[n]|$ in the crossfade zone. Renders Stopped Flue 8' for 120,000 samples verifying post-loop energy.
 - **EXPECTED RESULT:** Mid and post-loop RMS $> 0.05$; maximum adjacent sample jump $< 0.25$ (no click artifacts).
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-37: Clarinet Cylindrical Odd-Harmonic Hollow Woodwind Spectrum
+- **Module:** [rust/src/dsp/stops_dsp.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/stops_dsp.rs) (`test_clarinet_cylindrical_odd_harmonic_hollow_woodwind_spectrum`)
+- **WHY:** The previous `VOICING_CLARINET` model had high phase coherence ($0.72$), 22 harmonics, even-harmonic restoration above $2400\text{ Hz}$, and a $2800\text{ Hz}$ boost, causing `Clarinet 8'` and `Clarinet 4'` to sound like a buzzy sawtooth wave. Acoustically, a real Clarinet / Cromorne uses a closed cylindrical quarter-wave resonator ($L \approx \lambda / 4$) that cancels even harmonics ($2f_0, 4f_0$) and strongly supports odd harmonics ($f_0, 3f_0, 5f_0$) with a steep bell cutoff around $1850\text{ Hz}$.
+- **WHAT:** Validates that `render_clarinet_pipe` produces dominant odd harmonics ($m_1, m_3, m_5$) while suppressing even harmonics ($m_3 > 10 \times m_2$ and $m_5 > 5 \times m_4$), mathematically proving the waveform is a hollow cylindrical woodwind and not a sawtooth wave, and verifies `Clarinet 4'` (Stop ID 8) sounds one octave ($2\times$) above key pitch.
+- **METHOD:** Renders `Clarinet 8'` (Stop ID 1) at $441.0\text{ Hz}$ and evaluates Goertzel DFT magnitudes at $441\text{ Hz}$, $882\text{ Hz}$, $1323\text{ Hz}$, $1764\text{ Hz}$, and $2205\text{ Hz}$. Renders `Clarinet 4'` (Stop ID 8) at $220.5\text{ Hz}$ and compares $441.0\text{ Hz}$ vs $220.5\text{ Hz}$.
+- **EXPECTED RESULT:** $m_1 > 0.15$, $m_3 > 0.15 m_1$, $m_3 > 10 m_2$, $m_5 > 5 m_4$, and $m_{4'}(2f_0) > 15 m_{4'}(f_0)$.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-38: Voix Celeste 8' Warm Flue Undulation & Elimination of Synth Saw Buzz
+- **Module:** [rust/src/dsp/stops_dsp.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/stops_dsp.rs) (`test_voix_celeste_warm_flue_undulation_and_no_saw_buzz`)
+- **WHY:** Previously, `Voix Celeste 8'` paired two identical 24-harmonic bright saw-like voices with shared wind modulation and equal amplitude ($0.62$ and $0.62$), creating deep $100\%$ comb-filter phase-cancellation notches and harsh $2.1\text{--}3.4\text{ kHz}$ synth buzz like an 1980s dual-oscillator synthesizer. A real Cavaillé-Coll *Voix Céleste 8'* pairs an open metal *Salicional 8'* flue pipe with a slightly softer *Unda Maris / Céleste 8'* flue pipe, each with independent windchest breathing, warm $780\text{ Hz}$ mouth formants, smooth $2800\text{ Hz}$ wall roll-off, and organological beat-rate scaling.
+- **WHAT:** Validates that `render_voix_celeste` (Stop ID 24) produces a warm open-flue spectrum (prominent fundamental and singing $4'$ octave, with 12th harmonic suppressed $> 25:1$ below the fundamental) and that asymmetric rank voicing prevents deep comb-filter cancellation dropouts across a 2-second sustain.
+- **METHOD:** Renders 2.0 seconds ($88,200$ samples) of Stop ID 24 at $441.0\text{ Hz}$. Measures Goertzel magnitudes at $f_0$, $2f_0$, and $12f_0$, and verifies that every $100\text{ ms}$ window after speech onset maintains RMS $> 0.04$.
+- **EXPECTED RESULT:** $m_1 > 0.08$, $m_2 > 0.15 m_1$, $m_1 > 25 m_{12}$, and minimum $100\text{ ms}$ chunk RMS $> 0.04$.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-39: Cathedral Principal Chorus Four-Rank Plenum & Octave Breaks
+- **Module:** [rust/src/dsp/stops_dsp.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/stops_dsp.rs) (`test_principal_chorus_four_rank_plenum_and_breaks`)
+- **WHY:** A foundational organ registration requires a complete Cathedral Principal Chorus (*Open Diapason 8' + Octave 4' + Twelfth 2-2/3' + Super Octave / Fifteenth 2'*) where each rank is an independent open cylindrical metal flue pipe with decorrelated wind modulation, footage-scaled speech attack times, and classical treble octave breaks.
+- **WHAT:** Verifies that `Principal Chorus` (Stop ID 32) is registered in `STOPS` and `STOP_DEFINITIONS`, synthesizes all 4 chorus ranks ($8'$, $4'$, $2\text{-}2/3'$, $2'$) with strong spectral presence at $1\times, 2\times, 3\times, 4\times$ key frequency, and folds high-treble ranks back safely below Nyquist.
+- **METHOD:** Renders Stop ID 32 at $220.5\text{ Hz}$ ($A_3$) and measures Goertzel magnitudes at $220.5\text{ Hz}$, $441.0\text{ Hz}$, $661.5\text{ Hz}$, and $882.0\text{ Hz}$. Renders a high treble note ($2000\text{ Hz}$) and checks sample finiteness and peak headroom ($< 2.0$).
+- **EXPECTED RESULT:** All four chorus ranks exhibit strong presence ($m_{8'} > 0.08$, $m_{4'} > 0.06$, $m_{2\text{-}2/3'} > 0.03$, $m_{2'} > 0.03$) and treble break output remains finite and bounded.
 - **ACTUAL RESULT:** Passed.
 
 ---

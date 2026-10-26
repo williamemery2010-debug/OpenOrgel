@@ -147,6 +147,7 @@ pub fn classify_footage(raw_name: &str) -> Footage {
     // 2. Mixture roman numerals & keywords
     if lower.contains("mixture")
         || lower.contains("mixtur")
+        || lower.contains("chorus")
         || lower.contains("plein jeu")
         || lower.contains("fourniture")
         || lower.contains("cymbale")
@@ -420,6 +421,7 @@ pub fn classify_division(raw_name: &str) -> Division {
         || lower.contains("doublette")
         || lower.contains("mixture")
         || lower.contains("mixtur")
+        || lower.contains("chorus")
         || lower.contains("fourniture")
         || lower.contains("plein jeu")
         || lower.contains("scharf")

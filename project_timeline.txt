@@ -558,5 +558,43 @@ PHASE 25: COMPLETE NATURAL ORGAN AUDIO OVERHAUL: PHYSICALLY MODELED ACOUSTIC REE
        - Documented UT-32 through UT-36.
 ================================================================================
 
+--------------------------------------------------------------------------------
+PHASE 26: CYLINDRICAL CLARINET REED REWORK, DUAL-FLUE VOIX CELESTE 8' OVERHAUL & 4-RANK CATHEDRAL PRINCIPAL CHORUS (October 26, 2026 - Prealpha_v2.0.13)
+--------------------------------------------------------------------------------
+* October 26, 2026:
+  - WHAT:
+    1. Clarinet 8' (ID 1) & Clarinet 4' (ID 8) Quarter-Wave Cylindrical Woodwind Overhaul (StopSynthesisModel::ClarinetReed / render_clarinet_pipe):
+       - Replaced the previous VOICING_CLARINET model with an autonomous cylindrical quarter-wave pipe renderer (CLARINET_PARTIALS).
+       - Enforces strict odd-harmonic dominance (1st: 1.00, 3rd: 0.64, 5th: 0.29, 7th: 0.115, 9th: 0.042, 11th: 0.014) while suppressing even harmonics (2nd: 0.018, 4th: 0.009, 6th: 0.004) to trace bore-end reflections (< 2%), yielding m3 > 10 * m2.
+       - Shapes the spectrum with warm woody chalumeau/bell cavity formants (680 Hz & 1280 Hz) and a third-order cylindrical bell cutoff above 1850 Hz (1 / (1 + (f/1850)^3)), completely eliminating high-frequency sawtooth buzz.
+       - Dispersed harmonic phase offsets, independent per-partial LFO micro-drift, raised-cosine S-curve partial speech envelopes with 3rd-harmonic woody bloom, -3.0 cent reed-tongue pitch settle, and dual NoiseResonator reed-aperture breath filters at f0 and 3*f0.
+    2. Voix Celeste 8' (ID 24) Dual-Rank Open Flue-String Rework (StopSynthesisModel::VoixCeleste / render_voix_celeste):
+       - Replaced the previous symmetric 24-harmonic compound voicing with a two-pipe open metal flue-string ensemble pairing Rank I (Salicional 8', gain 0.58) and Rank II (Unda Maris / Celeste 8', gain 0.44, 6.5 ms pallet stagger).
+       - Warm open-flue harmonic tables (SALICIONAL_CELESTE_PARTIALS & UNDA_MARIS_CELESTE_PARTIALS) with a 780 Hz vocal mouth formant and smooth 2800 Hz wall dissipation eliminate the harsh 2.1-3.4 kHz synth sawtooth buzz.
+       - Asymmetric rank amplitudes (0.58 vs 0.44), distinct harmonic phase dispersion, and independent per-rank windchest modulation (pipe_wind_modulation) prevent 100% comb-filter phase-cancellation notches (the root cause of the 1980s dual-DCO chorus/phaser synth sound).
+       - Organological Cavaillé-Coll / Dom Bédos beat-rate curve (beat_hz = (0.65 + 0.0020 * f0).clamp(0.75, 2.35) Hz) produces a serene ~1.15 Hz shimmer at Middle C and ~1.5 Hz at A4.
+    3. Cathedral Principal Chorus Stop Addition (Stop ID 32 - "Principal Chorus"):
+       - Added "Principal Chorus" (Stop ID 32) to the console registry (rust/src/stops.rs under Mixtures & Special) and DSP engine (StopSynthesisModel::PrincipalChorus / render_principal_chorus).
+       - Synthesizes a 4-rank Open Diapason / Principal plenum: Open Diapason 8' (1.0x, gain 0.52, 18 ms attack), Octave / Prestant 4' (2.0x, gain 0.36, +1.2 cents, 14 ms attack), Twelfth / Quinte 2-2/3' (3.0x, gain 0.20, -1.0 cent, 12 ms attack), and Super Octave / Fifteenth 2' (4.0x, gain 0.25, +1.6 cents, 10 ms attack).
+       - Each rank features decorrelated wind modulation, independent phase dispersion, per-partial micro-drift, dual air-column breath resonators, and classical treble octave break protection above 5500 Hz.
+       - Upgraded render_compound_stop so every rank in all compound mixtures also receives independent per-rank wind modulation.
+    4. Unit Testing Suite Expansion (39 Tests):
+       - Added UT-37 (Clarinet odd-harmonic dominance & non-sawtooth verification), UT-38 (Voix Celeste warm flue spectrum & comb-notch immunity), and UT-39 (Principal Chorus 4-rank plenum & treble breaks). All 39 unit tests pass.
+  - WHY:
+    1. The creator reported: "Hello, can we rework Voix Celeste, Clarinet, and add a Principal chorus stop please? ... Right now Voix Celeste sounds like an 80's synth and clarinet sounds like a sawtooth".
+    2. Root-cause analysis of Clarinet (IDs 1 & 8): VOICING_CLARINET previously used phase_coherence = 0.72 (aligning 22 harmonics into a sharp sawtooth ramp), even_restore_hz = 2400.0 (restoring even harmonics in the upper spectrum), a 4800 Hz rolloff, and a +60% formant at 2800 Hz, which acoustically synthesized a bright sawtooth wave rather than a hollow cylindrical woodwind.
+    3. Root-cause analysis of Voix Celeste 8' (ID 24): VOICING_CELESTE_8 previously had 24 harmonics nearly twice as bright as a sawtooth wave with +110%/+70% boosts at 2100/3400 Hz, shared an identical wind_mod buffer across both ranks (locking them to a rigid 5.5-cent interval), and used equal rank gains (0.62 and 0.62) with frozen steady-state harmonic ratios, producing deep 100% comb-filter phaser cancellation notches identical to an 1980s dual-DCO synthesizer pad.
+    4. Adding a dedicated Principal Chorus stop provides organists with an immediate 4-rank cathedral Diapason plenum (8' + 4' + 2-2/3' + 2').
+  - HOW:
+    1. rust/src/dsp/stops_dsp.rs:
+       - Added StopSynthesisModel::{ClarinetReed, VoixCeleste, PrincipalChorus}.
+       - Implemented CLARINET_PARTIALS and render_clarinet_pipe, SALICIONAL_CELESTE_PARTIALS, UNDA_MARIS_CELESTE_PARTIALS and render_voix_celeste, PRINCIPAL_CHORUS_RANKS and render_principal_chorus.
+       - Updated render_compound_stop to generate decorrelated pipe_wind_modulation per rank.
+    2. rust/src/stops.rs & rust/src/classifier.rs:
+       - Added StopInfo { name: "Principal Chorus", id: 32 } and added "chorus" keyword to mixture classification heuristics.
+    3. unit_tests_report.md:
+       - Documented UT-37, UT-38, and UT-39.
+================================================================================
+
 
 

@@ -93,6 +93,19 @@ pub enum StopSynthesisModel {
     Compound {
         ranks: &'static [CompoundRank],
     },
+    /// Cylindrical quarter-wave Clarinet / Cromorne reed pipe:
+    /// dominant odd-harmonic chalumeau/clarion spectrum with suppressed even partials,
+    /// warm woody bell/bore formants (~680 Hz & ~1280 Hz), steep cylindrical cutoff (~1850 Hz),
+    /// dispersed phases, independent partial micro-drift, and reed-aperture air breath.
+    ClarinetReed { pitch_ratio: f64 },
+    /// Dual-rank undulating Voix Céleste 8' (Salicional 8' + Unda Maris / Céleste 8'):
+    /// asymmetric warm open flue-string ranks with organological beat-rate scaling,
+    /// decorrelated per-pipe wind modulation, distinct phase dispersion, and soft flue speech.
+    VoixCeleste { pitch_ratio: f64 },
+    /// Multi-rank Cathedral Principal Chorus (Open Diapason 8' + Octave 4' + Twelfth 2-2/3' + Fifteenth 2'):
+    /// four independent open cylindrical metal flue ranks with decorrelated wind modulation,
+    /// footage-scaled speech transients, natural inter-rank tuning dispersion, and treble octave breaks.
+    PrincipalChorus,
 }
 
 pub struct StopDefinition {
@@ -633,11 +646,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
     StopDefinition {
         name: "Clarinet 8'",
         id: 1,
-        model: StopSynthesisModel::PhysicalPipe {
-            voicing: &VOICING_CLARINET,
-            pitch_ratio: 1.0,
-            gain: 1.0,
-        },
+        model: StopSynthesisModel::ClarinetReed { pitch_ratio: 1.0 },
     },
     // 2: Bassoon 16'
     StopDefinition {
@@ -703,11 +712,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
     StopDefinition {
         name: "Clarinet 4'",
         id: 8,
-        model: StopSynthesisModel::PhysicalPipe {
-            voicing: &VOICING_CLARINET,
-            pitch_ratio: 2.0,
-            gain: 0.95,
-        },
+        model: StopSynthesisModel::ClarinetReed { pitch_ratio: 2.0 },
     },
     // 9: Viol 4'
     StopDefinition {
@@ -833,9 +838,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
     StopDefinition {
         name: "Voix Celeste 8'",
         id: 24,
-        model: StopSynthesisModel::Compound {
-            ranks: VOIX_CELESTE_RANKS,
-        },
+        model: StopSynthesisModel::VoixCeleste { pitch_ratio: 1.0 },
     },
     // 25: Acoustic Flue 8'
     StopDefinition {
@@ -903,6 +906,12 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
         id: 31,
         model: StopSynthesisModel::StoppedFlue { pitch_ratio: 4.0 },
     },
+    // 32: Principal Chorus
+    StopDefinition {
+        name: "Principal Chorus",
+        id: 32,
+        model: StopSynthesisModel::PrincipalChorus,
+    },
 ];
 
 /// Render a single physically modeled pipe rank into `out`.
@@ -928,14 +937,14 @@ fn render_physical_pipe(
     pipe::render_pipe(&spec, sample_rate, out, wind_mod, chiff_scale);
 }
 
-/// Render a compound multi-rank stop (Cornet V, Mixture IV, Plein Jeu, Cymbale, Scharf, Celeste).
+/// Render a compound multi-rank stop (Cornet V, Mixture IV, Plein Jeu, Cymbale, Scharf).
 fn render_compound_stop(
     stop_id: i32,
     freq: f64,
     sample_rate: u32,
     ranks: &[CompoundRank],
     out: &mut [f32],
-    wind_mod: &[f32],
+    sine_lut: &SineLut,
     chiff_scale: f32,
 ) {
     let base_seed = pipe::mix_seed(&[stop_id as u64, (freq * 100.0).round() as u64]);
@@ -950,6 +959,14 @@ fn render_compound_stop(
         let detune_ratio = (rank.detune_cents * (std::f64::consts::LN_2 / 1200.0)).exp();
         let rank_freq = freq * ratio * detune_ratio;
         let rank_seed = pipe::mix_seed(&[base_seed, idx as u64, 0x9E37_79B9_7F4A_7C15]);
+        // Each speaking rank on the windchest has its own decorrelated aerodynamic wind flutter
+        let rank_wind = super::pipe_wind_modulation(
+            rank_freq,
+            stop_id.wrapping_mul(31).wrapping_add(idx as i32 + 1),
+            out.len(),
+            sample_rate,
+            sine_lut,
+        );
 
         let spec = PipeSpec {
             voicing: rank.voicing,
@@ -958,7 +975,7 @@ fn render_compound_stop(
             delay_s: 0.0,
             seed: rank_seed,
         };
-        pipe::render_pipe(&spec, sample_rate, out, wind_mod, chiff_scale);
+        pipe::render_pipe(&spec, sample_rate, out, &rank_wind, chiff_scale);
     }
 }
 
@@ -1073,7 +1090,16 @@ pub fn render_stop_into(
             render_physical_pipe(stop_id, freq, sample_rate, voicing, *pitch_ratio, *gain, out, wind_mod, chiff_scale);
         }
         StopSynthesisModel::Compound { ranks } => {
-            render_compound_stop(stop_id, freq, sample_rate, ranks, out, wind_mod, chiff_scale);
+            render_compound_stop(stop_id, freq, sample_rate, ranks, out, sine_lut, chiff_scale);
+        }
+        StopSynthesisModel::ClarinetReed { pitch_ratio } => {
+            render_clarinet_pipe(freq, *pitch_ratio, sample_rate, out, sine_lut, wind_mod, chiff_scale);
+        }
+        StopSynthesisModel::VoixCeleste { pitch_ratio } => {
+            render_voix_celeste(stop_id, freq, *pitch_ratio, sample_rate, out, sine_lut, wind_mod, chiff_scale);
+        }
+        StopSynthesisModel::PrincipalChorus => {
+            render_principal_chorus(stop_id, freq, sample_rate, out, sine_lut, wind_mod, chiff_scale);
         }
         StopSynthesisModel::OpenDiapason { pitch_ratio } => {
             render_open_diapason(freq, *pitch_ratio, sample_rate, out, sine_lut, wind_mod, chiff_scale);
@@ -1531,6 +1557,527 @@ pub fn render_open_diapason(
     }
 }
 
+/// Harmonic partial specification for a cylindrical quarter-wave Clarinet / Cromorne pipe.
+/// Tuple: (harmonic_k, base_amplitude, phase_offset_rad, attack_tau_ms, drift_rate_hz, drift_depth).
+///
+/// A cylindrical pipe closed at the reed end acts as a quarter-wave resonator (L = lambda/4),
+/// strongly supporting odd harmonics (1, 3, 5, 7, 9, 11) while cancelling even harmonics (2, 4, 6)
+/// to trace bore-end reflections (< 2%). This odd-harmonic hollowness combined with a steep
+/// acoustic bell cutoff around 1850 Hz produces the warm, woody chalumeau/clarion clarinet voice
+/// and completely prevents sawtooth buzz.
+pub const CLARINET_PARTIALS: &[(f64, f64, f64, f64, f64, f64)] = &[
+    (1.0,  1.000, 0.00, 18.0, 0.31, 0.014), // Fundamental (deep, round chalumeau body)
+    (2.0,  0.018, 1.57, 24.0, 0.47, 0.025), // Faint 2nd-harmonic bore asymmetry (< 2%, non-sawtooth)
+    (3.0,  0.640, 2.35, 15.0, 0.43, 0.022), // 3rd harmonic (defining hollow woody twelfth)
+    (4.0,  0.009, 0.85, 26.0, 0.61, 0.030), // Trace 4th harmonic
+    (5.0,  0.290, 1.15, 20.0, 0.59, 0.028), // 5th harmonic (warm reed roundness)
+    (6.0,  0.004, 2.90, 28.0, 0.73, 0.030), // Trace 6th harmonic
+    (7.0,  0.115, 2.75, 24.0, 0.79, 0.035), // 7th harmonic (gentle woody reed definition)
+    (9.0,  0.042, 0.60, 28.0, 0.97, 0.040), // 9th harmonic
+    (11.0, 0.014, 1.95, 32.0, 1.13, 0.045), // 11th harmonic (upper clarion velvet)
+];
+
+/// Renders an authentic cylindrical quarter-wave Clarinet / Cromorne organ pipe (8' or 4').
+///
+/// Models strict odd-harmonic dominance, warm woody chalumeau/bell cavity formants (~680 Hz & ~1280 Hz),
+/// steep cylindrical acoustic bell cutoff above 1850 Hz, dispersed partial phases, independent
+/// per-partial micro-drift, reed-tongue onset pitch settle, and dual-resonator reed-aperture breath.
+pub fn render_clarinet_pipe(
+    freq: f64,
+    pitch_ratio: f64,
+    sample_rate: u32,
+    out: &mut [f32],
+    sine_lut: &SineLut,
+    wind_mod: &[f32],
+    chiff_scale: f32,
+) {
+    let sr = sample_rate as f64;
+    let f0 = freq * pitch_ratio;
+    if f0 <= 0.0 || out.is_empty() {
+        return;
+    }
+    let nyquist = sr * 0.5;
+    let two_pi = 2.0 * std::f64::consts::PI;
+    let chiff = chiff_scale.max(0.0) as f64;
+
+    // Bass chalumeau register retains fuller odd overtones; high clarion rounds into pure woody singing tone
+    let bass_tilt = (1.0 + 0.18 * (261.63 / f0).log2()).clamp(0.72, 1.38);
+
+    // (k, amp, phase_off, attack_len_samples, rate, depth, lfo_phase)
+    let mut partials: Vec<(f64, f64, f64, f64, f64, f64, f64)> = Vec::with_capacity(CLARINET_PARTIALS.len());
+    let mut amp_sum = 0.0;
+    for (i, &(k, base_a, phase_off, tau_ms, rate, depth)) in CLARINET_PARTIALS.iter().enumerate() {
+        let pf = f0 * k;
+        if pf >= nyquist * 0.88 {
+            continue;
+        }
+        let mut amp = base_a;
+        if k >= 3.0 {
+            amp *= bass_tilt;
+        }
+
+        // Woody chalumeau bore resonance (~680 Hz) and throat/bell cavity resonance (~1280 Hz)
+        let d_chalumeau = (pf / 680.0).log2() / 0.85;
+        let d_bell = (pf / 1280.0).log2() / 0.75;
+        let formant_gain = (1.0 + 0.42 * (-d_chalumeau * d_chalumeau).exp())
+            * (1.0 + 0.28 * (-d_bell * d_bell).exp());
+        amp *= formant_gain;
+
+        // Steep cylindrical bore cutoff above 1850 Hz eliminates high-frequency sawtooth buzz
+        let cutoff_ratio = pf / 1850.0;
+        amp /= 1.0 + cutoff_ratio * cutoff_ratio * cutoff_ratio;
+
+        amp_sum += amp;
+        let attack_samples = (tau_ms * 0.001 * sr).max(1.0);
+        partials.push((k, amp, phase_off, attack_samples, rate, depth, 0.83 * i as f64 + 0.4));
+    }
+    let norm = 0.84 / amp_sum.max(1e-6);
+
+    // Reed-aperture air breath filtered at cylindrical pipe resonances (f0 and 3*f0)
+    let mut breath_f0 = NoiseResonator::new(f0, (f0 * 0.30).max(12.0), sr);
+    let mut breath_twelfth = if f0 * 3.0 < nyquist * 0.88 {
+        Some(NoiseResonator::new(f0 * 3.0, (f0 * 0.65).max(30.0), sr))
+    } else {
+        None
+    };
+
+    let mut rng: u32 = ((f0 * 100.0) as u32) ^ 0xC1A2_19E7;
+    if rng == 0 {
+        rng = 1;
+    }
+    let mut next_noise = move || -> f64 {
+        rng ^= rng << 13;
+        rng ^= rng >> 17;
+        rng ^= rng << 5;
+        (rng as f64 / u32::MAX as f64) * 2.0 - 1.0
+    };
+
+    // Subtle reed-tongue onset articulation and woody 3rd-harmonic bloom
+    let mut onset_cents = -3.0f64;
+    let onset_decay = (-1.0 / (0.016 * sr)).exp();
+    let woody_bloom_decay = (-1.0 / (0.032 * sr)).exp();
+    let mut woody_bloom = 0.14 + 0.12 * chiff;
+
+    let spit_decay = (-1.0 / (0.024 * sr)).exp();
+    let mut spit_env = 1.0f64;
+    let spit_level = 0.022 + 0.14 * chiff;
+    let hiss_level = 0.008;
+
+    let step = f0 / sr;
+    let mut phase = 0.0f64;
+    const CENTS_TO_RATIO: f64 = 0.000_577_622_65;
+
+    for (i, sample) in out.iter_mut().enumerate() {
+        let t = i as f64 / sr;
+        let wind = if i < wind_mod.len() { wind_mod[i] as f64 } else { 0.0 };
+
+        let mut tone = 0.0f64;
+        let n_f = i as f64;
+        for &(k, amp, phase_off, attack_samples, rate, depth, lfo_phase) in &partials {
+            // Smooth S-curve (raised cosine) per-partial speech onset
+            let u = (n_f / attack_samples).min(1.0);
+            let env = 0.5 - 0.5 * (std::f64::consts::PI * u).cos();
+            let bloom = if (k - 3.0).abs() < 0.1 { 1.0 + woody_bloom } else { 1.0 };
+            let drift = 1.0 + depth * sine_lut.sin(two_pi * rate * t + lfo_phase) as f64;
+            let partial_phase = two_pi * (k * phase) + phase_off;
+            tone += amp * env * bloom * drift * sine_lut.sin(partial_phase) as f64;
+        }
+
+        let white = next_noise();
+        let mut breath = 0.60 * breath_f0.process(white);
+        if let Some(res) = breath_twelfth.as_mut() {
+            breath += 0.50 * res.process(white);
+        }
+        let noise = breath * (hiss_level + spit_level * spit_env);
+
+        *sample += (norm * tone + noise) as f32;
+
+        let pitch_bend = 1.0 + onset_cents * CENTS_TO_RATIO;
+        phase = (phase + step * (1.0 + wind) * pitch_bend).fract();
+        onset_cents *= onset_decay;
+        woody_bloom *= woody_bloom_decay;
+        spit_env *= spit_decay;
+    }
+}
+
+/// Rank I of Voix Céleste 8': Unison Salicional / Dulciana 8' open metal flue pipe.
+/// Tuple: (harmonic_k, amplitude, phase_offset_rad, drift_rate_hz, drift_depth).
+pub const SALICIONAL_CELESTE_PARTIALS: &[(f64, f64, f64, f64, f64)] = &[
+    (1.0, 1.000, 0.00, 0.27, 0.014), // Warm 8' flue-string foundation
+    (2.0, 0.620, 1.25, 0.39, 0.020), // Singing 4' octave warmth
+    (3.0, 0.310, 2.60, 0.51, 0.025), // Gentle 2-2/3' vocal twelfth
+    (4.0, 0.155, 0.75, 0.64, 0.030), // Silky 2' fifteenth
+    (5.0, 0.076, 2.95, 0.77, 0.034), // Soft spotted-metal string-flue sheen
+    (6.0, 0.038, 1.65, 0.89, 0.038),
+    (7.0, 0.018, 0.40, 1.02, 0.042),
+    (8.0, 0.008, 2.15, 1.14, 0.045),
+    (9.0, 0.004, 1.05, 1.26, 0.045),
+];
+
+/// Rank II of Voix Céleste 8': Undulating Unda Maris / Céleste 8' companion pipe.
+/// Voiced slightly softer and rounder with distinct harmonic phase dispersion so that
+/// beating between Rank I and Rank II produces a warm cathedral shimmer rather than
+/// a 100% comb-filter phaser cancellation notch.
+pub const UNDA_MARIS_CELESTE_PARTIALS: &[(f64, f64, f64, f64, f64)] = &[
+    (1.0, 1.000, 0.95, 0.33, 0.016),
+    (2.0, 0.560, 2.45, 0.46, 0.022),
+    (3.0, 0.265, 0.55, 0.58, 0.027),
+    (4.0, 0.125, 1.90, 0.71, 0.032),
+    (5.0, 0.058, 0.30, 0.84, 0.036),
+    (6.0, 0.026, 2.75, 0.96, 0.040),
+    (7.0, 0.011, 1.40, 1.09, 0.044),
+    (8.0, 0.005, 2.90, 1.21, 0.046),
+];
+
+/// Renders a single open flue-string pipe for the Voix Céleste ensemble.
+fn render_celeste_flue_rank(
+    f0: f64,
+    sample_rate: u32,
+    partials_spec: &[(f64, f64, f64, f64, f64)],
+    gain: f64,
+    delay_s: f64,
+    attack_s: f64,
+    seed_salt: u32,
+    out: &mut [f32],
+    sine_lut: &SineLut,
+    wind_mod: &[f32],
+    chiff_scale: f32,
+) {
+    let sr = sample_rate as f64;
+    if f0 <= 0.0 || out.is_empty() {
+        return;
+    }
+    let start_idx = (delay_s.max(0.0) * sr).round() as usize;
+    if start_idx >= out.len() {
+        return;
+    }
+    let nyquist = sr * 0.5;
+    let two_pi = 2.0 * std::f64::consts::PI;
+    let chiff = chiff_scale.max(0.0) as f64;
+
+    let bass_tilt = (1.0 + 0.20 * (261.63 / f0).log2()).clamp(0.75, 1.38);
+
+    let mut partials: Vec<(f64, f64, f64, f64, f64, f64)> = Vec::with_capacity(partials_spec.len());
+    let mut amp_sum = 0.0;
+    for (i, &(k, base_a, phase_off, rate, depth)) in partials_spec.iter().enumerate() {
+        let pf = f0 * k;
+        if pf >= nyquist * 0.88 {
+            continue;
+        }
+        let mut amp = base_a;
+        if k >= 2.0 {
+            amp *= bass_tilt;
+        }
+        // Warm vocal open-flue mouth radiation formant (~780 Hz)
+        let d_mouth = (pf / 780.0).log2() / 1.1;
+        amp *= 1.0 + 0.28 * (-d_mouth * d_mouth).exp();
+
+        // Smooth open flue wall dissipation above 2800 Hz (eliminates synth sawtooth buzz)
+        amp /= 1.0 + (pf / 2800.0).powi(2);
+
+        amp_sum += amp;
+        let lfo_phase = (0.71 * i as f64 + (seed_salt & 0xFF) as f64 * 0.09) % two_pi;
+        partials.push((k, amp, phase_off, rate, depth, lfo_phase));
+    }
+    let norm = (0.86 * gain) / amp_sum.max(1e-6);
+
+    // Soft open-flue air-column breath resonators
+    let mut breath_low = NoiseResonator::new(f0, (f0 * 0.28).max(10.0), sr);
+    let mouth_center = (f0 * 2.0).min(850.0);
+    let mut breath_mouth = if mouth_center < nyquist * 0.88 {
+        Some(NoiseResonator::new(mouth_center, (mouth_center * 0.40).max(25.0), sr))
+    } else {
+        None
+    };
+
+    let mut rng: u32 = ((f0 * 100.0) as u32) ^ seed_salt;
+    if rng == 0 {
+        rng = 1;
+    }
+    let mut next_noise = move || -> f64 {
+        rng ^= rng << 13;
+        rng ^= rng >> 17;
+        rng ^= rng << 5;
+        (rng as f64 / u32::MAX as f64) * 2.0 - 1.0
+    };
+
+    let spit_decay = (-1.0 / (0.032 * sr)).exp();
+    let mut spit_env = 1.0f64;
+    let spit_level = (0.025 + 0.16 * chiff) * gain;
+    let hiss_level = 0.006 * gain;
+
+    let step = f0 / sr;
+    let mut phase = ((seed_salt as f64) * 0.000_137).fract();
+    let attack_len = (attack_s * sr).max(1.0);
+
+    for i in start_idx..out.len() {
+        let n = i - start_idx;
+        let t = n as f64 / sr;
+        let wind = if i < wind_mod.len() { wind_mod[i] as f64 } else { 0.0 };
+
+        // Cushioned S-curve flue speech onset
+        let u = (n as f64 / attack_len).min(1.0);
+        let env = 0.5 - 0.5 * (std::f64::consts::PI * u).cos();
+
+        let mut tone = 0.0f64;
+        for &(k, amp, phase_off, rate, depth, lfo_phase) in &partials {
+            let drift = 1.0 + depth * sine_lut.sin(two_pi * rate * t + lfo_phase) as f64;
+            let partial_phase = two_pi * (k * phase) + phase_off;
+            tone += amp * env * drift * sine_lut.sin(partial_phase) as f64;
+        }
+
+        let white = next_noise();
+        let mut breath = 0.65 * breath_low.process(white);
+        if let Some(res) = breath_mouth.as_mut() {
+            breath += 0.40 * res.process(white);
+        }
+        let noise = breath * (hiss_level + spit_level * spit_env) * env;
+
+        out[i] += (norm * tone + noise) as f32;
+
+        phase = (phase + step * (1.0 + wind)).fract();
+        spit_env *= spit_decay;
+    }
+}
+
+/// Renders an authentic Cavaillé-Coll / Cathedral Voix Céleste 8' stop:
+/// pairs a warm unison Salicional 8' flue pipe with a gently undulating Unda Maris / Céleste 8'
+/// flue pipe, each with independent windchest breathing, asymmetric voicing, and organological beat scaling.
+pub fn render_voix_celeste(
+    stop_id: i32,
+    freq: f64,
+    pitch_ratio: f64,
+    sample_rate: u32,
+    out: &mut [f32],
+    sine_lut: &SineLut,
+    wind_mod: &[f32],
+    chiff_scale: f32,
+) {
+    let f0 = freq * pitch_ratio;
+    if f0 <= 0.0 || out.is_empty() {
+        return;
+    }
+
+    // Organological Celeste beat frequency curve (Dom Bédos / Cavaillé-Coll voicing):
+    // Produces a serene ~0.8 Hz undulation in the bass, ~1.15 Hz at Middle C, ~1.5 Hz at A4,
+    // and caps around 2.35 Hz in the high treble so it never warbles like a synth chorus LFO.
+    let beat_hz = (0.65 + 0.0020 * f0).clamp(0.75, 2.35);
+    let f_celeste = f0 + beat_hz;
+
+    // Rank I: Unison Salicional 8' (fuller tonal anchor, uses primary pipe wind modulation)
+    render_celeste_flue_rank(
+        f0,
+        sample_rate,
+        SALICIONAL_CELESTE_PARTIALS,
+        0.58,
+        0.0,
+        0.026,
+        0x5A11_C10A,
+        out,
+        sine_lut,
+        wind_mod,
+        chiff_scale,
+    );
+
+    // Rank II: Undulating Céleste 8' (independent windchest pipe modulation & 6.5 ms pallet stagger)
+    let celeste_wind = super::pipe_wind_modulation(
+        f_celeste,
+        stop_id.wrapping_add(101),
+        out.len(),
+        sample_rate,
+        sine_lut,
+    );
+    render_celeste_flue_rank(
+        f_celeste,
+        sample_rate,
+        UNDA_MARIS_CELESTE_PARTIALS,
+        0.44,
+        0.0065,
+        0.032,
+        0xCE1E_57E8,
+        out,
+        sine_lut,
+        &celeste_wind,
+        chiff_scale,
+    );
+}
+
+/// Specification of one open diapason / principal rank inside the Cathedral Principal Chorus:
+/// (pitch_ratio, rank_gain, detune_cents, attack_seconds, seed_salt).
+pub const PRINCIPAL_CHORUS_RANKS: &[(f64, f64, f64, f64, u32)] = &[
+    (1.0, 0.52,  0.0, 0.018, 0x1111_8008), // Open Diapason / Montre 8' (noble foundation)
+    (2.0, 0.36,  1.2, 0.014, 0x2222_4004), // Octave / Prestant 4' (singing octave clarity)
+    (3.0, 0.20, -1.0, 0.012, 0x3333_2667), // Twelfth / Quinte 2-2/3' (harmonic chorus binding)
+    (4.0, 0.25,  1.6, 0.010, 0x4444_2002), // Super Octave / Fifteenth 2' (silvery crown)
+];
+
+/// Renders a single Open Diapason / Principal rank with custom tuning dispersion, speech time,
+/// and phase seed for the multi-rank Principal Chorus.
+fn render_principal_chorus_rank(
+    f0: f64,
+    sample_rate: u32,
+    gain: f64,
+    attack_s: f64,
+    seed_salt: u32,
+    out: &mut [f32],
+    sine_lut: &SineLut,
+    wind_mod: &[f32],
+    chiff_scale: f32,
+) {
+    let sr = sample_rate as f64;
+    if f0 <= 0.0 || out.is_empty() {
+        return;
+    }
+    let nyquist = sr * 0.5;
+    let two_pi = 2.0 * std::f64::consts::PI;
+    let chiff = chiff_scale.max(0.0) as f64;
+
+    let bass_tilt = (1.0 + 0.22 * (261.63 / f0).log2()).clamp(0.75, 1.45);
+    let phase_rot = ((seed_salt & 0xFFFF) as f64 / 65535.0) * two_pi;
+
+    let mut partials: Vec<(f64, f64, f64, f64, f64, f64)> = Vec::with_capacity(DIAPASON_PARTIALS.len());
+    let mut amp_sum = 0.0;
+    for (i, &(k, a, phase_off, _boost, rate, depth)) in DIAPASON_PARTIALS.iter().enumerate() {
+        let pf = f0 * k;
+        if pf >= nyquist * 0.9 {
+            continue;
+        }
+        let mut amp = a;
+        if k >= 2.0 {
+            amp *= bass_tilt;
+        }
+        // Open Diapason mouth cut-up radiation formant (~850 Hz)
+        let formant_octave_dist = (pf / 850.0).log2();
+        let formant_gain = 1.0 + 0.35 * (-formant_octave_dist * formant_octave_dist * 0.75).exp();
+        amp *= formant_gain;
+        amp /= 1.0 + (pf / 4500.0).powi(2);
+
+        amp_sum += amp;
+        let lfo_phase = (0.65 * i as f64 + phase_rot) % two_pi;
+        partials.push((k, amp, phase_off + phase_rot, rate, depth, lfo_phase));
+    }
+    let norm = (0.88 * gain) / amp_sum.max(1e-6);
+
+    let mut breath_low = NoiseResonator::new(f0, (f0 * 0.25).max(10.0), sr);
+    let breath_center = (f0 * 2.0).min(900.0);
+    let mut breath_mid = if breath_center < nyquist * 0.9 {
+        Some(NoiseResonator::new(breath_center, (breath_center * 0.40).max(25.0), sr))
+    } else {
+        None
+    };
+
+    let mut rng: u32 = ((f0 * 100.0) as u32) ^ seed_salt;
+    if rng == 0 {
+        rng = 1;
+    }
+    let mut next_noise = move || -> f64 {
+        rng ^= rng << 13;
+        rng ^= rng >> 17;
+        rng ^= rng << 5;
+        (rng as f64 / u32::MAX as f64) * 2.0 - 1.0
+    };
+
+    let spit_decay = (-1.0 / (0.028 * sr)).exp();
+    let edge_decay = (-1.0 / (0.013 * sr)).exp();
+    let spit_level = (0.032 + 0.22 * chiff) * gain;
+    let edge_level = (0.012 + 0.08 * chiff) * gain;
+    let hiss_level = 0.007 * gain;
+
+    let step = f0 / sr;
+    let mut phase = ((seed_salt >> 16) as f64 / 65536.0).fract();
+    let mut spit_env = 1.0f64;
+    let mut edge_env = 1.0f64;
+    let mut prev_white = 0.0f64;
+    let tone_attack_len = (attack_s * sr).max(1.0);
+
+    for (i, sample) in out.iter_mut().enumerate() {
+        let t = i as f64 / sr;
+        let wind = if i < wind_mod.len() { wind_mod[i] as f64 } else { 0.0 };
+
+        let mut tone = 0.0f64;
+        let tone_attack = (i as f64 / tone_attack_len).min(1.0);
+        for &(k, amp, phase_off, rate, depth, lfo_phase) in &partials {
+            let drift = 1.0 + depth * sine_lut.sin(two_pi * rate * t + lfo_phase) as f64;
+            let partial_phase = two_pi * (k * phase) + phase_off;
+            tone += amp * tone_attack * drift * sine_lut.sin(partial_phase) as f64;
+        }
+
+        let white = next_noise();
+        let mut breath = 0.65 * breath_low.process(white);
+        if let Some(res) = breath_mid.as_mut() {
+            breath += 0.45 * res.process(white);
+        }
+        let edge = (white - prev_white) * edge_level * edge_env;
+        prev_white = white;
+        let noise = breath * (hiss_level + spit_level * spit_env) + edge;
+
+        *sample += (norm * tone + noise) as f32;
+
+        phase = (phase + step * (1.0 + wind)).fract();
+        spit_env *= spit_decay;
+        edge_env *= edge_decay;
+    }
+}
+
+/// Renders a complete 4-rank Cathedral Principal Chorus (Open Diapason 8' + Octave 4' +
+/// Twelfth 2-2/3' + Super Octave 2') with independent wind modulation per rank,
+/// footage-scaled speech transients, and classical organ octave break protection.
+pub fn render_principal_chorus(
+    stop_id: i32,
+    freq: f64,
+    sample_rate: u32,
+    out: &mut [f32],
+    sine_lut: &SineLut,
+    wind_mod: &[f32],
+    chiff_scale: f32,
+) {
+    if freq <= 0.0 || out.is_empty() {
+        return;
+    }
+    for (idx, &(base_ratio, gain, detune_cents, attack_s, seed_salt)) in PRINCIPAL_CHORUS_RANKS.iter().enumerate() {
+        // Classical organ break logic: fold upper chorus ranks down an octave when exceeding 5500 Hz
+        let mut ratio = base_ratio;
+        while ratio * freq > 5500.0 && ratio > 1.0 {
+            ratio *= 0.5;
+        }
+        let detune_factor = (detune_cents * (std::f64::consts::LN_2 / 1200.0)).exp();
+        let rank_freq = freq * ratio * detune_factor;
+
+        if idx == 0 {
+            render_principal_chorus_rank(
+                rank_freq,
+                sample_rate,
+                gain,
+                attack_s,
+                seed_salt,
+                out,
+                sine_lut,
+                wind_mod,
+                chiff_scale,
+            );
+        } else {
+            let rank_wind = super::pipe_wind_modulation(
+                rank_freq,
+                stop_id.wrapping_mul(17).wrapping_add(idx as i32 + 1),
+                out.len(),
+                sample_rate,
+                sine_lut,
+            );
+            render_principal_chorus_rank(
+                rank_freq,
+                sample_rate,
+                gain,
+                attack_s,
+                seed_salt,
+                out,
+                sine_lut,
+                &rank_wind,
+                chiff_scale,
+            );
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1779,6 +2326,102 @@ mod tests {
         assert!(flue_out.iter().all(|s| s.is_finite()));
         let flue_rms = (flue_out[100_000..115_000].iter().map(|s| s * s).sum::<f32>() / 15_000.0).sqrt();
         assert!(flue_rms > 0.05, "Flue post-loop playback RMS too quiet: {flue_rms}");
+    }
+
+    #[test]
+    fn test_clarinet_cylindrical_odd_harmonic_hollow_woodwind_spectrum() {
+        let sine_lut = SineLut::new();
+        let wind = vec![0.0f32; 22050];
+        let mut out = vec![0.0f32; 22050];
+        // Render Clarinet 8' (Stop ID 1) at 441.0 Hz
+        render_stop_into(1, 441.0, 44100, &mut out, &sine_lut, &wind, 0.2);
+
+        assert!(out.iter().all(|s| s.is_finite()));
+        let window = &out[11025..21025];
+        let m1 = tone_magnitude(window, 441.0, 44100.0);  // 1st harmonic (fundamental)
+        let m2 = tone_magnitude(window, 882.0, 44100.0);  // 2nd harmonic (even)
+        let m3 = tone_magnitude(window, 1323.0, 44100.0); // 3rd harmonic (odd twelfth)
+        let m4 = tone_magnitude(window, 1764.0, 44100.0); // 4th harmonic (even)
+        let m5 = tone_magnitude(window, 2205.0, 44100.0); // 5th harmonic (odd tierce)
+
+        // Cylindrical quarter-wave clarinet physics: odd harmonics (m1, m3, m5) strongly dominate
+        // over suppressed even harmonics (m2, m4), proving mathematically that it is not a sawtooth wave.
+        assert!(m1 > 0.15, "Clarinet fundamental must be strong and woody: m1={m1}");
+        assert!(m3 > 0.15 * m1, "Clarinet 3rd harmonic twelfth must be prominent: m1={m1}, m3={m3}");
+        assert!(m3 > 10.0 * m2, "Cylindrical bore must suppress 2nd harmonic relative to 3rd (not sawtooth): m3={m3}, m2={m2}");
+        assert!(m5 > 5.0 * m4, "Cylindrical bore must suppress 4th harmonic relative to 5th: m5={m5}, m4={m4}");
+
+        // Also verify Clarinet 4' (Stop ID 8) sounds an octave above key pitch
+        let mut out4 = vec![0.0f32; 22050];
+        render_stop_into(8, 220.5, 44100, &mut out4, &sine_lut, &wind, 0.2);
+        let w4 = &out4[11025..21025];
+        let m4_f0 = tone_magnitude(w4, 441.0, 44100.0);
+        let m4_sub = tone_magnitude(w4, 220.5, 44100.0);
+        assert!(m4_f0 > 15.0 * m4_sub, "Clarinet 4' must sound at 2x key frequency: {m4_f0} vs {m4_sub}");
+    }
+
+    #[test]
+    fn test_voix_celeste_warm_flue_undulation_and_no_saw_buzz() {
+        let sine_lut = SineLut::new();
+        let n = 44100 * 2; // 2 seconds to observe gentle undulation
+        let wind = vec![0.0f32; n];
+        let mut out = vec![0.0f32; n];
+        // Render Voix Celeste 8' (Stop ID 24) at 441.0 Hz
+        render_stop_into(24, 441.0, 44100, &mut out, &sine_lut, &wind, 0.2);
+
+        assert!(out.iter().all(|s| s.is_finite()));
+        let peak = out.iter().fold(0.0f32, |m, v| m.max(v.abs()));
+        assert!(peak > 0.15 && peak < 1.5, "Voix Celeste peak out of range: {peak}");
+
+        // Spectral verification: warm open-flue foundation (1st & 2nd harmonics dominate, high buzz suppressed)
+        let window = &out[22050..32050];
+        let m1 = tone_magnitude(window, 441.0, 44100.0);
+        let m2 = tone_magnitude(window, 882.0, 44100.0);
+        let m12 = tone_magnitude(window, 441.0 * 12.0, 44100.0);
+        assert!(m1 > 0.08, "Voix Celeste 8' fundamental must be warm and present: m1={m1}");
+        assert!(m2 > 0.15 * m1, "Voix Celeste 8' octave must sing warmly: m1={m1}, m2={m2}");
+        assert!(m1 > 25.0 * m12, "Voix Celeste must not have harsh high-frequency sawtooth buzz: m1={m1}, m12={m12}");
+
+        // Verify asymmetric rank voicing prevents complete 0-amplitude comb-filter cancellation notches:
+        // Every 100 ms window after speech onset must retain substantial RMS energy.
+        for chunk in out[4410..].chunks_exact(4410) {
+            let rms = (chunk.iter().map(|s| s * s).sum::<f32>() / 4410.0).sqrt();
+            assert!(rms > 0.04, "Voix Celeste suffered deep comb-filter cancellation notch: rms={rms}");
+        }
+    }
+
+    #[test]
+    fn test_principal_chorus_four_rank_plenum_and_breaks() {
+        let sine_lut = SineLut::new();
+        let wind = vec![0.0f32; 22050];
+        let mut out = vec![0.0f32; 22050];
+
+        // Verify Principal Chorus is registered at Stop ID 32
+        assert_eq!(STOP_DEFINITIONS[32].name, "Principal Chorus");
+        assert_eq!(STOP_DEFINITIONS[32].id, 32);
+
+        // Render Principal Chorus (Stop ID 32) at 220.5 Hz (A3)
+        // Speaking ranks: 8' (220.5 Hz), 4' (441.0 Hz), 2-2/3' (661.5 Hz), 2' (882.0 Hz)
+        render_stop_into(32, 220.5, 44100, &mut out, &sine_lut, &wind, 0.2);
+        assert!(out.iter().all(|s| s.is_finite()));
+        let peak = out.iter().fold(0.0f32, |m, v| m.max(v.abs()));
+        assert!(peak > 0.20 && peak < 2.0, "Principal Chorus peak out of bounds: {peak}");
+
+        let window = &out[11025..21025];
+        let m_8 = tone_magnitude(window, 220.5, 44100.0);
+        let m_4 = tone_magnitude(window, 441.0, 44100.0);
+        let m_twelfth = tone_magnitude(window, 661.5, 44100.0);
+        let m_fifteenth = tone_magnitude(window, 882.0, 44100.0);
+
+        assert!(m_8 > 0.08, "Principal Chorus 8' foundation rank missing: {m_8}");
+        assert!(m_4 > 0.06, "Principal Chorus 4' octave rank missing: {m_4}");
+        assert!(m_twelfth > 0.03, "Principal Chorus 2-2/3' twelfth rank missing: {m_twelfth}");
+        assert!(m_fifteenth > 0.03, "Principal Chorus 2' fifteenth rank missing: {m_fifteenth}");
+
+        // Verify high-treble octave break protection at 2000 Hz
+        let mut high_out = vec![0.0f32; 4410];
+        render_stop_into(32, 2000.0, 44100, &mut high_out, &sine_lut, &wind, 0.2);
+        assert!(high_out.iter().all(|s| s.is_finite() && s.abs() < 2.0));
     }
 }
 
