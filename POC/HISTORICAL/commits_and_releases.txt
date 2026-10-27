@@ -1,12 +1,17 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-27 10:38:33
-Total Commits  : 100
-Total Releases : 36
+Updated At     : 2026-10-27 13:17:06
+Total Commits  : 101
+Total Releases : 37
 ================================================================================
 
 🚀 RELEASES / TAGS
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.16
+Date    : 2026-10-27
+Commit  : 2f6704d
+Details : Prealpha_v2.0.16: Bold Open Metal Diapason 8' & Distinct Airy Wind-Jet 8' Flutes
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.12
 Date    : 2026-10-26
@@ -198,7 +203,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-0d5b5a7  | 2026-10-27 | williamemery2010-deb | Prealpha_v2.0.16: Bold open-metal Diapason 8' Principal crown & distinct airy wind-jet 8' flutes
+8442990  | 2026-10-27 | williamemery2010-deb | Prealpha_v2.0.17: Tonal breath-flutter & narrow harmonic breath halo for airy 8' flutes (eliminate broadband white-noise hiss)
+2f6704d  | 2026-10-27 | williamemery2010-deb | Prealpha_v2.0.16: Bold open-metal Diapason 8' Principal crown & distinct airy wind-jet 8' flutes
 ff007d9  | 2026-10-26 | williamemery2010-deb | Prealpha_v2.0.15: Open warm anti-nasal Diapason 8', deep low-low sub-bass & midrange EQ, Bourdon 16'/32', 5 new 16' ranks, 5 soft 8' flutes & Dynamics slider
 a0ded5c  | 2026-10-26 | williamemery2010-deb | Prealpha_v2.0.14: Revoice Diapason 8' with sympathetic chest body, add warm low-shelf bass EQ & Full Organ foundation weighting
 6e628cd  | 2026-10-26 | williamemery2010-deb | Prealpha_v2.0.13: Rework Clarinet cylindrical odd-harmonic woodwind & Voix Celeste 8' dual-flue undulation; add 4-rank Cathedral Principal Chorus stop

@@ -504,7 +504,7 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 - **Module:** [rust/src/dsp/stops_dsp.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/stops_dsp.rs) (`test_soft_flute_8_stops_warm_velvety_spectrum`)
 - **WHY:** The 5 airy 8' flute stops (`Harmonic Flute 8'` ID 40, `Hohlflöte 8'` ID 41, `Melodia 8'` ID 42, `Flauto Dolce 8'` ID 43, and `Rohrflöte 8'` ID 44) must each possess a distinct organological harmonic architecture and prominent laminar wind-jet breath air (rather than sounding identical or "too whole"), while `Diapason 8'` (ID 11) must project a bold, commanding Principal harmonic chorus far stronger than `Rohrflöte 8'`.
 - **WHAT:** Validates that:
-  1. All 5 airy 8' flutes (`40..=44`) render finite waveforms with airy fundamentals ($m_1 > 0.08$).
+  1. All 5 airy 8' flutes (`40..=44`) render finite waveforms with airy fundamentals ($m_1 > 0.08$) and without broadband white-noise hiss ($m_1 > 25.0 m_{2.5 f_0}$ and $m_1 > 40.0 m_{6.5 f_0}$).
   2. `Harmonic Flute 8'` (40) exhibits an overblown 2nd-harmonic node ($m_2 > 0.65 m_1$).
   3. `Hohlflöte 8'` (41) exhibits a hollow odd-harmonic wooden spectrum ($m_3 > 4.0 m_2$).
   4. `Melodia 8'` (42) exhibits a pure even-harmonic open-wood spectrum ($m_2 > 8.0 m_3$).

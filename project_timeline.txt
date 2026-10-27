@@ -693,3 +693,24 @@ PHASE 29: BOLD OPEN-METAL DIAPASON 8' PRINCIPAL CROWN & DISTINCT AIRY WIND-JET 8
        - Updated generate_tone to bypass apply_bass_warmth_eq when only airy flute stops (40..=44) are active.
 ================================================================================
 
+--------------------------------------------------------------------------------
+PHASE 30: TONAL BREATH-FLUTTER & NARROW HARMONIC BREATH HALO FOR AIRY 8' FLUTES — ELIMINATING BROADBAND WHITE-NOISE HISS (October 27, 2026 - Prealpha_v2.0.17)
+--------------------------------------------------------------------------------
+* October 27, 2026:
+  - WHAT:
+    1. Tonal Breath-Flutter & Narrow Harmonic Breath Halo Synthesis for Airy 8' Flutes (render_soft_flute in rust/src/dsp/stops_dsp.rs):
+       - Eliminated the broadband high-passed white-noise hiss (hiss_lvl = 0.16..0.23, spit_lvl = 0.26..0.36 across wide 52%-bandwidth 1.6-3.3 kHz filters) introduced in Prealpha_v2.0.16.
+       - Implemented per-harmonic stochastic Breath Flutter (narrowband sideband amplitude modulation): each harmonic partial k is modulated by independently smoothed random wind-jet turbulence y_k[n] = a_k * y_k[n-1] + (1 - a_k) * w[n] with 1-pole low-pass cutoff f_c = 18 + 4*k Hz normalized to unit RMS (lp_norm = 1 / (0.5774 * sqrt((1 - a_k)/(1 + a_k)))). Upper partials carry stronger breath flutter than the fundamental (flutter_depth = air_flutter * (0.25 + 0.75 * clamp((k - 1)/3, 0, 1)), air_flutter = 0.20..0.30), producing narrow, breathing sidebands that hug each harmonic partial so the tone itself sounds airy and floating without broadband noise.
+       - Replaced the wide wind-sheet noise resonator with a dual Harmonic Breath Halo (halo_a, halo_b) locked to each stop's characteristic harmonic nodes (2f0/4f0 on Harmonic Flute 8' & Melodia 8', 3f0/5f0 on Hohlflöte 8', 2f0/3f0 on Flauto Dolce 8', and 5f0/3f0 on Rohrflöte 8') with an ultra-narrow 6% bandwidth (halo_hz * 0.06) at -38 dB (halo_lvl = 0.010..0.014), plus a soft 30 ms band-limited onset breath puff (puff_lvl = 0.032..0.045) speaking ahead of the harmonic tone.
+    2. Spectral Noise Floor Verification (UT-42 test_soft_flute_8_stops_warm_velvety_spectrum in rust/src/dsp/stops_dsp.rs):
+       - Added inter-harmonic spectral assertions verifying that non-harmonic frequencies (2.5*f0 and 6.5*f0) remain >25x and >40x below the fundamental (m_1 > 25 * m_2.5 and m_1 > 40 * m_6.5), guarding against broadband white-noise hiss while preserving the 5 distinct flute harmonic architectures.
+  - WHY:
+    1. The creator noted: "Hello, you did way too much white noise for the airiness its deafening and sounds terrible. Find another way to make the airiness."
+    2. Because NoiseResonator normalizes output to unit RMS (1.0) regardless of bandwidth, setting hiss_lvl = 0.18..0.23 and spit_lvl = 0.26..0.36 on a wide 1.6-3.3 kHz high-passed filter produced broadband white noise with an RMS comparable to the harmonic flute tone itself, resulting in a harsh, deafening static hiss.
+    3. In real acoustic organ flutes, perceived "airiness" comes primarily from stochastic jet-velocity fluctuations modulating the amplitudes of the upper harmonics (narrowband sidebands hugging the partials) and very narrowband cavity resonance whisper locked to the pipe's harmonic nodes (~30-40 dB below the tone), rather than broadband white noise.
+  - HOW:
+    1. rust/src/dsp/stops_dsp.rs:
+       - Re-engineered render_soft_flute to use per-partial 1-pole low-pass breath flutter sidebands, 6%-bandwidth harmonic breath halo resonators at halo_lvl = 0.010..0.014, and a gentle 30 ms onset breath puff.
+       - Updated UT-42 (test_soft_flute_8_stops_warm_velvety_spectrum) to assert low inter-harmonic noise floor alongside distinct harmonic ratios.
+================================================================================
+

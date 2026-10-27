@@ -2029,14 +2029,20 @@ pub fn render_open_wood_bass(
 /// Renders distinct, airy, breath-infused 8' flute stops (`Harmonic Flute 8'`, `Hohlflöte 8'`,
 /// `Melodia 8'`, `Flauto Dolce 8'`, and `Rohrflöte 8'`).
 ///
-/// Voiced with a 3-stage **Physical Flute Wind-Jet Air Engine** so the flutes sound genuinely AIRY
-/// (floating on a cushion of laminar upper-lip breath rather than sounding "too whole" or solid),
-/// while giving each of the 5 stops a radically distinct organological pipe physics architecture:
-/// 1. `Harmonic Flute 8'` (40): Double-length overblown metal concert flute (`2f0 = 0.78`, `4.8 Hz` breath vibrato, `2.8 kHz` silver jet air).
-/// 2. `Hohlflöte 8'` (41): Wide hollow triangular wood flute (suppressed `2f0 = 0.06`, strong odd `3f0 = 0.52`, `5f0 = 0.18`, woody "kuh" chiff).
+/// Airiness is produced tonally rather than with broadband white noise:
+/// - **Breath flutter:** each harmonic is amplitude-modulated by independently smoothed random
+///   noise (one-pole low-pass, 22-46 Hz), producing narrow sidebands that hug each partial. Upper
+///   partials flutter more than the fundamental, giving a soft, breathing, unstable-jet quality.
+/// - **Harmonic breath halo:** two very narrow noise bands (bandwidth ~6% of centre) locked to the
+///   stop's characteristic harmonics, mixed about 30 dB below the tone so they read as pitched breath.
+/// - **Onset puff:** a short (30 ms) band-limited breath that speaks just ahead of the tone.
+///
+/// Each of the 5 stops keeps a distinct organological harmonic architecture:
+/// 1. `Harmonic Flute 8'` (40): Double-length overblown metal concert flute (`2f0 = 0.72`, `4.8 Hz` breath vibrato).
+/// 2. `Hohlflöte 8'` (41): Wide hollow triangular wood flute (suppressed `2f0 = 0.06`, strong odd `3f0 = 0.52`, `5f0 = 0.18`).
 /// 3. `Melodia 8'` (42): Romantic open wood solo flute (pure even harmonics `2f0 = 0.56`, `4f0 = 0.22`, suppressed `3f0 = 0.03`, slow `42 ms` scoop bloom).
-/// 4. `Flauto Dolce 8'` (43): Whisper-soft inverted-conical chamber flute (`pp` level, `+0.55 Hz` twin-pipe Unda-Maris shimmer, `3.3 kHz` silky air veil).
-/// 5. `Rohrflöte 8'` (44): Metal chimney flute (stopped body + open chimney resonating the 5th harmonic `5f0 = 0.46 > 3f0 = 0.24`, `3.1 kHz` chimney whistle).
+/// 4. `Flauto Dolce 8'` (43): Whisper-soft inverted-conical chamber flute (`pp` level, `+0.55 Hz` twin-pipe Unda-Maris shimmer, strongest breath flutter).
+/// 5. `Rohrflöte 8'` (44): Metal chimney flute (stopped body + open chimney resonating the 5th harmonic `5f0 = 0.46 > 3f0 = 0.24`).
 pub fn render_soft_flute(
     freq: f64,
     pitch_ratio: f64,
@@ -2090,17 +2096,19 @@ pub fn render_soft_flute(
     ];
 
     // Variant parameters:
-    // (spec, formant_hz, cutoff_hz, tone_gain, attack_s, whisper_mult, jet_hz, hiss_lvl, spit_lvl, jet_mod, scoop_cents)
+    // (spec, formant_hz, cutoff_hz, tone_gain, attack_s, halo_mult_a, halo_mult_b,
+    //  air_flutter, halo_lvl, puff_lvl, jet_mod, scoop_cents)
     let (
         spec,
         formant_hz,
         cutoff_hz,
         tone_gain,
         attack_s,
-        whisper_mult,
-        jet_hz,
-        hiss_lvl,
-        spit_lvl,
+        halo_mult_a,
+        halo_mult_b,
+        air_flutter,
+        halo_lvl,
+        puff_lvl,
         jet_mod,
         scoop_cents,
     ) = match variant {
@@ -2110,11 +2118,12 @@ pub fn render_soft_flute(
             4600.0,
             0.44,
             0.022,
-            2.0,    // Overblown octave node whisper
-            2850.0, // Bright silver concert-flute wind sheet
-            0.18,
-            0.32,
-            0.55,
+            2.0,   // Overblown octave node breath halo
+            4.0,   // Silver upper-octave breath halo
+            0.24,
+            0.012,
+            0.040,
+            0.30,
             -2.8,
         ),
         SoftFluteVariant::Hohlflote => (
@@ -2123,11 +2132,12 @@ pub fn render_soft_flute(
             3200.0,
             0.45,
             0.020,
-            3.0,    // Hollow 3rd-harmonic wooden cavity whisper
-            1650.0, // Wide wooden wind-tunnel breath
-            0.19,
-            0.34,
-            0.60,
+            3.0,   // Hollow wooden twelfth cavity halo
+            5.0,   // Woody odd-harmonic halo
+            0.22,
+            0.012,
+            0.045,
+            0.35,
             -1.8,
         ),
         SoftFluteVariant::Melodia => (
@@ -2135,25 +2145,27 @@ pub fn render_soft_flute(
             580.0,
             3600.0,
             0.44,
-            0.042,  // Slow, cushioned romantic bloom
-            2.0,    // Open wood lip octave whisper
-            2100.0, // Velvety warm breath halo
-            0.16,
-            0.26,
-            0.45,
-            -4.2,   // Expressive romantic pitch scoop on attack
+            0.042, // Slow, cushioned romantic bloom
+            2.0,   // Open wood octave halo
+            4.0,   // Silky double-octave halo
+            0.20,
+            0.010,
+            0.032,
+            0.25,
+            -4.2,  // Expressive romantic pitch scoop on attack
         ),
         SoftFluteVariant::FlautoDolce => (
             FLAUTO_DOLCE_SPEC,
             640.0,
             4200.0,
-            0.35,   // Ethereal pp chamber level
+            0.35,  // Ethereal pp chamber level
             0.032,
-            3.0,    // Delicate flared chamber whisper
-            3300.0, // Silky high-frequency air veil
-            0.23,   // Highest breath-to-tone ratio for intimate airiness
+            2.0,   // Gentle Dolcan octave halo
+            3.0,   // Soft chamber twelfth halo
+            0.30,  // Strongest breath flutter for intimate airiness
+            0.014,
+            0.036,
             0.30,
-            0.50,
             -1.5,
         ),
         SoftFluteVariant::Rohrflote => (
@@ -2161,12 +2173,13 @@ pub fn render_soft_flute(
             820.0,
             4800.0,
             0.43,
-            0.018,  // Crisp, articulate Baroque chimney speech
-            5.0,    // Open chimney tube 5th-harmonic whistle resonance
-            3100.0, // Bright metal chimney wind hiss
-            0.19,
-            0.36,
-            0.58,
+            0.018, // Crisp, articulate Baroque chimney speech
+            5.0,   // Open chimney 5th-harmonic halo
+            3.0,   // Stopped-body twelfth halo
+            0.22,
+            0.011,
+            0.045,
+            0.30,
             -1.2,
         ),
     };
@@ -2183,6 +2196,7 @@ pub fn render_soft_flute(
     // Keep the fundamental light and un-bloated so the flute sounds airy rather than "too whole"
     let bass_tame = (f0 / 220.0).clamp(0.76, 1.05);
 
+    // Tuple: (k, amp, phase_off, boost, rate, depth, lfo_phase, flutter_depth, lp_coeff, lp_norm)
     let mut partials = Vec::with_capacity(spec.len());
     let mut base_sum = 0.0;
     for (i, &(k, a, phase_off, boost)) in spec.iter().enumerate() {
@@ -2200,19 +2214,42 @@ pub fn render_soft_flute(
 
         let rate = 0.33 + 0.17 * i as f64;
         let depth = 0.018 + 0.006 * i as f64;
-        partials.push((k, amp, phase_off, boost, rate, depth, 0.77 * i as f64 + 0.3));
+
+        // Breath flutter: the fundamental stays steady while upper partials carry more
+        // turbulent jet fluctuation, as measured on real flue pipes.
+        let flutter_depth = air_flutter * (0.25 + 0.75 * ((k - 1.0) / 3.0).clamp(0.0, 1.0));
+        // One-pole low-pass smoothing of the flutter noise (cutoff 18 Hz + 4 Hz per harmonic)
+        let fc = 18.0 + 4.0 * k;
+        let lp_coeff = (-two_pi * fc / sr).exp();
+        // Normalise the smoothed noise to unit RMS: sigma_out = 0.5774 * sqrt((1 - a) / (1 + a))
+        let lp_norm = 1.0 / (0.5774 * ((1.0 - lp_coeff) / (1.0 + lp_coeff)).sqrt()).max(1e-6);
+
+        partials.push((
+            k,
+            amp,
+            phase_off,
+            boost,
+            rate,
+            depth,
+            0.77 * i as f64 + 0.3,
+            flutter_depth,
+            lp_coeff,
+            lp_norm,
+        ));
     }
     let norm = tone_gain / base_sum.max(1e-6);
+    let mut flutter_state = vec![0.0f64; partials.len()];
 
-    // 3-Stage Physical Flute Wind-Jet Air Engine:
-    // 1. Fundamental air-column breath resonator (f0)
-    let mut breath_fund = NoiseResonator::new(f0.max(30.0), (f0 * 0.35).max(14.0), sr);
-    // 2. Signature harmonic cavity / chimney / node whisper resonator (whisper_mult * f0)
-    let whisper_hz = (f0 * whisper_mult).clamp(180.0, nyquist * 0.82);
-    let mut breath_whisper = NoiseResonator::new(whisper_hz, (whisper_hz * 0.32).max(25.0), sr);
-    // 3. High-frequency laminar wind-sheet lip resonator (1.6 - 4.8 kHz airy sheen)
-    let sheet_hz = (jet_hz + 0.35 * f0).clamp(1400.0, nyquist * 0.85);
-    let mut breath_sheet = NoiseResonator::new(sheet_hz, sheet_hz * 0.52, sr);
+    // Harmonic Breath Halo: very narrow noise bands locked to two characteristic harmonics.
+    // Because the bandwidth is only ~6% of the centre frequency, the noise is perceived as a
+    // soft pitched breath surrounding the tone rather than as broadband hiss.
+    let halo_a_hz = (f0 * halo_mult_a).min(nyquist * 0.80);
+    let halo_b_hz = (f0 * halo_mult_b).min(nyquist * 0.80);
+    let mut halo_a = NoiseResonator::new(halo_a_hz, (halo_a_hz * 0.06).max(6.0), sr);
+    let mut halo_b = NoiseResonator::new(halo_b_hz, (halo_b_hz * 0.06).max(6.0), sr);
+    // Soft onset puff: a short, moderately band-limited breath that precedes the tone on key-down
+    let puff_hz = (f0 * halo_mult_a).clamp(300.0, nyquist * 0.6);
+    let mut puff = NoiseResonator::new(puff_hz, puff_hz * 0.35, sr);
 
     let mut rng: u32 = ((f0 * 100.0) as u32) ^ (variant as u32 + 1).wrapping_mul(0x7F4A_7C15);
     if rng == 0 {
@@ -2225,13 +2262,12 @@ pub fn render_soft_flute(
         (rng as f64 / u32::MAX as f64) * 2.0 - 1.0
     };
 
-    let spit_decay = (-1.0 / (0.038 * sr)).exp();
+    let puff_decay = (-1.0 / (0.030 * sr)).exp();
     let chime_decay = (-1.0 / (0.028 * sr)).exp();
     let scoop_decay = (-1.0 / (0.020 * sr)).exp();
-    let spit_amount = spit_lvl * (0.55 + 0.85 * chiff);
-    let hiss_amount = hiss_lvl;
+    let puff_amount = puff_lvl * (0.5 + 0.8 * chiff);
 
-    let mut spit_env = 1.0f64;
+    let mut puff_env = 1.0f64;
     let mut chime_env = 1.0f64;
     let mut onset_cents = scoop_cents;
     const CENTS_TO_RATIO: f64 = 0.000_577_622_65;
@@ -2244,9 +2280,8 @@ pub fn render_soft_flute(
 
     let mut phase = 0.0f64;
     let mut phase_celeste = 0.25f64;
-    let mut prev_white = 0.0f64;
     let attack_len = (attack_s * sr).max(1.0);
-    // Air-jet rises 4x faster than the harmonic tone so breath speaks first on key onset
+    // The onset puff rises 4x faster than the harmonic tone so breath speaks first on key-down
     let air_attack_len = (0.25 * attack_len).max(1.0);
 
     for (i, sample) in out.iter_mut().enumerate() {
@@ -2260,7 +2295,14 @@ pub fn render_soft_flute(
         let env_air = 0.5 - 0.5 * (std::f64::consts::PI * u_air).cos();
 
         let mut tone = 0.0f64;
-        for &(k, amp, phase_off, boost, rate, depth, lfo_phase) in &partials {
+        for (p, &(k, amp, phase_off, boost, rate, depth, lfo_phase, flutter_depth, lp_coeff, lp_norm)) in
+            partials.iter().enumerate()
+        {
+            // Smoothed random breath flutter (narrow sidebands hugging each harmonic)
+            let st = &mut flutter_state[p];
+            *st = lp_coeff * *st + (1.0 - lp_coeff) * next_noise();
+            let flutter = 1.0 + flutter_depth * (*st * lp_norm).clamp(-2.5, 2.5);
+
             let drift = 1.0 + depth * sine_lut.sin(two_pi * rate * t + lfo_phase) as f64;
             let h_env = env_tone * (1.0 + boost * (0.5 + 0.7 * chiff) * chime_env);
             let mut sig = sine_lut.sin(two_pi * k * phase + phase_off) as f64;
@@ -2268,24 +2310,16 @@ pub fn render_soft_flute(
                 // Twin-pipe Unda-Maris shimmer on Flauto Dolce 8'
                 sig = 0.76 * sig + 0.34 * sine_lut.sin(two_pi * k * phase_celeste + phase_off + 0.4) as f64;
             }
-            tone += amp * h_env * drift * sig;
+            tone += amp * h_env * drift * flutter * sig;
         }
 
-        // Physical Flute Wind-Jet Air Synthesis:
-        // High-pass white noise to create crisp laminar air-sheet turbulence across the upper lip
+        // Harmonic breath halo, gently gated by the oscillating jet at f0
         let white = next_noise();
-        let hp_air = white - 0.72 * prev_white;
-        prev_white = white;
-
-        let jet_air = 0.22 * breath_fund.process(white)
-            + 0.38 * breath_whisper.process(hp_air)
-            + 0.55 * breath_sheet.process(hp_air);
-
-        // Acoustic vortex shedding: the oscillating pipe air-column modulates the wind sheet at f0
         let jet_gate = 1.0 + jet_mod * sine_lut.sin(two_pi * phase + 1.57) as f64;
-        let breath_noise = jet_air * jet_gate * (hiss_amount + spit_amount * spit_env) * env_air;
+        let halo = (0.6 * halo_a.process(white) + 0.4 * halo_b.process(white)) * halo_lvl * jet_gate * env_tone;
+        let onset = puff.process(white) * puff_amount * puff_env * env_air;
 
-        *sample += (norm * tone + breath_noise) as f32;
+        *sample += (norm * tone + halo + onset) as f32;
 
         // Harmonic Flute 8' features a natural 4.8 Hz overblown concert-flute breath vibrato
         let vib = if is_harmonic_flute {
@@ -2299,7 +2333,7 @@ pub fn render_soft_flute(
             phase_celeste = (phase_celeste + step_celeste * pitch_mod).fract();
         }
         onset_cents *= scoop_decay;
-        spit_env *= spit_decay;
+        puff_env *= puff_decay;
         chime_env *= chime_decay;
     }
 }
@@ -3204,14 +3238,20 @@ mod tests {
         let sine_lut = SineLut::new();
         let wind = vec![0.0f32; 22050];
 
-        // 1. Verify all 5 airy 8' flutes (40..=44) produce finite, airy output
+        // 1. Verify all 5 airy 8' flutes (40..=44) produce finite, airy output without broadband white-noise hiss
         for &id in &[40, 41, 42, 43, 44] {
             let mut out = vec![0.0f32; 22050];
             render_stop_into(id, 441.0, 44100, &mut out, &sine_lut, &wind, 0.2);
             assert!(out.iter().all(|s| s.is_finite()));
             let window = &out[11025..21025];
             let m1 = tone_magnitude(window, 441.0, 44100.0);
+            let noise_mid = tone_magnitude(window, 441.0 * 2.5, 44100.0);
+            let noise_high = tone_magnitude(window, 441.0 * 6.5, 44100.0);
             assert!(m1 > 0.08, "Airy flute {id} fundamental must be present: m1={m1}");
+            assert!(
+                m1 > 25.0 * noise_mid && m1 > 40.0 * noise_high,
+                "Airy flute {id} must not have deafening broadband white noise: m1={m1}, noise_mid={noise_mid}, noise_high={noise_high}"
+            );
         }
 
         // 2. Verify each flute has its distinct organological harmonic signature:
