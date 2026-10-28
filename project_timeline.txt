@@ -753,3 +753,28 @@ PHASE 31: MIDRANGE-FORWARD CONTOUR EQ, SIX NEW TRUMPET STOPS, MELLOW SQUARE-WOOD
     1. rust/src/dsp/mod.rs, rust/src/dsp/pipe.rs, rust/src/dsp/stops_dsp.rs, rust/src/stops.rs, rust/src/dsp/fm.rs, rust/src/dsp/wavetable.rs, rust/src/dsp/reverb.rs:
        - Implemented midrange-forward EQ, 6 new Trumpet stops (45..=50), mellow square-wooden Gedeckt voicing, global de-brightening, comprehensive code comments, and UT-44.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 32: REAL-TIME LAPTOP MICROPHONE EB5 / CHROMATIC PITCH DETECTOR & ARDUINO PIN 3 / PIN 8 CENTRIFUGAL BLOWER PWM REGULATOR (October 28, 2026 - Prealpha_v2.0.19)
+--------------------------------------------------------------------------------
+* October 28, 2026:
+  - WHAT:
+    1. Real-Time Laptop Microphone Pitch Detection Engine (rust/src/tuner.rs):
+       - Implemented real-time mono microphone capture via cpal (MicrophoneTuner) supporting all hardware sample formats (f32, f64, i16, i32, u16) and selectable input devices.
+       - Implemented the McLeod Pitch Method (Normalized Square Difference Function, detect_pitch_nsdf) with DC removal, 2400 Hz low-pass wind-noise filtering, -50 dBFS RMS noise gating, first-lobe 0.85*max_peak fundamental selection (preventing harmonic octave errors on organ pipes), and 3-point parabolic sub-sample lag interpolation.
+    2. Temperament-Aware Eb5 & Chromatic Target Matching (evaluate_chromatic_target in rust/src/tuner.rs):
+       - Added TunerMode::TargetEb5 (locks onto Eb5, MIDI note 75 — 622.25 Hz at A4=440 Hz Equal — as well as Eb octaves for 16'/8'/4'/2' pipes) and TunerMode::ChromaticAuto (identifies any chromatic pipe note C1..C8).
+       - Dynamically calculates the exact target frequency using the console's active Master Tuning (A4 = 415..466 Hz) and Historical Temperament (Equal, Werckmeister III, Meantone 1/4-Comma, Kirnberger III, Vallotti, Silbermann, Pythagorean, Young II) via temperament.midi_to_freq(a4, note).
+    3. Closed-Loop Centrifugal Blower PWM Controller & Serial Protocol (BlowerController in rust/src/tuner.rs, rust/src/serial.rs, and newconsole/newconsole.ino):
+       - Starts at 50.0% nominal blower PWM duty cycle on Arduino Pin 3 (GMOS/MOSFET motor controller) with Pin 8 ON-ON toggle switch (INPUT_PULLUP, LOW = ON, HIGH = OFF).
+       - When the detected Eb5 / chromatic pipe pitch is Flat (< -3.5 cents), increases PWM by +0.5% and sends 'F' over USB Serial (115200 baud); when Sharp (> +3.5 cents), decreases PWM by -0.5% and sends 'S'; when within ±3.5 cents, holds PWM steady.
+       - Enforces a 500 ms anti-oscillation settling delay between adjustments so the centrifugal blower impeller and windchest reservoir stabilize without hunting.
+       - Enhanced newconsole/newconsole.ino and rust/src/serial.rs for bidirectional telemetry (BLOWER:1|0 switch state and PWM:<val> duty cycle feedback) while safely ignoring A4_1/A4_0 servo lines.
+    4. Console GUI Integration & Unit Tests UT-45..UT-47 (rust/src/app.rs & unit_tests_report.md):
+       - Added the "Blower Pitch-Lock & Mic Tuner" panel to the center visualizer column with Microphone selector, Enable/Stop Mic button, Target Eb5 vs Chromatic mode selector, visual cent-error strobe gauge, live Pin 3 PWM duty cycle bar, Pin 8 Switch status badge, and manual -0.5% / 50% Nominal / +0.5% controls.
+       - Added 3 new unit tests (UT-45, UT-46, UT-47; 47 unit tests total, all passing).
+  - WHY:
+    1. The creator requested: "OK, I have a new organ console code saved into openorgel folder as newconsole.ino i believe. What I need you to do is find a way to have pitch detection in the software using my laptops microphone. The pitch of an Eb will determine motor pwm to correct pitch... starting with nominal pressure at 50% of full power. The input will have to be from a microphone detecting the pitch of an E flat 5. If it is flat, increase pwm by 0.5% until correct pitch, if it is sharp decrease. To avoid oscillation we will need a delay... PWM on pin 3. On/off switch will be on pin 8- its a toggle switch ON-ON. Try and make this software end work with chromatic tuning stuff. Good luck. Feel free to edit the console code as well."
+  - HOW:
+    1. Created rust/src/tuner.rs and updated newconsole/newconsole.ino, rust/src/serial.rs, rust/src/app.rs, rust/src/main.rs, unit_tests_report.md, and project_timeline.txt.
+================================================================================

@@ -536,6 +536,36 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 
 ---
 
+### UT-45: McLeod Pitch Method (NSDF) Accuracy on Harmonic Eb5 Organ Pipe
+- **Module:** [rust/src/tuner.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/tuner.rs) (`test_nsdf_pitch_detection_on_harmonic_eb5_organ_pipe`)
+- **WHY:** Organ pipes contain strong upper harmonics (2nd, 3rd, and 4th partials) that cause naive zero-crossing pitch detectors to misread the octave. The `detect_pitch_nsdf` algorithm uses the Normalized Square Difference Function (NSDF) with first-peak threshold selection ($0.85 \times \text{max\_peak}$) and 3-point parabolic interpolation to lock onto the true fundamental $f_0$ of the $E\flat_5$ ($622.25\text{ Hz}$) reference pipe.
+- **WHAT:** Validates that `detect_pitch_nsdf` estimates the fundamental frequency of a harmonic-rich $E\flat_5$ ($622.25397\text{ Hz}$) organ pipe waveform within $\pm 1.5\text{ cents}$ and reports high periodicity confidence ($> 0.85$).
+- **METHOD:** Synthesizes 4,096 samples at $44.1\text{ kHz}$ of a $622.25397\text{ Hz}$ tone with strong 2nd ($0.75$), 3rd ($0.45$), and 4th ($0.25$) harmonics, runs `detect_pitch_nsdf`, and measures cent error.
+- **EXPECTED RESULT:** $|\Delta\text{cents}| < 1.5$ and $\text{confidence} > 0.85$.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-46: Centrifugal Blower PWM Controller Flat/Sharp 0.5% Step & 500 ms Anti-Oscillation Delay
+- **Module:** [rust/src/tuner.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/tuner.rs) (`test_blower_pwm_controller_flat_sharp_step_and_delay`)
+- **WHY:** The centrifugal organ blower controller (`newconsole/newconsole.ino` on Pin 3 PWM and Pin 8 ON-ON switch) starts at `50.0%` nominal PWM, increases PWM by `+0.5%` (`'F'`) when the $E\flat_5$ pipe is Flat, decreases PWM by `-0.5%` (`'S'`) when Sharp, holds steady when In Tune, and enforces a `500 ms` settling delay to prevent closed-loop pressure oscillation.
+- **WHAT:** Validates that `BlowerController::update_from_cents_error` starts at `50.0%`, increments by `+0.5%` (`'F'`) on a Flat reading (`-18 cents`), blocks further adjustments before `500 ms` (`t0 + 200 ms`), increments to `51.0%` after `550 ms`, decrements by `-0.5%` (`'S'`) to `50.5%` on a Sharp reading (`+14 cents`), and holds PWM steady within the $\pm 3.5\text{ cent}$ deadband.
+- **METHOD:** Drives `BlowerController::update_from_cents_error` across synthetic timestamps `t0`, `t0 + 200ms`, `t0 + 550ms`, `t0 + 1100ms`, and `t0 + 1700ms`.
+- **EXPECTED RESULT:** Exact state transitions (`50.0% -> 50.5% -> 50.5% (blocked) -> 51.0% -> 50.5% -> 50.5% (hold)`).
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-47: Chromatic & Historical Temperament Target Calculation for Eb5
+- **Module:** [rust/src/tuner.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/tuner.rs) (`test_chromatic_and_temperament_target_calculation`)
+- **WHY:** The microphone pitch detector and blower regulator must adapt its target frequency to the console's active Master Tuning ($A_4$) and Historical Temperament (`Equal`, `Meantone 1/4-Comma`, `Werckmeister III`, etc.).
+- **WHAT:** Validates that `evaluate_chromatic_target` computes the exact $E\flat_5$ (`MIDI 75`) target frequency in both Equal Temperament ($622.25\text{ Hz}$) and 1/4-Comma Meantone ($+20.53\text{ cents}$) and calculates accurate negative cent error for a slightly flat $618.0\text{ Hz}$ input.
+- **METHOD:** Evaluates `evaluate_chromatic_target` at $618.0\text{ Hz}$ with $A_4 = 440.0\text{ Hz}$ across `Temperament::Equal` and `Temperament::Meantone14`.
+- **EXPECTED RESULT:** `note == 75`, `target_hz == 622.25397`, and $-15.0 < \Delta\text{cents} < -10.0$.
+- **ACTUAL RESULT:** Passed.
+
+---
+
 ## 4. How to Reproduce and Run Tests
 
 The test suite can be run directly from the command line using the native Cargo toolchain:

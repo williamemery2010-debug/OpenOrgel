@@ -23,6 +23,7 @@ use crate::settings::Settings;
 use crate::soundfont::SoundFontPreset;
 use crate::stops::{self, Group, STOPS};
 use crate::temperament::Temperament;
+use crate::tuner::{BlowerAdjustment, MicrophoneTuner, TunerMode};
 
 // ---- palette (carried over from the legacy console) ----
 const DARK_BG: Color32 = Color32::from_rgb(0x0B, 0x0E, 0x14);
@@ -276,6 +277,9 @@ pub struct OrgelApp {
     pub venue: AcousticVenue,
     pub chiff_volume: f32,
     pub dynamics: f32,
+    pub tuner: MicrophoneTuner,
+    pub mic_devices: Vec<String>,
+    pub mic_selected: String,
 }
 
 impl OrgelApp {
@@ -348,6 +352,9 @@ impl OrgelApp {
             sf_page: 0,
             sf_search: String::new(),
             sf_presets: Vec::new(),
+            tuner: MicrophoneTuner::new(),
+            mic_devices: MicrophoneTuner::list_input_devices(),
+            mic_selected: "Default Microphone".to_string(),
         };
         app.apply_stops();
         app.refresh_midi_devices();
@@ -665,8 +672,22 @@ impl OrgelApp {
                         self.apply_stops();
                     }
                 }
+                SerialEvent::BlowerSwitch(on) => {
+                    self.tuner.status.hardware_switch_on = Some(on);
+                    if !on {
+                        self.tuner.controller.reset_to_nominal();
+                        self.tuner.status.current_pwm_percent = 50.0;
+                    }
+                }
+                SerialEvent::BlowerPwm(pwm) => {
+                    self.tuner.controller.current_pwm_percent = pwm;
+                    self.tuner.status.current_pwm_percent = pwm;
+                }
                 SerialEvent::Connected(p) => self.toast(format!("Console connected on {p}"), GREEN),
-                SerialEvent::Disconnected => self.toast("Console connection lost, retrying...", AMBER),
+                SerialEvent::Disconnected => {
+                    self.tuner.status.hardware_switch_on = None;
+                    self.toast("Console connection lost, retrying...", AMBER);
+                }
             }
         }
     }
@@ -1318,6 +1339,202 @@ impl OrgelApp {
                 }
             });
         });
+
+        ui.add_space(8.0);
+
+        // --- MICROPHONE PITCH DETECTOR & BLOWER MOTOR PWM PID CONTROLLER ---
+        card(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(bold("Blower Pitch-Lock & Mic Tuner", 14.0).color(ACCENT));
+                ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                    match self.tuner.status.hardware_switch_on {
+                        Some(true) => badge(ui, "Pin 8 Switch: ON", GREEN),
+                        Some(false) => badge(ui, "Pin 8 Switch: OFF", RED),
+                        None => badge(ui, "Pin 3 PWM / Pin 8", TEXT_MUTED),
+                    }
+                });
+            });
+            ui.add_space(4.0);
+
+            // Microphone selector & Start/Stop capture button
+            inner_card(ui, |ui| {
+                ui.horizontal(|ui| {
+                    let listening = self.tuner.is_listening();
+                    let btn_label = if listening { "Stop Mic" } else { "Enable Mic" };
+                    let btn_base = if listening { RED } else { GREEN };
+                    let btn_hover = if listening { RED_HOVER } else { GREEN_HOVER };
+                    if pill_button(ui, btn_label, btn_base, btn_hover, Vec2::new(88.0, 26.0), true).clicked() {
+                        if listening {
+                            self.tuner.stop();
+                            self.toast("Microphone pitch detector stopped", TEXT_MUTED);
+                        } else {
+                            let sel = self.mic_selected.clone();
+                            match self.tuner.start(Some(&sel)) {
+                                Ok(()) => self.toast(
+                                    format!("Listening on '{}'", self.tuner.device_name),
+                                    GREEN,
+                                ),
+                                Err(e) => self.toast(e, RED),
+                            }
+                        }
+                    }
+
+                    let mut mic_choice = self.mic_selected.clone();
+                    egui::ComboBox::from_id_salt("mic_input_device")
+                        .selected_text(mic_choice.clone())
+                        .width((ui.available_width() - 4.0).max(80.0))
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(
+                                &mut mic_choice,
+                                "Default Microphone".to_string(),
+                                "Default Microphone",
+                            );
+                            for dev in self.mic_devices.clone() {
+                                ui.selectable_value(&mut mic_choice, dev.clone(), dev);
+                            }
+                        });
+                    if mic_choice != self.mic_selected {
+                        self.mic_selected = mic_choice.clone();
+                        if self.tuner.is_listening() {
+                            if let Err(e) = self.tuner.start(Some(&mic_choice)) {
+                                self.toast(e, RED);
+                            }
+                        }
+                    }
+                });
+
+                ui.add_space(4.0);
+                // Tuning Mode selector: Target Eb5 vs Chromatic Auto
+                ui.horizontal(|ui| {
+                    ui.label(bold("Mode:", 12.0).color(TEXT_FG));
+                    egui::ComboBox::from_id_salt("tuner_mode_combo")
+                        .selected_text(self.tuner.mode.label())
+                        .width(165.0)
+                        .show_ui(ui, |ui| {
+                            for m in [TunerMode::TargetEb5, TunerMode::ChromaticAuto] {
+                                ui.selectable_value(&mut self.tuner.mode, m, m.label());
+                            }
+                        });
+                    ui.checkbox(
+                        &mut self.tuner.auto_regulate_pwm,
+                        RichText::new("Auto PWM").size(11.0).color(TEXT_FG),
+                    );
+                });
+            });
+
+            ui.add_space(4.0);
+
+            // Live Pitch & Cent Error Strobe Meter
+            inner_card(ui, |ui| {
+                let st = &self.tuner.status;
+                ui.horizontal(|ui| {
+                    let note_txt = if st.signal_detected {
+                        format!("Note: {}", st.matched_note_name)
+                    } else {
+                        format!("Target: Eb5 ({:.2} Hz)", st.target_freq_hz)
+                    };
+                    ui.label(bold(note_txt, 13.0).color(if st.signal_detected { GREEN } else { TEXT_FG }));
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if st.signal_detected {
+                            let err_color = match st.last_action {
+                                BlowerAdjustment::InTuneHold => GREEN,
+                                BlowerAdjustment::FlatIncreasePwm => AMBER,
+                                BlowerAdjustment::SharpDecreasePwm => RED,
+                                BlowerAdjustment::WaitingForSignal => TEXT_MUTED,
+                            };
+                            ui.label(
+                                bold(
+                                    format!(
+                                        "{:.1} Hz ({:+.1}c)",
+                                        st.detected_freq_hz, st.cents_error
+                                    ),
+                                    12.0,
+                                )
+                                .color(err_color),
+                            );
+                        } else {
+                            ui.label(RichText::new("Waiting for pipe tone...").size(11.0).color(TEXT_MUTED));
+                        }
+                    });
+                });
+
+                ui.add_space(4.0);
+                // Visual Cent-Deviation Bar (-50c Flat ... 0c ... +50c Sharp)
+                let (bar_rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 14.0), Sense::hover());
+                ui.painter().rect_filled(bar_rect, CornerRadius::same(4), BORDER);
+                let mid_x = bar_rect.center().x;
+                ui.painter().line_segment(
+                    [Pos2::new(mid_x, bar_rect.min.y), Pos2::new(mid_x, bar_rect.max.y)],
+                    Stroke::new(1.5, GREEN),
+                );
+                if st.signal_detected {
+                    let norm_err = (st.cents_error / 50.0).clamp(-1.0, 1.0) as f32;
+                    let needle_x = mid_x + norm_err * (bar_rect.width() * 0.46);
+                    let needle_col = if st.cents_error.abs() <= 3.5 {
+                        GREEN
+                    } else if st.cents_error < 0.0 {
+                        AMBER
+                    } else {
+                        RED
+                    };
+                    ui.painter().circle_filled(
+                        Pos2::new(needle_x, bar_rect.center().y),
+                        5.5,
+                        needle_col,
+                    );
+                }
+            });
+
+            ui.add_space(4.0);
+
+            // Blower Motor PWM Output Bar (Nominal 50.0%, +/-0.5% step control on Pin 3)
+            inner_card(ui, |ui| {
+                let pwm = self.tuner.controller.current_pwm_percent;
+                let action_str = match self.tuner.status.last_action {
+                    BlowerAdjustment::WaitingForSignal => "Hold (Standby)",
+                    BlowerAdjustment::InTuneHold => "IN TUNE (Hold PWM)",
+                    BlowerAdjustment::FlatIncreasePwm => "FLAT -> +0.5% PWM ('F')",
+                    BlowerAdjustment::SharpDecreasePwm => "SHARP -> -0.5% PWM ('S')",
+                };
+                ui.horizontal(|ui| {
+                    ui.label(bold(format!("Blower PWM: {:.1}%", pwm), 12.0).color(ACCENT));
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.label(RichText::new(action_str).size(11.0).color(TEXT_MUTED));
+                    });
+                });
+                ui.add_space(3.0);
+                let (p_rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 8.0), Sense::hover());
+                ui.painter().rect_filled(p_rect, CornerRadius::same(4), BORDER);
+                let mut p_fill = p_rect;
+                p_fill.set_width(p_rect.width() * (pwm / 100.0).clamp(0.0, 1.0));
+                ui.painter().rect_filled(p_fill, CornerRadius::same(4), ACCENT);
+
+                ui.add_space(4.0);
+                let bw = (ui.available_width() - 12.0) / 3.0;
+                ui.horizontal(|ui| {
+                    if pill_button(ui, "-0.5% ('S')", CHIP, AMBER_HOVER, Vec2::new(bw, 24.0), true).clicked() {
+                        self.tuner.controller.current_pwm_percent =
+                            (self.tuner.controller.current_pwm_percent - 0.5).clamp(0.0, 100.0);
+                        self.tuner.status.current_pwm_percent = self.tuner.controller.current_pwm_percent;
+                        self.link.send_line("S
+");
+                    }
+                    if pill_button(ui, "50% Nominal", CHIP, ACCENT_HOVER, Vec2::new(bw, 24.0), true).clicked() {
+                        self.tuner.controller.reset_to_nominal();
+                        self.tuner.status.current_pwm_percent = 50.0;
+                        self.link.send_line("R
+");
+                    }
+                    if pill_button(ui, "+0.5% ('F')", CHIP, GREEN_HOVER, Vec2::new(bw, 24.0), true).clicked() {
+                        self.tuner.controller.current_pwm_percent =
+                            (self.tuner.controller.current_pwm_percent + 0.5).clamp(0.0, 100.0);
+                        self.tuner.status.current_pwm_percent = self.tuner.controller.current_pwm_percent;
+                        self.link.send_line("F
+");
+                    }
+                });
+            });
+        });
     }
 
     fn playback_col(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
@@ -1431,6 +1648,12 @@ impl eframe::App for OrgelApp {
         self.pump_messages(ctx);
         self.pump_serial();
         self.handle_keys(ctx);
+
+        // Poll laptop microphone pitch detector and regulate Arduino Pin 3 blower PWM ('F' / 'S')
+        if let Some(cmd) = self.tuner.poll_and_regulate(self.engine.a4(), self.temperament) {
+            self.link.send_line(&format!("{cmd}
+"));
+        }
 
         // visualizer + A4 servo
         let (pcs, a4) = self.engine.visual_state();

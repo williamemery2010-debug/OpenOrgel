@@ -15,6 +15,7 @@ pub mod classifier;
 pub mod soundfont;
 mod stops;
 pub mod temperament;
+pub mod tuner;
 
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
