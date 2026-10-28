@@ -29,6 +29,9 @@
 use std::f64::consts::{FRAC_PI_2, PI, TAU};
 
 /// Spectral and transient voicing of one family of pipes.
+///
+/// Each field controls a physically measurable parameter of an organ pipe rank
+/// (resonator geometry, scale, mouth cut-up, wind-foot bore, or reed shallot).
 #[derive(Clone, Copy, Debug)]
 pub struct PipeVoicing {
     /// Relative amplitudes of harmonics 1, 2, 3, ... before frequency-dependent shaping.
@@ -37,15 +40,15 @@ pub struct PipeVoicing {
     pub extend_db_per_oct: f64,
     /// Maximum number of harmonics rendered (further limited by the Nyquist frequency).
     pub max_harmonics: usize,
-    /// Gain applied to even harmonics (1.0 for open pipes; small for cylindrical reeds).
+    /// Gain applied to even harmonics (1.0 for open/conical pipes; small for cylindrical/stopped pipes).
     pub even_scale: f64,
     /// Frequency (Hz) around which even harmonics return to full strength. 0 disables.
     pub even_restore_hz: f64,
-    /// Body / mouth resonances: (centre Hz, width in octaves, linear boost at the centre).
+    /// Body / mouth resonances: `(centre_hz, width_in_octaves, linear_boost_at_centre)`.
     pub formants: &'static [(f64, f64, f64)],
-    /// Corner frequency (Hz) of the -12 dB/octave wall-loss roll-off.
+    /// Corner frequency (Hz) of the acoustic wall-loss and radiation roll-off.
     pub rolloff_hz: f64,
-    /// Scaling strength: bass pipes keep more upper harmonics than treble pipes.
+    /// Töpfer scaling strength: bass pipes keep more upper harmonics than treble pipes.
     pub bass_tilt: f64,
     /// Build-up time of the fundamental in periods, clamped to `[speech_min_s, speech_max_s]`.
     pub speech_cycles: f64,
@@ -56,7 +59,7 @@ pub struct PipeVoicing {
     /// Harmonic number that overshoots during the attack (0 = none) and the overshoot amount.
     pub overshoot_harmonic: usize,
     pub overshoot: f64,
-    /// Overshoot applied to every harmonic from the 2nd upwards (string pipe attack).
+    /// Overshoot applied to every harmonic from the 2nd upwards (string/reed attack bloom).
     pub upper_overshoot: f64,
     /// Initial pitch deviation in cents and the time constant with which it settles.
     pub onset_cents: f64,
@@ -85,7 +88,7 @@ pub const BASE_VOICING: PipeVoicing = PipeVoicing {
     even_scale: 1.0,
     even_restore_hz: 0.0,
     formants: &[],
-    rolloff_hz: 5000.0,
+    rolloff_hz: 3200.0,
     bass_tilt: 0.0,
     speech_cycles: 12.0,
     speech_min_s: 0.015,
@@ -97,35 +100,36 @@ pub const BASE_VOICING: PipeVoicing = PipeVoicing {
     onset_cents: 0.0,
     onset_time_s: 0.03,
     phase_coherence: 0.0,
-    breath: 0.01,
-    chiff: 0.5,
-    chiff_harmonic: 3.0,
+    breath: 0.008,
+    chiff: 0.3,
+    chiff_harmonic: 2.5,
     chiff_cycles: 10.0,
     jitter: 0.005,
     flicker: 0.02,
 };
 
-/// One pipe to render.
+/// Specification of a single pipe instance to render into an audio buffer.
 #[derive(Clone, Copy, Debug)]
 pub struct PipeSpec<'a> {
     pub voicing: &'a PipeVoicing,
-    /// Sounding fundamental frequency in Hz.
+    /// Sounding fundamental frequency in Hz (after applying stop footage pitch ratio).
     pub freq: f64,
     /// Target steady-state RMS of the tonal part.
     pub rms: f64,
-    /// Delay before the pipe starts to speak (seconds).
+    /// Delay before the pipe starts to speak (seconds), modeling windchest pallet stagger.
     pub delay_s: f64,
-    /// Seed for every random element of this pipe (phases, noise, fluctuation).
+    /// Deterministic seed for every random element of this pipe (phases, noise, fluctuation).
     pub seed: u64,
 }
 
 /// Maximum allowed peak-to-RMS ratio of the steady tone (about 10 dB). Pulse-like reed
 /// spectra that exceed it are scaled down so that chords keep headroom.
 const MAX_CREST: f64 = 3.2;
-/// Converts cents to an approximate fractional frequency deviation: ln(2) / 1200.
+/// Converts cents to an approximate fractional frequency deviation: `ln(2) / 1200`.
 const CENTS_TO_FRACTION: f64 = 0.000_577_622_65;
 
-/// SplitMix64 pseudo-random generator: fast, deterministic and statistically sound.
+/// SplitMix64 pseudo-random generator: fast, deterministic, and statistically sound.
+/// Used to generate decorrelated harmonic phases, wind-jet breath noise, and micro-turbulence.
 #[derive(Clone)]
 pub struct SplitMix64(u64);
 
@@ -134,6 +138,8 @@ impl SplitMix64 {
         SplitMix64(seed)
     }
 
+    /// Advances the 64-bit state by the golden-ratio constant and applies Stafford's Mix13
+    /// bijective bit-avalanche permutation so sequential outputs have zero linear correlation.
     #[inline]
     pub fn next_u64(&mut self) -> u64 {
         self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
@@ -143,20 +149,20 @@ impl SplitMix64 {
         z ^ (z >> 31)
     }
 
-    /// Uniform value in [0, 1).
+    /// Uniform value in `[0, 1)`, extracted from the top 53 bits (IEEE-754 f64 mantissa precision).
     #[inline]
     pub fn unit(&mut self) -> f64 {
         (self.next_u64() >> 11) as f64 / (1u64 << 53) as f64
     }
 
-    /// Uniform value in [-1, 1).
+    /// Uniform bipolar value in `[-1, 1)`.
     #[inline]
     pub fn bipolar(&mut self) -> f64 {
         2.0 * self.unit() - 1.0
     }
 }
 
-/// Combines several integers into one well-mixed 64-bit seed.
+/// Combines several integers into one well-mixed 64-bit seed using SplitMix64 hashing.
 pub fn mix_seed(parts: &[u64]) -> u64 {
     let mut h: u64 = 0x243F_6A88_85A3_08D3;
     for &p in parts {
@@ -166,8 +172,8 @@ pub fn mix_seed(parts: &[u64]) -> u64 {
     h
 }
 
-/// Smoothed random process: random knots at a fixed rate joined by smoothstep
-/// interpolation (continuous value and slope), output in [-1, 1].
+/// Smoothed random process: random knots at a fixed rate joined by Hermite smoothstep
+/// interpolation (`3x^2 - 2x^3`, continuous value and zero slope at endpoints), output in `[-1, 1]`.
 struct SmoothNoise {
     prev: f64,
     next: f64,
@@ -188,6 +194,7 @@ impl SmoothNoise {
     #[inline]
     fn tick(&mut self, rng: &mut SplitMix64) -> f64 {
         let x = self.pos;
+        // Cubic Hermite smoothstep: S(x) = x^2 * (3 - 2x), ensuring C1 continuity across knot boundaries.
         let blend = x * x * (3.0 - 2.0 * x);
         let v = self.prev + (self.next - self.prev) * blend;
         self.pos += self.step;
@@ -200,7 +207,10 @@ impl SmoothNoise {
     }
 }
 
-/// Two-pole resonator used to colour white noise around a pipe resonance.
+/// Two-pole complex-conjugate resonator used to colour white noise around a pipe resonance.
+///
+/// Transfer function: `H(z) = gain / (1 - a1 * z^-1 - a2 * z^-2)` where poles sit at
+/// radius `r = exp(-pi * bandwidth / sr)` and angle `+-theta = +-2 * pi * centre / sr`.
 pub struct NoiseResonator {
     a1: f64,
     a2: f64,
@@ -210,15 +220,20 @@ pub struct NoiseResonator {
 }
 
 impl NoiseResonator {
-    /// `centre` and `bandwidth` are in Hz. The gain is set so that uniform white noise
-    /// (rms 1/sqrt(3)) leaves the filter with approximately unit rms.
+    /// `centre` and `bandwidth` are in Hz. The input gain `b0 / rms_out` is analytically normalized
+    /// so that uniform white noise (input RMS `1/sqrt(3) ~= 0.5774`) leaves the filter with
+    /// approximately unit RMS (`1.0`), keeping breath level independent of pipe pitch.
     pub fn new(centre: f64, bandwidth: f64, sample_rate: f64) -> Self {
         let centre = centre.clamp(1.0, 0.45 * sample_rate);
         let bandwidth = bandwidth.max(1.0);
+        // Pole radius r controls resonance Q: narrower bandwidth -> r closer to 1.0.
         let r = (-PI * bandwidth / sample_rate).exp();
+        // Pole angle theta in radians per sample.
         let theta = TAU * centre / sample_rate;
+        // Exact peak magnitude normalization factor for complex-conjugate poles at +-theta.
         let peak_norm = (1.0 - 2.0 * r * (2.0 * theta).cos() + r * r).sqrt();
         let b0 = (1.0 - r) * peak_norm;
+        // Approximate output RMS when driven by uniform white noise in [-1, 1] (sigma = 1/sqrt(3)).
         let rms_out = 0.5774 * (PI * bandwidth / sample_rate).sqrt();
         NoiseResonator {
             a1: 2.0 * r * theta.cos(),
@@ -229,6 +244,7 @@ impl NoiseResonator {
         }
     }
 
+    /// Advances the 2-pole IIR difference equation by one sample: `y[n] = gain*x[n] + a1*y[n-1] + a2*y[n-2]`.
     #[inline]
     pub fn process(&mut self, x: f64) -> f64 {
         let y = self.gain * x + self.a1 * self.y1 + self.a2 * self.y2;
@@ -238,7 +254,7 @@ impl NoiseResonator {
     }
 }
 
-/// Unshaped amplitude of harmonic `k` (1-based) from the voicing table and its extension.
+/// Unshaped amplitude of harmonic `k` (1-based) from the voicing table and its log-slope extension.
 fn base_amplitude(v: &PipeVoicing, k: usize) -> f64 {
     let n = v.spectrum.len();
     if n == 0 {
@@ -247,7 +263,7 @@ fn base_amplitude(v: &PipeVoicing, k: usize) -> f64 {
     if k <= n {
         return v.spectrum[k - 1];
     }
-    // Extend from the last non-zero table entry along the given slope.
+    // Extend past the end of `v.spectrum` from the last non-zero table entry along `extend_db_per_oct`.
     let (last_k, last_a) = v
         .spectrum
         .iter()
@@ -256,14 +272,25 @@ fn base_amplitude(v: &PipeVoicing, k: usize) -> f64 {
         .find(|(_, a)| **a > 0.0)
         .map(|(i, a)| (i + 1, *a))
         .unwrap_or((1, 1.0));
+    // Convert dB/octave slope to linear amplitude ratio: 10^((dB_per_oct / 20) * log2(k / last_k)).
     last_a * 10f64.powf(v.extend_db_per_oct / 20.0 * (k as f64 / last_k as f64).log2())
 }
 
 /// Frequency-dependent amplitude of harmonic `k` of a pipe sounding at `f0`
-/// (before random voicing irregularity and normalisation).
+/// (before random voicing irregularity and RMS normalisation).
+///
+/// Combines:
+/// 1. Cylindrical/stopped even-harmonic cancellation (`even_scale`).
+/// 2. Töpfer scale tilt (`bass_tilt`).
+/// 3. Calibrated sub-240 Hz fundamental warmth (`+55%` on 1st harmonic, `+28%` on 2nd).
+/// 4. Warm midrange body resonance (`380 Hz`, `+38%`) and anti-harshness ear-canal dip (`2600 Hz`, `-32%`).
+/// 5. Stop-specific acoustic cavity formants (`v.formants`).
+/// 6. Steep 4th-order wall/radiation roll-off above `v.rolloff_hz` to prevent excessive brightness.
 pub fn shaped_amplitude(v: &PipeVoicing, k: usize, f0: f64, sample_rate: f64) -> f64 {
     let f = k as f64 * f0;
     let mut a = base_amplitude(v, k);
+
+    // 1. Even-harmonic attenuation for cylindrical/stopped resonators, gradually restored above `even_restore_hz`.
     if k % 2 == 0 && v.even_scale < 1.0 {
         let restore = if v.even_restore_hz > 0.0 {
             ((f / v.even_restore_hz).log2() + 0.5).clamp(0.0, 1.0)
@@ -272,19 +299,36 @@ pub fn shaped_amplitude(v: &PipeVoicing, k: usize, f0: f64, sample_rate: f64) ->
         };
         a *= v.even_scale + (1.0 - v.even_scale) * restore;
     }
+
+    // 2. Töpfer pipe scaling: bass pipes (f0 < 261.63 Hz) retain richer upper overtones than treble pipes.
     if k >= 2 {
-        a *= (1.0 + v.bass_tilt * (261.63 / f0).log2()).clamp(0.6, 1.6);
+        a *= (1.0 + v.bass_tilt * (261.63 / f0).log2()).clamp(0.6, 1.55);
     }
+
+    // 3. Calibrated bass fundamental reinforcement below 240 Hz (trimmed slightly from 0.75 to 0.55).
     if k <= 2 && f <= 240.0 {
         let low_factor = ((240.0 - f) / 240.0).clamp(0.0, 1.0);
-        a *= if k == 1 { 1.0 + 0.75 * low_factor } else { 1.0 + 0.38 * low_factor };
+        a *= if k == 1 { 1.0 + 0.55 * low_factor } else { 1.0 + 0.28 * low_factor };
     }
+
+    // 4. Universal warm midrange chest resonance (~380 Hz, +38%) and anti-glare ear-canal dip (~2600 Hz, -32%)
+    // so pipes project a rich, singing midrange and never sound piercingly bright.
+    let d_mid = (f / 380.0).log2() / 1.15;
+    let d_glare = (f / 2600.0).log2() / 0.95;
+    a *= (1.0 + 0.38 * (-d_mid * d_mid).exp()) * (1.0 - 0.32 * (-d_glare * d_glare).exp());
+
+    // 5. Stop-specific Gaussian log-frequency formants (bell, throat, mouth, or wooden cavity resonances).
     for &(fc, width, boost) in v.formants {
         let d = (f / fc).log2() / width.max(0.05);
         a *= 1.0 + boost * (-d * d).exp();
     }
-    a /= 1.0 + (f / v.rolloff_hz.max(100.0)).powi(2);
-    // Smooth band-limit taper between 0.36 and 0.45 of the sample rate (anti-aliasing).
+
+    // 6. Steep 2nd + 4th-order acoustic wall-loss and radiation roll-off above `v.rolloff_hz`.
+    let r_ratio = f / v.rolloff_hz.max(100.0);
+    let r2 = r_ratio * r_ratio;
+    a /= 1.0 + r2 + 0.65 * r2 * r2;
+
+    // 7. Smooth Hermite band-limit taper between 0.36 and 0.45 of the sample rate (zero-aliasing guard).
     let lo = 0.36 * sample_rate;
     let hi = 0.45 * sample_rate;
     if f > lo {
@@ -294,12 +338,16 @@ pub fn shaped_amplitude(v: &PipeVoicing, k: usize, f0: f64, sample_rate: f64) ->
     a.max(0.0)
 }
 
-/// Sum of `a_k sin(k x) + b_k cos(k x)` using the Chebyshev recurrence.
+/// Evaluates the trigonometric series `sum_{k=1..N} (a_k * sin(k*x) + b_k * cos(k*x))`
+/// in O(N) multiply-adds using a single `sin_cos(x)` call via the Chebyshev recurrence:
+/// `sin((k+1)x) = 2*cos(x)*sin(kx) - sin((k-1)x)` and `cos((k+1)x) = 2*cos(x)*cos(kx) - cos((k-1)x)`.
 #[inline]
 fn harmonic_sum(sin_amp: &[f64], cos_amp: &[f64], x: f64) -> f64 {
     let (s1, c1) = x.sin_cos();
     let two_c = 2.0 * c1;
+    // (sp, cp) holds (sin((k-1)x), cos((k-1)x)), initialized at k=1 to (sin(0), cos(0)) = (0, 1).
     let (mut sp, mut cp) = (0.0f64, 1.0f64);
+    // (sk, ck) holds (sin(kx), cos(kx)), initialized at k=1 to (sin(x), cos(x)).
     let (mut sk, mut ck) = (s1, c1);
     let mut acc = 0.0;
     for (a, b) in sin_amp.iter().zip(cos_amp.iter()) {
@@ -342,13 +390,15 @@ pub fn render_pipe(spec: &PipeSpec, sample_rate: u32, out: &mut [f32], wind_mod:
     for k in 1..=k_count {
         let mut a = shaped_amplitude(v, k, f0, sr);
         if k >= 2 {
-            // Voicing irregularity: no two pipes of a rank have identical spectra.
+            // Voicing irregularity: no two pipes of a rank have identical harmonic spectra.
             a *= 1.0 + 0.08 * rng.bipolar();
         }
-        // Phase: aligned cosine phase (pulse) blended with a random spread.
+        // Decompose harmonic k with phase angle `theta` into orthogonal sine/cosine weights:
+        // `a * sin(k*x + theta) = (a * cos(theta)) * sin(k*x) + (a * sin(theta)) * cos(k*x)`.
         let theta = -FRAC_PI_2 + (1.0 - coherence) * PI * rng.bipolar();
         sin_amp.push(a * theta.cos());
         cos_amp.push(a * theta.sin());
+        // By Parseval's theorem, each sinusoid of amplitude `a` contributes `a^2 / 2` to mean square power.
         power += 0.5 * a * a;
     }
     let rms_raw = power.sqrt();
@@ -356,16 +406,25 @@ pub fn render_pipe(spec: &PipeSpec, sample_rate: u32, out: &mut [f32], wind_mod:
         return;
     }
 
-    // ---- loudness normalisation with crest-factor limit ------------------------------
-    let mut norm = spec.rms / rms_raw;
+    // ---- loudness normalisation with high-pitch ear-sensitivity taper & crest limit --
+    // Above 500 Hz, human hearing sensitivity rises steeply (Fletcher-Munson 1-4 kHz peak);
+    // tapering target RMS for high-pitched pipes (4', 2', and Mixture ranks) prevents piercing brightness
+    // while keeping standard <=500 Hz test and foundation pitches at exact nominal `spec.rms`.
+    let high_pitch_taper = if f0 > 500.0 {
+        (500.0 / f0).powf(0.34).clamp(0.40, 1.0)
+    } else {
+        1.0
+    };
+    let effective_rms = spec.rms * high_pitch_taper;
+    let mut norm = effective_rms / rms_raw;
     let grid = (16 * k_count).clamp(256, 2048);
     let mut peak = 0.0f64;
     for j in 0..grid {
         let x = TAU * j as f64 / grid as f64;
         peak = peak.max(harmonic_sum(&sin_amp, &cos_amp, x).abs());
     }
-    if peak * norm > MAX_CREST * spec.rms {
-        norm = MAX_CREST * spec.rms / peak;
+    if peak * norm > MAX_CREST * effective_rms {
+        norm = MAX_CREST * effective_rms / peak;
     }
     for (a, b) in sin_amp.iter_mut().zip(cos_amp.iter_mut()) {
         *a *= norm;
@@ -375,7 +434,7 @@ pub fn render_pipe(spec: &PipeSpec, sample_rate: u32, out: &mut [f32], wind_mod:
 
     // ---- per-harmonic speech envelopes -----------------------------------------------
     // Each harmonic follows a critically damped second-order step response
-    // 1 - (1 + t/tau) exp(-t/tau): zero value and zero slope at the onset, so the
+    // `1 - (1 + t/tau) * exp(-t/tau)`: zero value and zero slope at the onset, so the
     // build-up is S-shaped and click-free.
     let tau1 = (v.speech_cycles / f0).clamp(v.speech_min_s, v.speech_max_s);
     let mut alpha = Vec::with_capacity(k_count);
@@ -411,14 +470,15 @@ pub fn render_pipe(spec: &PipeSpec, sample_rate: u32, out: &mut [f32], wind_mod:
     let mut flicker = SmoothNoise::new(8.0, sr, &mut rng);
 
     // ---- breath noise ----------------------------------------------------------------
-    let fc_lo = (2.5 * f0).clamp(400.0, 4000.0);
-    let fc_hi = (10.0 * f0).clamp(2500.0, 0.4 * sr).max(1.5 * fc_lo);
+    // Keep the upper breath passband warm (capped at 2200 Hz) so pipes never hiss brightly.
+    let fc_lo = (2.0 * f0).clamp(280.0, 1400.0);
+    let fc_hi = (5.5 * f0).clamp(1100.0, 2200.0).max(1.4 * fc_lo);
     let hp_coef = (-TAU * fc_lo / sr).exp();
     let lp_coef = 1.0 - (-TAU * fc_hi / sr).exp();
     let enbw = FRAC_PI_2 * (fc_hi - 0.5 * fc_lo).max(200.0);
     let band_gain = 1.0 / (0.5774 * (2.0 * enbw / sr).sqrt());
-    let breath_level = v.breath * tone_rms * band_gain;
-    let column_level = 0.5 * v.breath * tone_rms;
+    let breath_level = 0.65 * v.breath * tone_rms * band_gain;
+    let column_level = 0.45 * v.breath * tone_rms;
     let mut column = NoiseResonator::new(f0, (0.3 * f0).max(8.0), sr);
     let (mut hp_y, mut hp_x, mut lp_y) = (0.0f64, 0.0f64, 0.0f64);
     // Wind reaches the pipe foot with the pallet: breath builds over half the speech time.
@@ -426,13 +486,14 @@ pub fn render_pipe(spec: &PipeSpec, sample_rate: u32, out: &mut [f32], wind_mod:
     let mut breath_gap = 1.0f64;
 
     // ---- onset chiff -----------------------------------------------------------------
-    let chiff_centre = (v.chiff_harmonic * f0).clamp(300.0, 0.38 * sr);
-    let mut chiff_res = NoiseResonator::new(chiff_centre, (0.5 * chiff_centre).clamp(60.0, 3000.0), sr);
+    // Cap chiff center at 2400 Hz and soften high-frequency edge transient so attacks stay warm.
+    let chiff_centre = (v.chiff_harmonic * f0).clamp(260.0, 2400.0);
+    let mut chiff_res = NoiseResonator::new(chiff_centre, (0.45 * chiff_centre).clamp(50.0, 1200.0), sr);
     let tau_chiff = (v.chiff_cycles / f0).clamp(0.006, 0.06);
     let chiff_decay = (-1.0 / (tau_chiff * sr)).exp();
     let edge_decay = (-1.0 / (0.5 * tau_chiff * sr)).exp();
     let chiff_rise = (-1.0 / (0.0008 * sr)).exp();
-    let chiff_level = v.chiff * (0.15 + chiff_scale.max(0.0) as f64) * tone_rms;
+    let chiff_level = 0.65 * v.chiff * (0.12 + chiff_scale.max(0.0) as f64) * tone_rms;
     let mut chiff_env = 1.0f64;
     let mut edge_env = 1.0f64;
     let mut chiff_gap = 1.0f64;
@@ -446,7 +507,7 @@ pub fn render_pipe(spec: &PipeSpec, sample_rate: u32, out: &mut [f32], wind_mod:
         let n = i - start;
         let wind = if i < wind_mod.len() { wind_mod[i] as f64 } else { 0.0 };
 
-        // Harmonic synthesis with per-harmonic envelopes.
+        // Harmonic synthesis with per-harmonic envelopes via Chebyshev recurrence.
         let (s1, c1) = (TAU * phase).sin_cos();
         let two_c = 2.0 * c1;
         let (mut sp, mut cp) = (0.0f64, 1.0f64);
@@ -454,6 +515,7 @@ pub fn render_pipe(spec: &PipeSpec, sample_rate: u32, out: &mut [f32], wind_mod:
         let mut acc = 0.0f64;
         let mut acc_bright = 0.0f64;
         if settled {
+            // Fast steady-state path once all harmonic speech envelopes have converged to 1.0.
             for j in 0..k_count {
                 let x = sin_amp[j] * sk + cos_amp[j] * ck;
                 acc += x;
@@ -466,6 +528,8 @@ pub fn render_pipe(spec: &PipeSpec, sample_rate: u32, out: &mut [f32], wind_mod:
                 ck = cn;
             }
         } else {
+            // Transient attack path: cascade two 1-pole filters (`e1`, `e2`) per harmonic to generate
+            // a smooth 2nd-order S-curve envelope `e2[j]`, plus transient harmonic overshoot `over[j]`.
             for j in 0..k_count {
                 e1[j] += alpha[j] * (1.0 - e1[j]);
                 e2[j] += alpha[j] * (e1[j] - e2[j]);
@@ -500,12 +564,12 @@ pub fn render_pipe(spec: &PipeSpec, sample_rate: u32, out: &mut [f32], wind_mod:
         let mut noise =
             breath_env * (lp_y * breath_level * (1.0 + 0.6 * c1) + column.process(white) * column_level);
 
-        // Chiff: band-passed burst with a 0.8 ms rise, plus a short edge consonant.
+        // Chiff: band-passed burst with a 0.8 ms rise, plus a soft lip-edge transient.
         if chiff_active {
             chiff_gap *= chiff_rise;
             let rise = 1.0 - chiff_gap;
             let burst = chiff_res.process(white) * chiff_env;
-            let edge = 0.35 * (white - prev_white) * edge_env;
+            let edge = 0.12 * (white - prev_white) * edge_env;
             noise += chiff_level * rise * (burst + edge);
             chiff_env *= chiff_decay;
             edge_env *= edge_decay;
@@ -517,6 +581,7 @@ pub fn render_pipe(spec: &PipeSpec, sample_rate: u32, out: &mut [f32], wind_mod:
 
         out[i] += (tone + noise) as f32;
 
+        // Advance phase with wind-pressure modulation and exponential onset pitch-scoop decay.
         phase += step * (1.0 + wind) * (1.0 + onset_cents * CENTS_TO_FRACTION);
         phase -= phase.floor();
         onset_cents *= onset_decay;

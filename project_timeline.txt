@@ -714,3 +714,42 @@ PHASE 30: TONAL BREATH-FLUTTER & NARROW HARMONIC BREATH HALO FOR AIRY 8' FLUTES 
        - Updated UT-42 (test_soft_flute_8_stops_warm_velvety_spectrum) to assert low inter-harmonic noise floor alongside distinct harmonic ratios.
 ================================================================================
 
+
+--------------------------------------------------------------------------------
+PHASE 31: MIDRANGE-FORWARD CONTOUR EQ, SIX NEW TRUMPET STOPS, MELLOW SQUARE-WOODEN GEDECKT VOICING, GLOBAL DE-BRIGHTENING & COMPREHENSIVE CODE DOCUMENTATION (October 27, 2026 - Prealpha_v2.0.18)
+--------------------------------------------------------------------------------
+* October 27, 2026:
+  - WHAT:
+    1. Midrange-Forward Contour EQ & Microscopic Bass Trim (apply_bass_warmth_eq in rust/src/dsp/mod.rs & shaped_amplitude in rust/src/dsp/pipe.rs):
+       - Trimmed the 2nd-order 125 Hz low-low sub-bass shelf microscopically from 1.10 to 0.88, the 220 Hz bass shelf from 0.58 to 0.44, and the sub-320 Hz pitch bass boost from (340/f)^0.46 (max 3.10) to (320/f)^0.36 (max 2.40). Similarly trimmed sub-240 Hz fundamental/2nd-harmonic boost in pipe::shaped_amplitude from +0.75/+0.38 to +0.55/+0.28.
+       - Substantially boosted the singing midrange (220-760 Hz): dual midrange bandpass bands (0.62 * mid_chest [220-520 Hz] + 0.74 * mid_presence [220-760 Hz]) plus a Gaussian pitch midrange presence boost centered at 380 Hz (+28% in apply_bass_warmth_eq and +38% in pipe::shaped_amplitude).
+       - Deepened the 820-1220 Hz anti-nasal scoop (-0.24) and added a 1-pole 2100 Hz high-frequency warmth filter (0.72 * lp_2100 + 0.28 * x) across all stops.
+    2. Six New Conical-Resonator Trumpet Stops (Stop IDs 45-50 in rust/src/stops.rs & rust/src/dsp/stops_dsp.rs):
+       - Added five 8' Trumpet stops and one 4' Clarion/Trumpet stop:
+         * Trumpet 8' (ID 45, VOICING_TRUMPET_8): Classic Great Organ chorus trumpet with warm brassy midrange body (520 Hz & 1180 Hz formants, 2250 Hz roll-off).
+         * Trompette Harmonique 8' (ID 46, VOICING_TROMPETTE_HARMONIQUE_8): Cavaillé-Coll double-length harmonic resonator reed with round singing 2nd/3rd harmonics (560 Hz & 1280 Hz formants, 2400 Hz roll-off).
+         * Orchestral Trumpet 8' (ID 47, VOICING_ORCHESTRAL_TRUMPET_8): Noble symphonic solo brass reed with warm bell flare (480 Hz & 1120 Hz formants, 2150 Hz roll-off).
+         * State Trumpet 8' (ID 48, VOICING_STATE_TRUMPET_8): High-pressure horizontal en-chamade ceremonial fanfare reed (600 Hz & 1380 Hz formants, 2550 Hz roll-off).
+         * Cornopean 8' (ID 49, VOICING_CORNOPEAN_8): Wide-scale English Swell horn-trumpet with dark, velvety brass warmth (420 Hz & 960 Hz formants, 1850 Hz roll-off).
+         * Trompette 4' (ID 50, VOICING_TRUMPET_8 at 2.0x pitch ratio): Singing 4' chorus clarion reed.
+    3. Mellow, Soft, Flutey Square-Wooden Revoicing of Gedeckt (STOPPED_PARTIALS & render_stopped_flue in rust/src/dsp/stops_dsp.rs):
+       - Re-engineered render_stopped_flue (Gedeckt 8', 4', 16', 32', 2') to model a true stopped square-section pine/oak organ pipe (Holzgedeckt):
+         * Dispersed partial phase offsets (0.00, 1.35, 2.15, 0.85, 2.65, 1.70 rad) instead of 0-phase sine summation so the partials never sum into a buzzy, nasal square wave.
+         * Reduced the 3rd harmonic twelfth from 0.200 (up to 0.300 with bass_tilt) down to 0.115, 5th harmonic from 0.062 to 0.018, 7th from 0.026 to 0.004, and omitted the 9th and 11th partials.
+         * Added a warm 320 Hz square wooden cavity resonance (+32%), an acoustic 950 Hz anti-nasal scoop (-36%), and a steep 3rd-order 1350 Hz wooden wall/stopper roll-off (down from 2nd-order 3000 Hz).
+         * Reduced output gain from 0.80 to a soft, intimate 0.50 (with 0.68x/0.46x tapering on 4' and 2' footages, and stop_registration_weight(17) = 0.96), lengthened the raised-cosine attack to 26 ms, and removed the 3*f0 upper breath resonator and high-pass edge transient.
+    4. Global De-Brightening of All Non-Exempt Stops (rust/src/dsp/pipe.rs & rust/src/dsp/stops_dsp.rs):
+       - Added a Fletcher-Munson ear-sensitivity dip around 2600 Hz (-32%), steeper 2nd+4th order wall roll-off above rolloff_hz, and high-pitch loudness tapering above 500 Hz ((500/f0)^0.34) in pipe.rs.
+       - Lowered rolloff_hz across VOICING_OBOE, VOICING_COR_ANGLAIS, VOICING_VOX_HUMANA, VOICING_VIOL_4, VOICING_CELESTE_8, VOICING_FLUTE_4, VOICING_CRYSTAL_FLUTE_4, VOICING_OTTAVINO_2, VOICING_PICCOLO_2, VOICING_PRINCIPAL, and VOICING_CORNET_FLUTE from 3000-6500 Hz down to 1650-2450 Hz and shifted their formants into the warm 340-980 Hz midrange.
+       - Lowered mixture break ceilings from 6500 Hz to 3200 Hz (4200 Hz for Cornet V) and 3600 Hz (Principal Chorus), and lowered cutoffs in render_soft_flute, render_celeste_flue_rank, and render_principal_chorus_rank to 1850-2500 Hz.
+    5. Comprehensive Codebase Documentation & Unit Test UT-44:
+       - Added block-level and line-by-line engineering comments across rust/src/dsp/mod.rs, rust/src/dsp/pipe.rs, rust/src/dsp/stops_dsp.rs, rust/src/dsp/fm.rs, rust/src/dsp/wavetable.rs, rust/src/dsp/reverb.rs, and rust/src/stops.rs explaining what each module, function, and complex mathematical line does and why.
+       - Added UT-44 (test_new_trumpet_stops_and_mellow_gedeckt_voicing) verifying all 6 new Trumpet stops and the mellow wooden Gedeckt spectrum (44 unit tests total, all passing).
+  - WHY:
+    1. The creator requested: "Lets do some EQ and get more midrange and drop the bass down microscopically because we overdid it slightly. I also want some more trumpety stops. Gedeckt sounds different for some reason now. I want it to sound very flutey- it should be like a wooden square stopped pipe. Right now it's too nasally and I suppose full. If necessary, I will make a sample myself if I am further unsatisfied. Remember- Gedeckt is stopped, mellow, soft and warm. All the stops except bass, clarinet, clarion, and diapason are currently immensely bright as well. I also want you to now make comments on every part of the code explaining what it does and why, and comments on individual lines that are particularly complex."
+    2. Gedeckt sounded nasally and too full because STOPPED_PARTIALS summed 0-phase odd harmonics up to the 11th partial with a 0.200*bass_tilt 3rd harmonic and 3000 Hz cutoff at a loud 0.80 gain, producing a literal square wave in the 800-1500 Hz nasal band.
+    3. All other stops sounded immensely bright because VOICING_* presets had roll-offs up to 4800-6500 Hz and formants at 2100-3600 Hz, while 4', 2', and Mixture pipes were normalized to full 0.24 RMS inside the ear's 2-4 kHz Fletcher-Munson sensitivity peak.
+  - HOW:
+    1. rust/src/dsp/mod.rs, rust/src/dsp/pipe.rs, rust/src/dsp/stops_dsp.rs, rust/src/stops.rs, rust/src/dsp/fm.rs, rust/src/dsp/wavetable.rs, rust/src/dsp/reverb.rs:
+       - Implemented midrange-forward EQ, 6 new Trumpet stops (45..=50), mellow square-wooden Gedeckt voicing, global de-brightening, comprehensive code comments, and UT-44.
+================================================================================

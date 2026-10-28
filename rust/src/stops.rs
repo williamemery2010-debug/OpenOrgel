@@ -1,21 +1,28 @@
 //! STOP REGISTRY - the one true list of console stops and their C++ engine ids.
 //!
-//! The ids MUST match the `STOPS_DB[]` indices in `openorgelsynth.cpp`.
+//! The ids MUST match the `STOPS_DB[]` indices in `openorgelsynth.cpp` / `STOP_DEFINITIONS` in `stops_dsp.rs`.
 //! Oboe 8' (0) and Vox Humana 8' (16) are intentionally absent: they were
 //! evicted from the console, and the engine simply never gets asked for them.
 
-/// Which column of the console a stop lives in.
+/// Which column of the console a stop lives in, grouped by organological pipe footage.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Group {
+    /// 32' Sub-Bass Pedal & Manual Ranks (sounding two octaves below written pitch).
     Ft32,
+    /// 16' Manual & Pedal Foundation Ranks (sounding one octave below written pitch).
     Ft16,
+    /// 8' Unison Foundation, Flute, String & Reed Ranks (sounding at written concert pitch).
     Ft8,
+    /// 4' Octave Principal, Flute, String & Reed Ranks (sounding one octave above written pitch).
     Ft4,
+    /// 2' Super-Octave Principal & Flute Ranks (sounding two octaves above written pitch).
     Ft2,
+    /// Multi-rank Compound Stops, Choruses & Mixtures.
     Special,
 }
 
 impl Group {
+    /// Fixed left-to-right column display order in the Organ Console GUI.
     pub const ORDER: [Group; 6] = [
         Group::Ft32,
         Group::Ft16,
@@ -25,6 +32,7 @@ impl Group {
         Group::Special,
     ];
 
+    /// Human-readable column header displayed above each stop group in the GUI.
     pub fn title(self) -> &'static str {
         match self {
             Group::Ft32 => "32' Ranks",
@@ -36,6 +44,7 @@ impl Group {
         }
     }
 
+    /// Substring suffix used to classify a stop into its corresponding footage column.
     fn marker(self) -> Option<&'static str> {
         match self {
             Group::Ft32 => Some(" 32'"),
@@ -48,10 +57,11 @@ impl Group {
     }
 }
 
+/// Metadata pairing a user-facing stop name with its internal DSP synthesis engine ID.
 #[derive(Clone, Copy, Debug)]
 pub struct StopInfo {
     pub name: &'static str,
-    /// Index into the C++ `STOPS_DB` table.
+    /// Index into `STOP_DEFINITIONS` in `rust/src/dsp/stops_dsp.rs`.
     pub id: i32,
 }
 
@@ -101,6 +111,12 @@ pub const STOPS: &[StopInfo] = &[
     StopInfo { name: "Melodia 8'", id: 42 },
     StopInfo { name: "Flauto Dolce 8'", id: 43 },
     StopInfo { name: "Rohrflöte 8'", id: 44 },
+    StopInfo { name: "Trumpet 8'", id: 45 },
+    StopInfo { name: "Trompette Harmonique 8'", id: 46 },
+    StopInfo { name: "Orchestral Trumpet 8'", id: 47 },
+    StopInfo { name: "State Trumpet 8'", id: 48 },
+    StopInfo { name: "Cornopean 8'", id: 49 },
+    StopInfo { name: "Trompette 4'", id: 50 },
 ];
 
 /// The stop that is pulled out when the console first wakes up.
@@ -141,6 +157,7 @@ pub fn ordered_indices() -> Vec<usize> {
     grouped().into_iter().flat_map(|(_, v)| v).collect()
 }
 
+/// Looks up the index in `STOPS` matching `name`.
 pub fn index_of(name: &str) -> Option<usize> {
     STOPS.iter().position(|s| s.name == name)
 }

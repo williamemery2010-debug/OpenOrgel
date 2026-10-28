@@ -140,529 +140,681 @@ pub struct StopDefinition {
 // ---------------------------------------------------------------------------
 // PHYSICAL ACOUSTIC PIPE VOICING PRESETS
 // ---------------------------------------------------------------------------
+// Each `PipeVoicing` constant defines the physical harmonic series, fixed-frequency
+// resonator formants, wall-damping cutoff (`rolloff_hz`), and transient speech dynamics
+// for a specific organ pipe family. Formants are centered in the warm 320-980 Hz
+// midrange and paired with controlled 1850-2600 Hz roll-offs so stops sing with
+// rich midrange body rather than harsh high-frequency brightness.
 
 // CLARINET / CROMORNE:
 // Cylindrical resonator suppresses even harmonics (hollow woody color)
-// Mouth/throat formant around 1450 Hz and 2800 Hz, rapid tongue speech
+// Mouth/throat formant around 680 Hz and 1280 Hz, rapid tongue speech
 pub const VOICING_CLARINET: PipeVoicing = PipeVoicing {
     spectrum: &[1.0, 0.08, 0.75, 0.05, 0.50, 0.04, 0.32, 0.03, 0.18, 0.02, 0.10],
     extend_db_per_oct: -14.0,
-    max_harmonics: 22,
+    max_harmonics: 18,
     even_scale: 0.12,        // Characteristic hollow odd-harmonic dominance of cylindrical resonators
-    even_restore_hz: 2400.0, // Upper partials recover symmetry above pipe cutoff
-    formants: &[(1450.0, 0.8, 1.2), (2800.0, 1.0, 0.6)], // Throat & shallot resonance
-    rolloff_hz: 4800.0,
+    even_restore_hz: 2200.0, // Upper partials recover symmetry above pipe cutoff
+    formants: &[(680.0, 0.85, 1.2), (1280.0, 0.9, 0.6)], // Warm woody chalumeau & bell resonance
+    rolloff_hz: 2100.0,
     bass_tilt: 0.20,
     speech_cycles: 8.0,
     speech_min_s: 0.012,
     speech_max_s: 0.060,
     upper_lead: 0.10,
     overshoot_harmonic: 3,   // 3rd harmonic woody bite on attack
-    overshoot: 0.25,
+    overshoot: 0.20,
     upper_overshoot: 0.0,
     onset_cents: -5.0,       // Reed tongue starts slightly flat and pulls into pitch in 22ms
     onset_time_s: 0.022,
-    phase_coherence: 0.72,   // High phase coherence of striking reed tongue
-    breath: 0.008,
-    chiff: 0.18,
+    phase_coherence: 0.68,   // High phase coherence of striking reed tongue
+    breath: 0.006,
+    chiff: 0.14,
     chiff_harmonic: 3.0,
     chiff_cycles: 8.0,
     jitter: 0.006,
-    flicker: 0.025,
+    flicker: 0.020,
 };
 
 // BASSOON / FAGOTTO 16':
-// Slender conical resonator, dark reedy body with throat resonance at ~480 Hz
+// Slender conical resonator, dark reedy body with throat resonance at ~380 Hz & ~780 Hz
 pub const VOICING_BASSOON: PipeVoicing = PipeVoicing {
-    spectrum: &[0.70, 1.0, 0.85, 0.65, 0.50, 0.40, 0.30, 0.22, 0.16, 0.12, 0.08, 0.05],
-    extend_db_per_oct: -15.0,
-    max_harmonics: 24,
-    even_scale: 1.0,         // Conical pipes resonate all harmonics
+    spectrum: &[0.80, 1.0, 0.82, 0.60, 0.44, 0.32, 0.22, 0.15, 0.10, 0.06],
+    extend_db_per_oct: -16.0,
+    max_harmonics: 20,
+    even_scale: 1.0,         // Conical pipes resonate both odd and even harmonics
     even_restore_hz: 0.0,
-    formants: &[(480.0, 0.9, 1.4), (1100.0, 1.2, 0.7)], // Dark throat & boot cavity formant
-    rolloff_hz: 3800.0,
-    bass_tilt: 0.40,
+    formants: &[(380.0, 0.95, 1.5), (780.0, 1.1, 0.8)], // Dark wooden boot & throat formant
+    rolloff_hz: 2200.0,
+    bass_tilt: 0.36,
     speech_cycles: 14.0,
     speech_min_s: 0.030,
     speech_max_s: 0.110,
-    upper_lead: -0.15,       // Fundamental develops first, upper buzz blooms
+    upper_lead: -0.15,       // Fundamental develops first, upper reed warmth blooms after
     overshoot_harmonic: 0,
     overshoot: 0.0,
-    upper_overshoot: 0.10,
-    onset_cents: -8.0,
+    upper_overshoot: 0.08,
+    onset_cents: -7.0,
     onset_time_s: 0.038,
-    phase_coherence: 0.80,
-    breath: 0.006,
-    chiff: 0.15,
-    chiff_harmonic: 2.5,
+    phase_coherence: 0.74,
+    breath: 0.005,
+    chiff: 0.12,
+    chiff_harmonic: 2.2,
     chiff_cycles: 10.0,
     jitter: 0.008,
-    flicker: 0.030,
+    flicker: 0.024,
 };
 
 // CONTRABASSOON 32':
-// Sub-bass 32' pedal reed, thunderous low-frequency drive
+// Sub-bass 32' pedal reed, deep low-frequency foundation with warm midrange harmonics
 pub const VOICING_CONTRABASSOON: PipeVoicing = PipeVoicing {
-    spectrum: &[0.85, 1.0, 0.90, 0.75, 0.60, 0.48, 0.38, 0.28, 0.20, 0.14, 0.10],
+    spectrum: &[0.90, 1.0, 0.86, 0.70, 0.54, 0.40, 0.28, 0.18, 0.12, 0.08],
     extend_db_per_oct: -16.0,
-    max_harmonics: 28,
+    max_harmonics: 22,
     even_scale: 1.0,
     even_restore_hz: 0.0,
-    formants: &[(320.0, 1.1, 1.6), (750.0, 1.3, 0.8)],
-    rolloff_hz: 2800.0,
-    bass_tilt: 0.50,
+    formants: &[(260.0, 1.1, 1.5), (580.0, 1.2, 0.9)],
+    rolloff_hz: 1850.0,
+    bass_tilt: 0.44,
     speech_cycles: 16.0,
     speech_min_s: 0.045,
     speech_max_s: 0.140,
     upper_lead: -0.20,
     overshoot_harmonic: 0,
     overshoot: 0.0,
-    upper_overshoot: 0.12,
-    onset_cents: -10.0,
+    upper_overshoot: 0.08,
+    onset_cents: -9.0,
     onset_time_s: 0.050,
-    phase_coherence: 0.82,
-    breath: 0.005,
-    chiff: 0.12,
+    phase_coherence: 0.76,
+    breath: 0.004,
+    chiff: 0.10,
     chiff_harmonic: 2.0,
     chiff_cycles: 12.0,
-    jitter: 0.012,
-    flicker: 0.035,
+    jitter: 0.010,
+    flicker: 0.028,
 };
 
 // BOMBARDE 16':
-// Grand French chorus reed of immense fiery brilliance and power
+// Grand French chorus reed with warm, heroic midrange brass body (never shrill)
 pub const VOICING_BOMBARDE: PipeVoicing = PipeVoicing {
-    spectrum: &[1.0, 0.95, 0.88, 0.80, 0.72, 0.65, 0.58, 0.50, 0.42, 0.36, 0.30, 0.24, 0.18],
-    extend_db_per_oct: -10.0,
-    max_harmonics: 32,
+    spectrum: &[1.0, 0.92, 0.80, 0.68, 0.54, 0.42, 0.30, 0.22, 0.15, 0.10, 0.06],
+    extend_db_per_oct: -14.0,
+    max_harmonics: 22,
     even_scale: 1.0,
     even_restore_hz: 0.0,
-    formants: &[(850.0, 0.8, 1.3), (1750.0, 0.9, 1.0), (3200.0, 1.2, 0.5)], // Wide bell flare
-    rolloff_hz: 6000.0,
-    bass_tilt: 0.35,
+    formants: &[(420.0, 0.95, 1.4), (920.0, 0.9, 1.0)], // Warm brass bell resonance
+    rolloff_hz: 2450.0,
+    bass_tilt: 0.32,
     speech_cycles: 10.0,
     speech_min_s: 0.020,
     speech_max_s: 0.075,
-    upper_lead: 0.05,
+    upper_lead: 0.0,
     overshoot_harmonic: 0,
     overshoot: 0.0,
-    upper_overshoot: 0.18,   // Fiery attack bite
-    onset_cents: -6.0,
+    upper_overshoot: 0.12,
+    onset_cents: -5.5,
     onset_time_s: 0.028,
-    phase_coherence: 0.85,
-    breath: 0.007,
-    chiff: 0.22,
-    chiff_harmonic: 3.5,
+    phase_coherence: 0.76,
+    breath: 0.005,
+    chiff: 0.15,
+    chiff_harmonic: 2.8,
     chiff_cycles: 8.0,
-    jitter: 0.008,
-    flicker: 0.030,
+    jitter: 0.007,
+    flicker: 0.024,
 };
 
 // OPHICLEIDE 16':
-// Heavy English cathedral solo reed (Willis / Lewis style) with deep authority
+// Heavy English cathedral solo reed (Willis / Lewis style) with deep, round midrange authority
 pub const VOICING_OPHICLEIDE: PipeVoicing = PipeVoicing {
-    spectrum: &[1.0, 0.90, 0.78, 0.68, 0.55, 0.45, 0.35, 0.26, 0.18, 0.12, 0.08],
-    extend_db_per_oct: -13.0,
-    max_harmonics: 26,
+    spectrum: &[1.0, 0.88, 0.74, 0.60, 0.46, 0.34, 0.24, 0.16, 0.10, 0.06],
+    extend_db_per_oct: -15.0,
+    max_harmonics: 20,
     even_scale: 1.0,
     even_restore_hz: 0.0,
-    formants: &[(620.0, 1.0, 1.5), (1350.0, 1.1, 0.9)], // Round foundational power
-    rolloff_hz: 4500.0,
-    bass_tilt: 0.45,
+    formants: &[(380.0, 1.0, 1.5), (840.0, 1.0, 0.9)], // Round foundational brass power
+    rolloff_hz: 2250.0,
+    bass_tilt: 0.38,
     speech_cycles: 12.0,
     speech_min_s: 0.025,
     speech_max_s: 0.085,
     upper_lead: 0.0,
     overshoot_harmonic: 0,
     overshoot: 0.0,
-    upper_overshoot: 0.12,
-    onset_cents: -6.0,
+    upper_overshoot: 0.10,
+    onset_cents: -5.5,
     onset_time_s: 0.030,
-    phase_coherence: 0.78,
-    breath: 0.006,
-    chiff: 0.18,
-    chiff_harmonic: 3.0,
+    phase_coherence: 0.72,
+    breath: 0.005,
+    chiff: 0.14,
+    chiff_harmonic: 2.5,
     chiff_cycles: 9.0,
-    jitter: 0.007,
-    flicker: 0.025,
+    jitter: 0.006,
+    flicker: 0.022,
 };
 
 // COR ANGLAIS 8':
-// Double-conical pear-shaped resonator with plaintive, poignant nasal woodwind color
+// Double-conical pear-shaped resonator with warm, pastoral, singing midrange woodwind color
 pub const VOICING_COR_ANGLAIS: PipeVoicing = PipeVoicing {
-    spectrum: &[0.80, 0.90, 1.0, 0.60, 0.50, 0.35, 0.25, 0.18, 0.12, 0.08],
-    extend_db_per_oct: -14.0,
-    max_harmonics: 22,
-    even_scale: 0.70,
-    even_restore_hz: 2000.0,
-    formants: &[(600.0, 0.7, 1.4), (1800.0, 0.8, 1.1)], // Pear bell nasal resonance
-    rolloff_hz: 4200.0,
-    bass_tilt: 0.25,
+    spectrum: &[0.92, 0.96, 1.0, 0.52, 0.38, 0.24, 0.14, 0.08, 0.04],
+    extend_db_per_oct: -16.0,
+    max_harmonics: 16,
+    even_scale: 0.75,
+    even_restore_hz: 1600.0,
+    formants: &[(420.0, 0.85, 1.4), (860.0, 0.8, 0.85)], // Warm pear-bell midrange resonance
+    rolloff_hz: 2050.0,
+    bass_tilt: 0.22,
     speech_cycles: 9.0,
     speech_min_s: 0.015,
     speech_max_s: 0.055,
-    upper_lead: 0.10,
-    overshoot_harmonic: 3,
-    overshoot: 0.20,
-    upper_overshoot: 0.08,
-    onset_cents: -4.0,
+    upper_lead: 0.08,
+    overshoot_harmonic: 2,
+    overshoot: 0.14,
+    upper_overshoot: 0.05,
+    onset_cents: -3.5,
     onset_time_s: 0.024,
-    phase_coherence: 0.70,
-    breath: 0.008,
-    chiff: 0.20,
-    chiff_harmonic: 3.0,
+    phase_coherence: 0.62,
+    breath: 0.006,
+    chiff: 0.14,
+    chiff_harmonic: 2.5,
     chiff_cycles: 8.0,
     jitter: 0.006,
-    flicker: 0.025,
+    flicker: 0.020,
 };
 
 // OBOE / HAUTBOIS 8':
-// Slender conical solo reed, refined, singing and expressive
+// Slender conical solo reed, warm, vocal, and midrange-focused
 pub const VOICING_OBOE: PipeVoicing = PipeVoicing {
-    spectrum: &[0.85, 1.0, 0.80, 0.65, 0.48, 0.35, 0.24, 0.16, 0.10, 0.06],
-    extend_db_per_oct: -13.0,
-    max_harmonics: 22,
+    spectrum: &[0.92, 1.0, 0.72, 0.50, 0.34, 0.22, 0.13, 0.07, 0.04],
+    extend_db_per_oct: -16.0,
+    max_harmonics: 16,
     even_scale: 1.0,
     even_restore_hz: 0.0,
-    formants: &[(1050.0, 0.75, 1.3), (2300.0, 0.9, 0.8)],
-    rolloff_hz: 4800.0,
+    formants: &[(460.0, 0.85, 1.3), (940.0, 0.85, 0.75)],
+    rolloff_hz: 2150.0,
     bass_tilt: 0.20,
     speech_cycles: 9.0,
     speech_min_s: 0.014,
     speech_max_s: 0.050,
-    upper_lead: 0.12,
+    upper_lead: 0.08,
     overshoot_harmonic: 2,
-    overshoot: 0.22,
-    upper_overshoot: 0.08,
-    onset_cents: -4.0,
+    overshoot: 0.15,
+    upper_overshoot: 0.05,
+    onset_cents: -3.5,
     onset_time_s: 0.020,
-    phase_coherence: 0.75,
-    breath: 0.008,
-    chiff: 0.22,
-    chiff_harmonic: 3.0,
+    phase_coherence: 0.65,
+    breath: 0.006,
+    chiff: 0.14,
+    chiff_harmonic: 2.5,
     chiff_cycles: 8.0,
     jitter: 0.006,
-    flicker: 0.022,
-};
-
-// VOX HUMANA 8':
-// Short capped cylindrical resonator producing distinct vocal formant
-pub const VOICING_VOX_HUMANA: PipeVoicing = PipeVoicing {
-    spectrum: &[0.70, 0.45, 1.0, 0.35, 0.80, 0.25, 0.50, 0.18, 0.30, 0.10],
-    extend_db_per_oct: -12.0,
-    max_harmonics: 20,
-    even_scale: 0.40,
-    even_restore_hz: 2600.0,
-    formants: &[(780.0, 0.6, 1.8), (2500.0, 0.8, 1.2)], // Vowel formant
-    rolloff_hz: 4000.0,
-    bass_tilt: 0.15,
-    speech_cycles: 7.0,
-    speech_min_s: 0.012,
-    speech_max_s: 0.045,
-    upper_lead: 0.15,
-    overshoot_harmonic: 3,
-    overshoot: 0.25,
-    upper_overshoot: 0.10,
-    onset_cents: -5.0,
-    onset_time_s: 0.018,
-    phase_coherence: 0.70,
-    breath: 0.010,
-    chiff: 0.20,
-    chiff_harmonic: 3.0,
-    chiff_cycles: 7.0,
-    jitter: 0.009,
-    flicker: 0.028,
-};
-
-// VIOL 4':
-// Narrow scale string pipe with rich harmonic development and bowing scrape
-pub const VOICING_VIOL_4: PipeVoicing = PipeVoicing {
-    spectrum: &[
-        1.0, 0.85, 0.75, 0.65, 0.55, 0.48, 0.40, 0.34, 0.28, 0.22,
-        0.18, 0.14, 0.10, 0.08, 0.06, 0.04,
-    ],
-    extend_db_per_oct: -10.0,
-    max_harmonics: 28,
-    even_scale: 1.0,
-    even_restore_hz: 0.0,
-    formants: &[(2200.0, 1.1, 1.2), (3600.0, 1.3, 0.8)], // Narrow string body resonance
-    rolloff_hz: 6500.0,
-    bass_tilt: 0.25,
-    speech_cycles: 12.0,
-    speech_min_s: 0.014,
-    speech_max_s: 0.060,
-    upper_lead: 0.40,        // Upper harmonics speak first (rosin scrape)
-    overshoot_harmonic: 0,
-    overshoot: 0.0,
-    upper_overshoot: 0.24,   // String attack "fizz"
-    onset_cents: -4.5,
-    onset_time_s: 0.025,
-    phase_coherence: 0.15,
-    breath: 0.014,           // Audible air-jet breath
-    chiff: 0.38,
-    chiff_harmonic: 4.0,
-    chiff_cycles: 10.0,
-    jitter: 0.005,
-    flicker: 0.022,
-};
-
-// VOIX CELESTE 8':
-// Narrow string pipe for undulating celeste chorus
-pub const VOICING_CELESTE_8: PipeVoicing = PipeVoicing {
-    spectrum: &[
-        1.0, 0.82, 0.70, 0.58, 0.48, 0.38, 0.30, 0.24, 0.18, 0.14, 0.10, 0.07,
-    ],
-    extend_db_per_oct: -11.0,
-    max_harmonics: 24,
-    even_scale: 1.0,
-    even_restore_hz: 0.0,
-    formants: &[(2100.0, 1.0, 1.1), (3400.0, 1.2, 0.7)],
-    rolloff_hz: 6000.0,
-    bass_tilt: 0.25,
-    speech_cycles: 13.0,
-    speech_min_s: 0.016,
-    speech_max_s: 0.065,
-    upper_lead: 0.35,
-    overshoot_harmonic: 0,
-    overshoot: 0.0,
-    upper_overshoot: 0.20,
-    onset_cents: -4.0,
-    onset_time_s: 0.028,
-    phase_coherence: 0.15,
-    breath: 0.012,
-    chiff: 0.32,
-    chiff_harmonic: 3.8,
-    chiff_cycles: 10.0,
-    jitter: 0.005,
     flicker: 0.020,
 };
 
-// FLUTE 4':
-// Open singing wooden/metal flute (Flûte Harmonique / Waldflöte)
-pub const VOICING_FLUTE_4: PipeVoicing = PipeVoicing {
-    spectrum: &[1.0, 0.38, 0.10, 0.03, 0.01],
-    extend_db_per_oct: -18.0,
-    max_harmonics: 12,
-    even_scale: 1.0,
-    even_restore_hz: 0.0,
-    formants: &[(800.0, 0.9, 0.4)], // Singing mouth cut-up
-    rolloff_hz: 4200.0,
+// VOX HUMANA 8':
+// Short capped cylindrical resonator producing warm vocal vowel formants (~480 Hz & ~1020 Hz)
+pub const VOICING_VOX_HUMANA: PipeVoicing = PipeVoicing {
+    spectrum: &[0.85, 0.50, 1.0, 0.32, 0.60, 0.18, 0.32, 0.10, 0.16, 0.05],
+    extend_db_per_oct: -16.0,
+    max_harmonics: 16,
+    even_scale: 0.45,
+    even_restore_hz: 1800.0,
+    formants: &[(480.0, 0.75, 1.5), (1020.0, 0.8, 0.85)], // Warm chest vowel formant
+    rolloff_hz: 1950.0,
     bass_tilt: 0.18,
-    speech_cycles: 10.0,
+    speech_cycles: 7.0,
     speech_min_s: 0.012,
     speech_max_s: 0.045,
-    upper_lead: 0.25,
-    overshoot_harmonic: 2,   // Octave spit on speech onset
-    overshoot: 0.35,
-    upper_overshoot: 0.0,
-    onset_cents: -3.0,
-    onset_time_s: 0.020,
-    phase_coherence: 0.10,
-    breath: 0.012,
-    chiff: 0.40,
-    chiff_harmonic: 3.0,
-    chiff_cycles: 9.0,
-    jitter: 0.005,
-    flicker: 0.018,
+    upper_lead: 0.10,
+    overshoot_harmonic: 3,
+    overshoot: 0.16,
+    upper_overshoot: 0.06,
+    onset_cents: -4.0,
+    onset_time_s: 0.018,
+    phase_coherence: 0.60,
+    breath: 0.007,
+    chiff: 0.14,
+    chiff_harmonic: 2.5,
+    chiff_cycles: 7.0,
+    jitter: 0.008,
+    flicker: 0.022,
 };
 
-// CRYSTAL FLUTE 4' (Glassy):
-// Ethereal, glassy, pure flute with airy speech
-pub const VOICING_CRYSTAL_FLUTE_4: PipeVoicing = PipeVoicing {
-    spectrum: &[1.0, 0.22, 0.15, 0.02, 0.08, 0.01, 0.03],
+// VIOL 4':
+// Warm, cellistic 4' string pipe with singing midrange body and smooth top-end roll-off
+pub const VOICING_VIOL_4: PipeVoicing = PipeVoicing {
+    spectrum: &[1.0, 0.72, 0.52, 0.36, 0.24, 0.16, 0.10, 0.06, 0.035, 0.02],
     extend_db_per_oct: -16.0,
     max_harmonics: 14,
     even_scale: 1.0,
     even_restore_hz: 0.0,
-    formants: &[(2400.0, 0.8, 0.9)], // Glassy sheen formant
-    rolloff_hz: 5500.0,
-    bass_tilt: 0.15,
-    speech_cycles: 9.0,
-    speech_min_s: 0.010,
-    speech_max_s: 0.040,
-    upper_lead: 0.20,
-    overshoot_harmonic: 3,   // Twelfth glassy chime
-    overshoot: 0.25,
-    upper_overshoot: 0.0,
-    onset_cents: -2.5,
-    onset_time_s: 0.018,
-    phase_coherence: 0.05,
-    breath: 0.016,           // More airy breath presence
-    chiff: 0.48,             // Silvery chiff
-    chiff_harmonic: 4.5,
-    chiff_cycles: 8.0,
+    formants: &[(420.0, 1.0, 1.25), (880.0, 0.95, 0.55)], // Warm cello/viola body resonance
+    rolloff_hz: 2100.0,
+    bass_tilt: 0.24,
+    speech_cycles: 12.0,
+    speech_min_s: 0.016,
+    speech_max_s: 0.060,
+    upper_lead: 0.22,
+    overshoot_harmonic: 0,
+    overshoot: 0.0,
+    upper_overshoot: 0.10,
+    onset_cents: -3.5,
+    onset_time_s: 0.025,
+    phase_coherence: 0.12,
+    breath: 0.008,
+    chiff: 0.18,
+    chiff_harmonic: 2.5,
+    chiff_cycles: 9.0,
     jitter: 0.005,
-    flicker: 0.020,
+    flicker: 0.018,
 };
 
-// OTTAVINO 2':
-// Sparkling open metal Italian principal / flute 2'
-pub const VOICING_OTTAVINO_2: PipeVoicing = PipeVoicing {
-    spectrum: &[1.0, 0.45, 0.18, 0.08, 0.03, 0.01],
+// VOIX CELESTE 8':
+// Warm undulating string-flue pipe voiced for velvety midrange shimmer
+pub const VOICING_CELESTE_8: PipeVoicing = PipeVoicing {
+    spectrum: &[1.0, 0.68, 0.44, 0.28, 0.16, 0.09, 0.05, 0.025],
     extend_db_per_oct: -16.0,
     max_harmonics: 12,
     even_scale: 1.0,
     even_restore_hz: 0.0,
-    formants: &[(1200.0, 0.9, 0.4)],
-    rolloff_hz: 5200.0,
-    bass_tilt: 0.15,
-    speech_cycles: 8.0,
-    speech_min_s: 0.008,
-    speech_max_s: 0.032,
-    upper_lead: 0.25,
+    formants: &[(380.0, 1.0, 1.2), (820.0, 0.95, 0.5)],
+    rolloff_hz: 1950.0,
+    bass_tilt: 0.22,
+    speech_cycles: 13.0,
+    speech_min_s: 0.018,
+    speech_max_s: 0.065,
+    upper_lead: 0.20,
+    overshoot_harmonic: 0,
+    overshoot: 0.0,
+    upper_overshoot: 0.08,
+    onset_cents: -3.0,
+    onset_time_s: 0.028,
+    phase_coherence: 0.10,
+    breath: 0.007,
+    chiff: 0.16,
+    chiff_harmonic: 2.5,
+    chiff_cycles: 9.0,
+    jitter: 0.005,
+    flicker: 0.016,
+};
+
+// FLUTE 4':
+// Warm, round open wooden/metal 4' flute (Waldflöte / Flûte Octaviante)
+pub const VOICING_FLUTE_4: PipeVoicing = PipeVoicing {
+    spectrum: &[1.0, 0.32, 0.08, 0.02, 0.006],
+    extend_db_per_oct: -20.0,
+    max_harmonics: 8,
+    even_scale: 1.0,
+    even_restore_hz: 0.0,
+    formants: &[(380.0, 1.0, 0.9), (660.0, 0.9, 0.45)], // Warm midrange flute body
+    rolloff_hz: 1850.0,
+    bass_tilt: 0.18,
+    speech_cycles: 10.0,
+    speech_min_s: 0.014,
+    speech_max_s: 0.045,
+    upper_lead: 0.18,
     overshoot_harmonic: 2,
-    overshoot: 0.30,
+    overshoot: 0.18,
+    upper_overshoot: 0.0,
+    onset_cents: -2.5,
+    onset_time_s: 0.020,
+    phase_coherence: 0.08,
+    breath: 0.008,
+    chiff: 0.18,
+    chiff_harmonic: 2.2,
+    chiff_cycles: 8.0,
+    jitter: 0.005,
+    flicker: 0.015,
+};
+
+// CRYSTAL FLUTE 4' (Glassy):
+// Pure, bell-like 4' chamber flute with warm midrange clarity and non-piercing top end
+pub const VOICING_CRYSTAL_FLUTE_4: PipeVoicing = PipeVoicing {
+    spectrum: &[1.0, 0.20, 0.12, 0.02, 0.04, 0.008],
+    extend_db_per_oct: -18.0,
+    max_harmonics: 10,
+    even_scale: 1.0,
+    even_restore_hz: 0.0,
+    formants: &[(440.0, 0.95, 0.95), (960.0, 0.85, 0.5)], // Warm crystalline midrange bell
+    rolloff_hz: 2100.0,
+    bass_tilt: 0.16,
+    speech_cycles: 9.0,
+    speech_min_s: 0.012,
+    speech_max_s: 0.040,
+    upper_lead: 0.16,
+    overshoot_harmonic: 3,
+    overshoot: 0.16,
+    upper_overshoot: 0.0,
+    onset_cents: -2.0,
+    onset_time_s: 0.018,
+    phase_coherence: 0.05,
+    breath: 0.009,
+    chiff: 0.20,
+    chiff_harmonic: 2.8,
+    chiff_cycles: 8.0,
+    jitter: 0.005,
+    flicker: 0.016,
+};
+
+// OTTAVINO 2':
+// Singing Italian 2' flute/principal voiced for warm upper-midrange sweetness (never shrill)
+pub const VOICING_OTTAVINO_2: PipeVoicing = PipeVoicing {
+    spectrum: &[1.0, 0.30, 0.09, 0.03, 0.008],
+    extend_db_per_oct: -20.0,
+    max_harmonics: 8,
+    even_scale: 1.0,
+    even_restore_hz: 0.0,
+    formants: &[(460.0, 1.0, 0.85), (840.0, 0.9, 0.4)],
+    rolloff_hz: 1950.0,
+    bass_tilt: 0.18,
+    speech_cycles: 8.0,
+    speech_min_s: 0.010,
+    speech_max_s: 0.032,
+    upper_lead: 0.18,
+    overshoot_harmonic: 2,
+    overshoot: 0.16,
     upper_overshoot: 0.0,
     onset_cents: -2.0,
     onset_time_s: 0.016,
     phase_coherence: 0.05,
-    breath: 0.012,
-    chiff: 0.38,
-    chiff_harmonic: 3.5,
+    breath: 0.007,
+    chiff: 0.16,
+    chiff_harmonic: 2.2,
     chiff_cycles: 8.0,
     jitter: 0.005,
-    flicker: 0.018,
+    flicker: 0.015,
 };
 
 // PICCOLO 2':
-// Sweet French orchestral piccolo
+// Soft, velvety French 2' piccolo with pure fundamental and gentle high roll-off
 pub const VOICING_PICCOLO_2: PipeVoicing = PipeVoicing {
-    spectrum: &[1.0, 0.30, 0.06, 0.02],
-    extend_db_per_oct: -20.0,
+    spectrum: &[1.0, 0.22, 0.04, 0.01],
+    extend_db_per_oct: -22.0,
+    max_harmonics: 6,
+    even_scale: 1.0,
+    even_restore_hz: 0.0,
+    formants: &[(440.0, 1.0, 0.85), (800.0, 0.95, 0.35)],
+    rolloff_hz: 1850.0,
+    bass_tilt: 0.15,
+    speech_cycles: 8.0,
+    speech_min_s: 0.010,
+    speech_max_s: 0.030,
+    upper_lead: 0.15,
+    overshoot_harmonic: 2,
+    overshoot: 0.14,
+    upper_overshoot: 0.0,
+    onset_cents: -1.8,
+    onset_time_s: 0.015,
+    phase_coherence: 0.05,
+    breath: 0.008,
+    chiff: 0.16,
+    chiff_harmonic: 2.0,
+    chiff_cycles: 8.0,
+    jitter: 0.005,
+    flicker: 0.015,
+};
+
+// PRINCIPAL / DIAPASON RANK (used in Mixtures and Choruses):
+// Voiced with strong 420 Hz midrange body and controlled 2150 Hz rolloff so Mixtures
+// crown the organ with warm golden harmony rather than piercing high-frequency brightness.
+pub const VOICING_PRINCIPAL: PipeVoicing = PipeVoicing {
+    spectrum: &[1.0, 0.48, 0.20, 0.10, 0.045, 0.022, 0.010, 0.004],
+    extend_db_per_oct: -18.0,
     max_harmonics: 10,
     even_scale: 1.0,
     even_restore_hz: 0.0,
-    formants: &[(1400.0, 1.0, 0.3)],
-    rolloff_hz: 5000.0,
-    bass_tilt: 0.12,
-    speech_cycles: 8.0,
-    speech_min_s: 0.008,
-    speech_max_s: 0.030,
-    upper_lead: 0.20,
-    overshoot_harmonic: 2,
-    overshoot: 0.25,
-    upper_overshoot: 0.0,
-    onset_cents: -2.0,
-    onset_time_s: 0.015,
-    phase_coherence: 0.05,
-    breath: 0.014,
-    chiff: 0.42,
-    chiff_harmonic: 3.0,
-    chiff_cycles: 8.0,
-    jitter: 0.005,
-    flicker: 0.018,
-};
-
-// PRINCIPAL / DIAPASON RANK (used in Mixtures and Choruses)
-pub const VOICING_PRINCIPAL: PipeVoicing = PipeVoicing {
-    spectrum: &[1.0, 0.58, 0.28, 0.16, 0.085, 0.048, 0.024, 0.015, 0.009, 0.005],
-    extend_db_per_oct: -14.0,
-    max_harmonics: 16,
-    even_scale: 1.0,
-    even_restore_hz: 0.0,
-    formants: &[(850.0, 0.85, 0.35)], // Mouth radiation formant
-    rolloff_hz: 4800.0,
+    formants: &[(420.0, 0.95, 0.95), (760.0, 0.9, 0.40)], // Warm midrange chorus resonance
+    rolloff_hz: 2150.0,
     bass_tilt: 0.22,
     speech_cycles: 11.0,
-    speech_min_s: 0.012,
+    speech_min_s: 0.014,
     speech_max_s: 0.045,
-    upper_lead: 0.28,
-    overshoot_harmonic: 2,
-    overshoot: 0.25,
-    upper_overshoot: 0.0,
-    onset_cents: -3.5,
-    onset_time_s: 0.020,
-    phase_coherence: 0.10,
-    breath: 0.010,
-    chiff: 0.40,
-    chiff_harmonic: 3.2,
-    chiff_cycles: 9.0,
-    jitter: 0.005,
-    flicker: 0.020,
-};
-
-// CORNET FLUTE RANK (wide-scale, round, vocal flute)
-pub const VOICING_CORNET_FLUTE: PipeVoicing = PipeVoicing {
-    spectrum: &[1.0, 0.42, 0.14, 0.05, 0.015],
-    extend_db_per_oct: -16.0,
-    max_harmonics: 12,
-    even_scale: 1.0,
-    even_restore_hz: 0.0,
-    formants: &[(900.0, 0.8, 0.5)],
-    rolloff_hz: 4500.0,
-    bass_tilt: 0.20,
-    speech_cycles: 10.0,
-    speech_min_s: 0.010,
-    speech_max_s: 0.040,
     upper_lead: 0.20,
     overshoot_harmonic: 2,
-    overshoot: 0.28,
+    overshoot: 0.14,
     upper_overshoot: 0.0,
-    onset_cents: -2.5,
-    onset_time_s: 0.018,
+    onset_cents: -2.8,
+    onset_time_s: 0.020,
     phase_coherence: 0.08,
-    breath: 0.012,
-    chiff: 0.35,
-    chiff_harmonic: 3.0,
+    breath: 0.006,
+    chiff: 0.18,
+    chiff_harmonic: 2.4,
+    chiff_cycles: 9.0,
+    jitter: 0.005,
+    flicker: 0.016,
+};
+
+// CORNET FLUTE RANK (wide-scale, round, vocal flute for Cornet V 8'):
+pub const VOICING_CORNET_FLUTE: PipeVoicing = PipeVoicing {
+    spectrum: &[1.0, 0.34, 0.10, 0.03, 0.008],
+    extend_db_per_oct: -18.0,
+    max_harmonics: 8,
+    even_scale: 1.0,
+    even_restore_hz: 0.0,
+    formants: &[(420.0, 0.95, 0.90), (740.0, 0.85, 0.45)],
+    rolloff_hz: 2050.0,
+    bass_tilt: 0.20,
+    speech_cycles: 10.0,
+    speech_min_s: 0.012,
+    speech_max_s: 0.040,
+    upper_lead: 0.16,
+    overshoot_harmonic: 2,
+    overshoot: 0.16,
+    upper_overshoot: 0.0,
+    onset_cents: -2.2,
+    onset_time_s: 0.018,
+    phase_coherence: 0.06,
+    breath: 0.007,
+    chiff: 0.16,
+    chiff_harmonic: 2.2,
     chiff_cycles: 8.0,
     jitter: 0.005,
-    flicker: 0.018,
+    flicker: 0.015,
 };
 
 // VIOLONE 16' (Warm wooden/spotted-metal 16' string-principal bass with rich cellistic low-midrange):
 pub const VOICING_VIOLONE_16: PipeVoicing = PipeVoicing {
-    spectrum: &[1.0, 0.88, 0.62, 0.46, 0.34, 0.24, 0.16, 0.11, 0.07, 0.04],
-    extend_db_per_oct: -13.0,
-    max_harmonics: 18,
+    spectrum: &[1.0, 0.84, 0.56, 0.40, 0.28, 0.18, 0.11, 0.07, 0.04],
+    extend_db_per_oct: -15.0,
+    max_harmonics: 16,
     even_scale: 1.0,
     even_restore_hz: 0.0,
-    formants: &[(160.0, 1.1, 1.5), (380.0, 1.0, 1.2)],
-    rolloff_hz: 2600.0,
-    bass_tilt: 0.32,
+    formants: &[(175.0, 1.1, 1.25), (380.0, 1.0, 1.35)],
+    rolloff_hz: 2200.0,
+    bass_tilt: 0.30,
     speech_cycles: 12.0,
     speech_min_s: 0.022,
     speech_max_s: 0.080,
-    upper_lead: 0.22,
+    upper_lead: 0.18,
     overshoot_harmonic: 2,
-    overshoot: 0.18,
-    upper_overshoot: 0.10,
+    overshoot: 0.14,
+    upper_overshoot: 0.08,
     onset_cents: -3.5,
     onset_time_s: 0.026,
-    phase_coherence: 0.18,
-    breath: 0.010,
-    chiff: 0.26,
-    chiff_harmonic: 2.5,
+    phase_coherence: 0.16,
+    breath: 0.007,
+    chiff: 0.18,
+    chiff_harmonic: 2.2,
     chiff_cycles: 9.0,
     jitter: 0.006,
-    flicker: 0.020,
+    flicker: 0.018,
 };
 
-// CONTRA TROMBONE / POSAUNE 16' (Majestic full-length wooden/brass pedal & manual reed with deep bass foundation):
+// CONTRA TROMBONE / POSAUNE 16' (Majestic full-length wooden/brass pedal & manual reed):
 pub const VOICING_TROMBONE_16: PipeVoicing = PipeVoicing {
-    spectrum: &[1.0, 0.96, 0.82, 0.68, 0.54, 0.42, 0.30, 0.20, 0.13, 0.08],
-    extend_db_per_oct: -14.0,
-    max_harmonics: 20,
+    spectrum: &[1.0, 0.94, 0.78, 0.62, 0.48, 0.36, 0.24, 0.15, 0.09, 0.05],
+    extend_db_per_oct: -15.0,
+    max_harmonics: 18,
     even_scale: 1.0,
     even_restore_hz: 0.0,
-    formants: &[(150.0, 1.2, 1.7), (360.0, 1.1, 1.4)],
-    rolloff_hz: 2800.0,
-    bass_tilt: 0.42,
+    formants: &[(165.0, 1.15, 1.4), (380.0, 1.1, 1.45)],
+    rolloff_hz: 2350.0,
+    bass_tilt: 0.38,
     speech_cycles: 12.0,
     speech_min_s: 0.024,
     speech_max_s: 0.090,
     upper_lead: -0.10,
     overshoot_harmonic: 0,
     overshoot: 0.0,
-    upper_overshoot: 0.10,
-    onset_cents: -5.5,
+    upper_overshoot: 0.08,
+    onset_cents: -5.0,
     onset_time_s: 0.030,
-    phase_coherence: 0.72,
-    breath: 0.006,
-    chiff: 0.16,
-    chiff_harmonic: 2.2,
+    phase_coherence: 0.70,
+    breath: 0.005,
+    chiff: 0.14,
+    chiff_harmonic: 2.0,
     chiff_cycles: 9.0,
     jitter: 0.007,
+    flicker: 0.022,
+};
+
+// TRUMPET 8' (Classic English / French Great Organ Chorus Trumpet 8'):
+// Inverted conical brass/spotted-metal resonator producing a noble, golden, brassy
+// harmonic series with powerful midrange chest (440 Hz) and brass bell flare (1020 Hz).
+pub const VOICING_TRUMPET_8: PipeVoicing = PipeVoicing {
+    spectrum: &[1.0, 0.96, 0.84, 0.68, 0.52, 0.38, 0.26, 0.17, 0.11, 0.07, 0.04],
+    extend_db_per_oct: -14.0,
+    max_harmonics: 18,
+    even_scale: 1.0,
+    even_restore_hz: 0.0,
+    formants: &[(440.0, 0.95, 1.45), (1020.0, 0.85, 1.15)], // Warm brass chest & golden bell flare
+    rolloff_hz: 2400.0,
+    bass_tilt: 0.28,
+    speech_cycles: 8.5,
+    speech_min_s: 0.014,
+    speech_max_s: 0.052,
+    upper_lead: -0.06,       // Fundamental locks in first, followed by golden brass bloom
+    overshoot_harmonic: 2,
+    overshoot: 0.18,
+    upper_overshoot: 0.12,   // Crisp brass tongue articulation
+    onset_cents: -4.5,
+    onset_time_s: 0.020,
+    phase_coherence: 0.76,
+    breath: 0.006,
+    chiff: 0.16,
+    chiff_harmonic: 2.6,
+    chiff_cycles: 7.5,
+    jitter: 0.006,
+    flicker: 0.022,
+};
+
+// TROMPETTE HARMONIQUE 8' (Cavaillé-Coll French Romantic Overblown Harmonic Trumpet 8'):
+// Double-length conical resonator in the treble/midrange that strongly reinforces the
+// 2nd and 3rd harmonics, giving a heroic, blaze-of-brass French cathedral reed voice.
+pub const VOICING_TROMPETTE_HARMONIQUE_8: PipeVoicing = PipeVoicing {
+    spectrum: &[0.92, 1.00, 0.90, 0.74, 0.58, 0.44, 0.32, 0.22, 0.14, 0.09, 0.05],
+    extend_db_per_oct: -13.5,
+    max_harmonics: 20,
+    even_scale: 1.0,
+    even_restore_hz: 0.0,
+    formants: &[(500.0, 0.90, 1.55), (1140.0, 0.85, 1.25)], // Heroic Cavaillé-Coll harmonic brass formants
+    rolloff_hz: 2550.0,
+    bass_tilt: 0.26,
+    speech_cycles: 8.0,
+    speech_min_s: 0.013,
+    speech_max_s: 0.048,
+    upper_lead: -0.04,
+    overshoot_harmonic: 2,
+    overshoot: 0.22,         // Overblown double-length 2nd-harmonic attack bloom
+    upper_overshoot: 0.14,
+    onset_cents: -4.2,
+    onset_time_s: 0.018,
+    phase_coherence: 0.78,
+    breath: 0.006,
+    chiff: 0.18,
+    chiff_harmonic: 2.8,
+    chiff_cycles: 7.0,
+    jitter: 0.007,
     flicker: 0.024,
+};
+
+// ORCHESTRAL TRUMPET 8' (Noble Symphonic Brass Fanfare Solo Trumpet 8'):
+// Narrower-scale brass resonator voiced for focused, singing symphonic trumpet solos
+// with a rich 480 Hz / 1080 Hz brass bell resonance and prompt tongue attack.
+pub const VOICING_ORCHESTRAL_TRUMPET_8: PipeVoicing = PipeVoicing {
+    spectrum: &[0.95, 1.00, 0.88, 0.72, 0.56, 0.40, 0.28, 0.18, 0.11, 0.06],
+    extend_db_per_oct: -14.0,
+    max_harmonics: 18,
+    even_scale: 1.0,
+    even_restore_hz: 0.0,
+    formants: &[(480.0, 0.85, 1.50), (1080.0, 0.80, 1.20)], // Symphonic brass bell formants
+    rolloff_hz: 2450.0,
+    bass_tilt: 0.24,
+    speech_cycles: 7.5,
+    speech_min_s: 0.012,
+    speech_max_s: 0.044,
+    upper_lead: 0.0,
+    overshoot_harmonic: 3,
+    overshoot: 0.20,
+    upper_overshoot: 0.12,
+    onset_cents: -4.0,
+    onset_time_s: 0.017,
+    phase_coherence: 0.76,
+    breath: 0.006,
+    chiff: 0.16,
+    chiff_harmonic: 2.8,
+    chiff_cycles: 7.0,
+    jitter: 0.006,
+    flicker: 0.022,
+};
+
+// STATE TRUMPET 8' (Commanding Horizontal Cathedral Festival Trumpet / Trompeta Real 8'):
+// High-pressure horizontal hooded reed projecting broad, regal festival brass authority
+// across the midrange (420 Hz & 960 Hz) without high-frequency harshness.
+pub const VOICING_STATE_TRUMPET_8: PipeVoicing = PipeVoicing {
+    spectrum: &[1.00, 0.98, 0.92, 0.78, 0.62, 0.48, 0.34, 0.24, 0.16, 0.10, 0.06],
+    extend_db_per_oct: -13.5,
+    max_harmonics: 20,
+    even_scale: 1.0,
+    even_restore_hz: 0.0,
+    formants: &[(420.0, 0.95, 1.65), (960.0, 0.85, 1.30), (1520.0, 0.80, 0.65)],
+    rolloff_hz: 2600.0,
+    bass_tilt: 0.30,
+    speech_cycles: 8.0,
+    speech_min_s: 0.013,
+    speech_max_s: 0.048,
+    upper_lead: -0.05,
+    overshoot_harmonic: 2,
+    overshoot: 0.20,
+    upper_overshoot: 0.14,
+    onset_cents: -4.8,
+    onset_time_s: 0.019,
+    phase_coherence: 0.80,
+    breath: 0.006,
+    chiff: 0.18,
+    chiff_harmonic: 2.6,
+    chiff_cycles: 7.5,
+    jitter: 0.007,
+    flicker: 0.024,
+};
+
+// CORNOPEAN 8' (Warm, Round English Swell Horn-Trumpet 8'):
+// Wide-scale conical English Swell chorus reed with dark-gold, velvety horn-trumpet
+// warmth centered at 380 Hz and 840 Hz.
+pub const VOICING_CORNOPEAN_8: PipeVoicing = PipeVoicing {
+    spectrum: &[1.00, 0.88, 0.70, 0.52, 0.36, 0.24, 0.15, 0.09, 0.05],
+    extend_db_per_oct: -15.5,
+    max_harmonics: 16,
+    even_scale: 1.0,
+    even_restore_hz: 0.0,
+    formants: &[(380.0, 1.00, 1.50), (840.0, 0.90, 0.95)], // Dark-gold English horn-trumpet warmth
+    rolloff_hz: 2050.0,
+    bass_tilt: 0.30,
+    speech_cycles: 9.5,
+    speech_min_s: 0.016,
+    speech_max_s: 0.058,
+    upper_lead: -0.08,
+    overshoot_harmonic: 2,
+    overshoot: 0.14,
+    upper_overshoot: 0.08,
+    onset_cents: -4.2,
+    onset_time_s: 0.022,
+    phase_coherence: 0.70,
+    breath: 0.006,
+    chiff: 0.14,
+    chiff_harmonic: 2.4,
+    chiff_cycles: 8.0,
+    jitter: 0.006,
+    flicker: 0.020,
 };
 
 // ---------------------------------------------------------------------------
@@ -670,39 +822,39 @@ pub const VOICING_TROMBONE_16: PipeVoicing = PipeVoicing {
 // ---------------------------------------------------------------------------
 
 pub const CORNET_V_RANKS: &[CompoundRank] = &[
-    CompoundRank { voicing: &VOICING_CORNET_FLUTE, pitch_ratio: 1.0, gain: 0.52, detune_cents: 0.0 }, // 8' Bourdon/Flûte
-    CompoundRank { voicing: &VOICING_CORNET_FLUTE, pitch_ratio: 2.0, gain: 0.44, detune_cents: 0.0 }, // 4' Flûte
-    CompoundRank { voicing: &VOICING_CORNET_FLUTE, pitch_ratio: 3.0, gain: 0.46, detune_cents: 0.0 }, // 2-2/3' Nazard
-    CompoundRank { voicing: &VOICING_CORNET_FLUTE, pitch_ratio: 4.0, gain: 0.38, detune_cents: 0.0 }, // 2' Quarte de Nazard
-    CompoundRank { voicing: &VOICING_CORNET_FLUTE, pitch_ratio: 5.0, gain: 0.40, detune_cents: 0.0 }, // 1-3/5' Tierce
+    CompoundRank { voicing: &VOICING_CORNET_FLUTE, pitch_ratio: 1.0, gain: 0.56, detune_cents: 0.0 }, // 8' Bourdon/Flûte
+    CompoundRank { voicing: &VOICING_CORNET_FLUTE, pitch_ratio: 2.0, gain: 0.42, detune_cents: 0.0 }, // 4' Prestant/Flûte
+    CompoundRank { voicing: &VOICING_CORNET_FLUTE, pitch_ratio: 3.0, gain: 0.38, detune_cents: 0.0 }, // 2-2/3' Nazard
+    CompoundRank { voicing: &VOICING_CORNET_FLUTE, pitch_ratio: 4.0, gain: 0.30, detune_cents: 0.0 }, // 2' Quarte de Nazard
+    CompoundRank { voicing: &VOICING_CORNET_FLUTE, pitch_ratio: 5.0, gain: 0.32, detune_cents: 0.0 }, // 1-3/5' Tierce
 ];
 
 pub const MIXTURE_IV_RANKS: &[CompoundRank] = &[
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 3.0, gain: 0.34, detune_cents: 0.0 }, // 19th (1-1/3')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 4.0, gain: 0.30, detune_cents: 0.0 }, // 22nd (1')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 6.0, gain: 0.24, detune_cents: 0.0 }, // 26th (2/3')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 8.0, gain: 0.20, detune_cents: 0.0 }, // 29th (1/2')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 2.0, gain: 0.32, detune_cents: 0.0 }, // 15th (2')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 3.0, gain: 0.26, detune_cents: 0.0 }, // 19th (1-1/3')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 4.0, gain: 0.22, detune_cents: 0.0 }, // 22nd (1')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 6.0, gain: 0.16, detune_cents: 0.0 }, // 26th (2/3')
 ];
 
 pub const PLEIN_JEU_RANKS: &[CompoundRank] = &[
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 2.0, gain: 0.40, detune_cents: 0.0 }, // 15th (2')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 3.0, gain: 0.34, detune_cents: 0.0 }, // 19th (1-1/3')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 4.0, gain: 0.30, detune_cents: 0.0 }, // 22nd (1')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 6.0, gain: 0.24, detune_cents: 0.0 }, // 26th (2/3')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 8.0, gain: 0.19, detune_cents: 0.0 }, // 29th (1/2')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 1.5, gain: 0.34, detune_cents: 0.0 }, // 12th (2-2/3')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 2.0, gain: 0.32, detune_cents: 0.0 }, // 15th (2')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 3.0, gain: 0.26, detune_cents: 0.0 }, // 19th (1-1/3')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 4.0, gain: 0.22, detune_cents: 0.0 }, // 22nd (1')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 6.0, gain: 0.15, detune_cents: 0.0 }, // 26th (2/3')
 ];
 
 pub const CYMBALE_RANKS: &[CompoundRank] = &[
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 4.0, gain: 0.36, detune_cents: 0.0 }, // 22nd (1')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 6.0, gain: 0.28, detune_cents: 0.0 }, // 26th (2/3')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 8.0, gain: 0.22, detune_cents: 0.0 }, // 29th (1/2')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 3.0, gain: 0.28, detune_cents: 0.0 }, // 19th (1-1/3')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 4.0, gain: 0.22, detune_cents: 0.0 }, // 22nd (1')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 6.0, gain: 0.16, detune_cents: 0.0 }, // 26th (2/3')
 ];
 
 pub const SCHARF_RANKS: &[CompoundRank] = &[
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 3.0, gain: 0.34, detune_cents: 0.0 }, // 19th (1-1/3')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 4.0, gain: 0.30, detune_cents: 0.0 }, // 22nd (1')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 5.0, gain: 0.26, detune_cents: 0.0 }, // 17th (Tierce 1-3/5')
-    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 6.0, gain: 0.22, detune_cents: 0.0 }, // 26th (2/3')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 2.0, gain: 0.30, detune_cents: 0.0 }, // 15th (2')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 3.0, gain: 0.26, detune_cents: 0.0 }, // 19th (1-1/3')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 4.0, gain: 0.22, detune_cents: 0.0 }, // 22nd (1')
+    CompoundRank { voicing: &VOICING_PRINCIPAL, pitch_ratio: 5.0, gain: 0.18, detune_cents: 0.0 }, // 17th (Tierce 1-3/5')
 ];
 
 pub const VOIX_CELESTE_RANKS: &[CompoundRank] = &[
@@ -718,7 +870,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
         model: StopSynthesisModel::PhysicalPipe {
             voicing: &VOICING_OBOE,
             pitch_ratio: 1.0,
-            gain: 1.0,
+            gain: 0.92,
         },
     },
     // 1: Clarinet 8'
@@ -744,7 +896,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
         model: StopSynthesisModel::PhysicalPipe {
             voicing: &VOICING_BOMBARDE,
             pitch_ratio: 0.5,
-            gain: 1.05,
+            gain: 1.02,
         },
     },
     // 4: Ophicleide 16'
@@ -754,7 +906,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
         model: StopSynthesisModel::PhysicalPipe {
             voicing: &VOICING_OPHICLEIDE,
             pitch_ratio: 0.5,
-            gain: 1.05,
+            gain: 1.02,
         },
     },
     // 5: Ottavino 2'
@@ -764,7 +916,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
         model: StopSynthesisModel::PhysicalPipe {
             voicing: &VOICING_OTTAVINO_2,
             pitch_ratio: 4.0,
-            gain: 0.95,
+            gain: 0.68,
         },
     },
     // 6: Cor Anglais 8'
@@ -774,7 +926,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
         model: StopSynthesisModel::PhysicalPipe {
             voicing: &VOICING_COR_ANGLAIS,
             pitch_ratio: 1.0,
-            gain: 1.0,
+            gain: 0.92,
         },
     },
     // 7: Flute 4'
@@ -784,7 +936,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
         model: StopSynthesisModel::PhysicalPipe {
             voicing: &VOICING_FLUTE_4,
             pitch_ratio: 2.0,
-            gain: 0.95,
+            gain: 0.78,
         },
     },
     // 8: Clarinet 4'
@@ -800,7 +952,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
         model: StopSynthesisModel::PhysicalPipe {
             voicing: &VOICING_VIOL_4,
             pitch_ratio: 2.0,
-            gain: 0.95,
+            gain: 0.78,
         },
     },
     // 10: Contrabassoon 32'
@@ -810,7 +962,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
         model: StopSynthesisModel::PhysicalPipe {
             voicing: &VOICING_CONTRABASSOON,
             pitch_ratio: 0.25,
-            gain: 1.10,
+            gain: 1.05,
         },
     },
     // 11: Diapason 8' (Open Diapason / Montre 8' / Principal 8')
@@ -826,7 +978,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
         model: StopSynthesisModel::PhysicalPipe {
             voicing: &VOICING_CRYSTAL_FLUTE_4,
             pitch_ratio: 2.0,
-            gain: 0.92,
+            gain: 0.76,
         },
     },
     // 13: Cornet V 8'
@@ -844,7 +996,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
         model: StopSynthesisModel::PhysicalPipe {
             voicing: &VOICING_PICCOLO_2,
             pitch_ratio: 4.0,
-            gain: 0.92,
+            gain: 0.65,
         },
     },
     // 15: Mixture IV
@@ -862,7 +1014,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
         model: StopSynthesisModel::PhysicalPipe {
             voicing: &VOICING_VOX_HUMANA,
             pitch_ratio: 1.0,
-            gain: 1.0,
+            gain: 0.90,
         },
     },
     // 17: Gedeckt 8'
@@ -997,7 +1149,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
         id: 33,
         model: StopSynthesisModel::BourdonFlue {
             pitch_ratio: 0.25,
-            sub_harmonic: 0.22,
+            sub_harmonic: 0.20,
         },
     },
     // 34: Bourdon 16'
@@ -1006,7 +1158,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
         id: 34,
         model: StopSynthesisModel::BourdonFlue {
             pitch_ratio: 0.5,
-            sub_harmonic: 0.16,
+            sub_harmonic: 0.14,
         },
     },
     // 35: Double Diapason 16'
@@ -1021,7 +1173,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
         id: 36,
         model: StopSynthesisModel::BourdonFlue {
             pitch_ratio: 0.5,
-            sub_harmonic: 0.28,
+            sub_harmonic: 0.24,
         },
     },
     // 37: Open Wood 16'
@@ -1037,7 +1189,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
         model: StopSynthesisModel::PhysicalPipe {
             voicing: &VOICING_VIOLONE_16,
             pitch_ratio: 0.5,
-            gain: 1.25,
+            gain: 1.15,
         },
     },
     // 39: Contra Trombone 16'
@@ -1047,7 +1199,7 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
         model: StopSynthesisModel::PhysicalPipe {
             voicing: &VOICING_TROMBONE_16,
             pitch_ratio: 0.5,
-            gain: 1.25,
+            gain: 1.15,
         },
     },
     // 40: Harmonic Flute 8'
@@ -1095,6 +1247,66 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
             pitch_ratio: 1.0,
         },
     },
+    // 45: Trumpet 8'
+    StopDefinition {
+        name: "Trumpet 8'",
+        id: 45,
+        model: StopSynthesisModel::PhysicalPipe {
+            voicing: &VOICING_TRUMPET_8,
+            pitch_ratio: 1.0,
+            gain: 1.05,
+        },
+    },
+    // 46: Trompette Harmonique 8'
+    StopDefinition {
+        name: "Trompette Harmonique 8'",
+        id: 46,
+        model: StopSynthesisModel::PhysicalPipe {
+            voicing: &VOICING_TROMPETTE_HARMONIQUE_8,
+            pitch_ratio: 1.0,
+            gain: 1.08,
+        },
+    },
+    // 47: Orchestral Trumpet 8'
+    StopDefinition {
+        name: "Orchestral Trumpet 8'",
+        id: 47,
+        model: StopSynthesisModel::PhysicalPipe {
+            voicing: &VOICING_ORCHESTRAL_TRUMPET_8,
+            pitch_ratio: 1.0,
+            gain: 1.05,
+        },
+    },
+    // 48: State Trumpet 8'
+    StopDefinition {
+        name: "State Trumpet 8'",
+        id: 48,
+        model: StopSynthesisModel::PhysicalPipe {
+            voicing: &VOICING_STATE_TRUMPET_8,
+            pitch_ratio: 1.0,
+            gain: 1.14,
+        },
+    },
+    // 49: Cornopean 8'
+    StopDefinition {
+        name: "Cornopean 8'",
+        id: 49,
+        model: StopSynthesisModel::PhysicalPipe {
+            voicing: &VOICING_CORNOPEAN_8,
+            pitch_ratio: 1.0,
+            gain: 1.00,
+        },
+    },
+    // 50: Trompette 4'
+    StopDefinition {
+        name: "Trompette 4'",
+        id: 50,
+        model: StopSynthesisModel::PhysicalPipe {
+            voicing: &VOICING_TRUMPET_8,
+            pitch_ratio: 2.0,
+            gain: 0.82,
+        },
+    },
 ];
 
 /// Render a single physically modeled pipe rank into `out`.
@@ -1109,11 +1321,12 @@ fn render_physical_pipe(
     wind_mod: &[f32],
     chiff_scale: f32,
 ) {
+    // Combine stop ID and quantized frequency into a unique 64-bit seed per pipe.
     let seed = pipe::mix_seed(&[stop_id as u64, (freq * 100.0).round() as u64, 0x85A3_08D3]);
     let spec = PipeSpec {
         voicing,
         freq: freq * pitch_ratio,
-        rms: 0.24 * gain as f64,
+        rms: 0.22 * gain as f64,
         delay_s: 0.0,
         seed,
     };
@@ -1132,10 +1345,12 @@ fn render_compound_stop(
 ) {
     let base_seed = pipe::mix_seed(&[stop_id as u64, (freq * 100.0).round() as u64]);
     for (idx, rank) in ranks.iter().enumerate() {
-        // Classical organ break logic:
-        // When pitch exceeds 6500 Hz, break back an octave so it stays within musical singing range
+        // Classical organ mixture break logic:
+        // When a rank's fundamental exceeds 3200 Hz (or 4200 Hz for Cornet V, ID 13),
+        // fold it down by octaves so mixtures enrich the midrange chorus rather than screaming in the high treble.
+        let break_ceiling = if stop_id == 13 { 4200.0 } else { 3200.0 };
         let mut ratio = rank.pitch_ratio;
-        while ratio * freq > 6500.0 && ratio > 1.0 {
+        while ratio * freq > break_ceiling && ratio > 1.0 {
             ratio *= 0.5;
         }
 
@@ -1154,7 +1369,7 @@ fn render_compound_stop(
         let spec = PipeSpec {
             voicing: rank.voicing,
             freq: rank_freq,
-            rms: 0.22 * rank.gain as f64,
+            rms: 0.16 * rank.gain as f64,
             delay_s: 0.0,
             seed: rank_seed,
         };
@@ -1162,7 +1377,8 @@ fn render_compound_stop(
     }
 }
 
-/// Renders a real acoustic pipe recording with pitch interpolation, seamless crossfade looping, and wind modulation.
+/// Renders a real acoustic pipe recording with pitch interpolation, seamless crossfade looping,
+/// wind modulation, and high-footage warmth filtering.
 fn render_sampled_pipe(
     is_clarion: bool,
     harmonic_factor: f64,
@@ -1173,7 +1389,7 @@ fn render_sampled_pipe(
     wind_mod: &[f32],
 ) {
     let samples = get_embedded_samples();
-    // Measured loop points:
+    // Measured steady-state loop points in the embedded recordings:
     // Clarion: f0 = 444.160 Hz, steady region loop 3.61s to 8.35s
     // Stopped Flue: f0 = 433.326 Hz, steady region loop 0.96s to 2.28s
     let (pcm, src_rate, loop_start, loop_end) = if is_clarion {
@@ -1196,18 +1412,41 @@ fn render_sampled_pipe(
     const XFADE: usize = 1024;
     let fade_in_samples = (0.006 * sample_rate as f64).round() as usize;
 
+    // When pitching up an 8' recording to 4' (factor 2.0) or 2' (factor 4.0), its upper harmonics
+    // and breath noise shift into the ear's 2-6 kHz sensitivity peak; apply a 1-pole warmth filter
+    // and footage gain scaling so 4' and 2' sampled stops stay warm and balanced.
+    let footage_gain = if harmonic_factor >= 3.5 {
+        0.58f32
+    } else if harmonic_factor >= 1.8 {
+        0.78f32
+    } else {
+        1.0f32
+    };
+    let cutoff_hz = if is_clarion {
+        if harmonic_factor >= 1.8 { 2400.0 } else { 4200.0 }
+    } else if harmonic_factor >= 3.5 {
+        1450.0
+    } else if harmonic_factor >= 1.8 {
+        1750.0
+    } else {
+        2600.0
+    };
+    let lp_a = (1.0 - (-2.0 * std::f64::consts::PI * cutoff_hz / sample_rate as f64).exp()) as f32;
+    let mut lp_state = 0.0f32;
+
     let mut pos = 0.0f64;
     for (n, out_sample) in out.iter_mut().enumerate() {
         let wind = if n < wind_mod.len() { wind_mod[n] as f64 } else { 0.0 };
         let step = base_step * (1.0 + wind);
 
         let sample_val = if pos < (l_end - XFADE) as f64 {
+            // Linear fractional-sample interpolation between pcm[i0] and pcm[i1].
             let i0 = pos as usize;
             let frac = (pos - i0 as f64) as f32;
             let i1 = (i0 + 1).min(len - 1);
             (1.0 - frac) * pcm[i0] + frac * pcm[i1]
         } else {
-            // In or beyond crossfade zone
+            // In or beyond crossfade zone: wrap `loop_pos` modulo `loop_len` inside [l_start, l_end).
             let loop_pos = if pos < l_end as f64 {
                 pos
             } else {
@@ -1215,7 +1454,7 @@ fn render_sampled_pipe(
                 l_start as f64 + (over % loop_len as f64)
             };
 
-            // Equal-power crossfade between the end of the loop and the start of the loop
+            // Equal-power trigonometric crossfade (`cos^2(theta) + sin^2(theta) = 1`) across the last 1024 samples of the loop.
             if loop_pos >= (l_end - XFADE) as f64 {
                 let k = (loop_pos - (l_end - XFADE) as f64) / XFADE as f64;
                 let theta = k * std::f64::consts::FRAC_PI_2;
@@ -1248,7 +1487,8 @@ fn render_sampled_pipe(
             1.0
         };
 
-        *out_sample += sample_val * attack;
+        lp_state += lp_a * (sample_val - lp_state);
+        *out_sample += lp_state * attack * footage_gain;
         pos += step;
     }
 }
@@ -1333,24 +1573,26 @@ pub fn render_stop_into(
 }
 
 
-/// Partial table for a stopped (covered) wooden flue pipe.
-/// Tuple: (harmonic number, relative amplitude, onset boost, drift rate Hz, drift depth).
+/// Partial table for a square wooden stopped flue pipe (`Holzgedeckt` / `Lieblich Gedeckt`).
+/// Tuple: `(harmonic_number, relative_amplitude, phase_offset_rad, drift_rate_hz, drift_depth)`.
 ///
-/// A pipe closed at one end resonates at odd multiples of its fundamental only, so the
-/// even partials are present only as faint residue from the mouth and stopper. The 3rd
-/// partial (a twelfth above the fundamental) gives the Gedackt its warm hollow color.
-/// `onset boost` is set to 0.0 so speech transients are purely band-passed breath noise,
-/// completely avoiding artificial tonal beeps or chirps.
+/// Why this spectrum produces a mellow, soft, warm, flutey square wooden stopped pipe:
+/// 1. A square wooden pipe closed at the top by a leather/felt-lined stopper is a quarter-wave
+///    resonator (`L = lambda / 4`), which supports odd harmonics (`1, 3, 5, 7`) while cancelling
+///    even harmonics (`2, 4`) down to faint mouth-radiation traces (`<= 1%`).
+/// 2. Unlike a nasal Quintadena or a synthetic square wave (`1 + 1/3 + 1/5 + 1/7...`), a true
+///    wooden `Gedeckt` has thick oak/pine walls and a high arched cut-up that absorb high-frequency
+///    energy, leaving a pure, round, flutey fundamental (`1.000`), a gentle, liquid 3rd-harmonic
+///    twelfth (`0.115`), and a whisper-soft 5th harmonic (`0.018`).
+/// 3. Dispersed phase offsets (`phase_off`) prevent the odd partials from aligning into a
+///    flat-topped square wave (which would sound buzzy and nasal).
 const STOPPED_PARTIALS: &[(f64, f64, f64, f64, f64)] = &[
-    (1.0, 1.000, 0.0, 0.31, 0.015),
-    (2.0, 0.016, 0.0, 0.53, 0.050),
-    (3.0, 0.200, 0.0, 0.47, 0.050),
-    (4.0, 0.010, 0.0, 0.71, 0.060),
-    (5.0, 0.062, 0.0, 0.83, 0.060),
-    (6.0, 0.005, 0.0, 0.59, 0.060),
-    (7.0, 0.026, 0.0, 1.07, 0.070),
-    (9.0, 0.010, 0.0, 0.97, 0.070),
-    (11.0, 0.004, 0.0, 1.21, 0.080),
+    (1.0, 1.000, 0.00, 0.28, 0.012), // Pure, round, mellow stopped-wood fundamental
+    (2.0, 0.011, 1.42, 0.49, 0.025), // Faint wooden mouth even-harmonic trace (~1%)
+    (3.0, 0.115, 2.18, 0.43, 0.022), // Gentle, flutey stopped twelfth (non-nasal)
+    (4.0, 0.002, 0.76, 0.67, 0.028), // Trace 4th harmonic
+    (5.0, 0.018, 1.05, 0.79, 0.030), // Soft wooden 5th partial warmth
+    (7.0, 0.004, 2.64, 0.98, 0.032), // Whisper trace of 7th partial
 ];
 
 /// Two-pole resonator used to colour white noise around a pipe resonance.
@@ -1414,7 +1656,7 @@ pub fn render_additive_flue(
     // Töpfer Normalmensur acoustic scaling
     let oct_shift = (freq / 261.63).log2();
 
-    // Build active partials with mouth formant and high-frequency roll-off
+    // Build active partials with warm midrange formant (~440 Hz) and smooth 2200 Hz roll-off
     let mut partials: Vec<(f64, f64, f64, f64, f64, f64)> = Vec::with_capacity(harmonics.len());
     let mut amp_sum = 0.0;
     for (i, &(factor, base_amp)) in harmonics.iter().enumerate() {
@@ -1423,15 +1665,15 @@ pub fn render_additive_flue(
             continue;
         }
         let scale_damp = if factor > 2.0 {
-            (1.0 - 0.08 * oct_shift).clamp(0.65, 1.35)
+            (1.0 - 0.12 * oct_shift).clamp(0.55, 1.25)
         } else {
             1.0
         };
-        // Pipe mouth radiation formant (~800 Hz)
-        let formant_octave_dist = (pf / 800.0).log2();
-        let formant_gain = 1.0 + 0.30 * (-formant_octave_dist * formant_octave_dist).exp();
-        // Acoustic wall & dissipation damping
-        let dissipation = 1.0 / (1.0 + (pf / 5000.0).powi(2));
+        // Warm midrange pipe mouth radiation formant (~440 Hz)
+        let formant_octave_dist = (pf / 440.0).log2();
+        let formant_gain = 1.0 + 0.35 * (-formant_octave_dist * formant_octave_dist).exp();
+        // Smooth acoustic wall & dissipation damping above 2200 Hz
+        let dissipation = 1.0 / (1.0 + (pf / 2200.0).powi(2));
 
         let amp = base_amp * scale_damp * formant_gain * dissipation;
         amp_sum += amp;
@@ -1444,11 +1686,11 @@ pub fn render_additive_flue(
 
         partials.push((factor, amp, phase_off, drift_rate, drift_depth, lfo_phase));
     }
-    let norm = 0.85 / amp_sum.max(1e-6);
+    let norm = 0.76 / amp_sum.max(1e-6);
 
-    // Physical breath resonator tuned to pipe mouth speech frequency
-    let speech_freq = (freq * 1.8).clamp(300.0, 2600.0);
-    let mut breath_filter = NoiseResonator::new(speech_freq, (speech_freq * 0.45).clamp(90.0, 750.0), sr);
+    // Physical breath resonator tuned to warm pipe mouth speech frequency
+    let speech_freq = (freq * 1.5).clamp(240.0, 1400.0);
+    let mut breath_filter = NoiseResonator::new(speech_freq, (speech_freq * 0.40).clamp(70.0, 500.0), sr);
 
     let mut rng: u32 = seed ^ ((freq * 100.0) as u32);
     if rng == 0 { rng = 1; }
@@ -1460,24 +1702,21 @@ pub fn render_additive_flue(
     };
 
     let spit_decay = (-1.0 / (0.028 * sr)).exp(); // 28 ms chiff decay
-    let edge_decay = (-1.0 / (0.014 * sr)).exp(); // 14 ms lip edge transient
     let mut spit_env = 1.0f64;
-    let mut edge_env = 1.0f64;
-    let spit_level = 0.035 + 0.22 * chiff;
-    let edge_level = 0.012 + 0.08 * chiff;
-    let hiss_level = 0.007; // subtle continuous air column breath
+    let spit_level = 0.022 + 0.14 * chiff;
+    let hiss_level = 0.005; // subtle continuous air column breath
 
     let step = freq / sr;
     let mut phase = 0.0f64;
-    let mut prev_white = 0.0f64;
-    let tone_attack_len = (0.015 * sr).max(1.0);
+    let tone_attack_len = (0.018 * sr).max(1.0);
 
     for (i, sample) in out.iter_mut().enumerate() {
         let t = i as f64 / sr;
         let wind = if i < wind_mod.len() { wind_mod[i] as f64 } else { 0.0 };
 
         let mut tone = 0.0f64;
-        let tone_attack = (i as f64 / tone_attack_len).min(1.0);
+        let u = (i as f64 / tone_attack_len).min(1.0);
+        let tone_attack = 0.5 - 0.5 * (std::f64::consts::PI * u).cos();
         for &(factor, amp, phase_off, drift_rate, drift_depth, lfo_phase) in &partials {
             let drift = 1.0 + drift_depth * sine_lut.sin(two_pi * drift_rate * t + lfo_phase) as f64;
             let partial_phase = two_pi * (factor * phase) + phase_off;
@@ -1486,25 +1725,29 @@ pub fn render_additive_flue(
 
         let white = next_noise();
         let breath = breath_filter.process(white);
-        let edge = (white - prev_white) * edge_level * edge_env;
-        prev_white = white;
-        let noise = breath * (hiss_level + spit_level * spit_env) + edge;
+        let noise = breath * (hiss_level + spit_level * spit_env) * tone_attack;
 
         *sample += ((norm * tone + noise) as f32) * gain;
 
         phase = (phase + step * (1.0 + wind)).fract();
         spit_env *= spit_decay;
-        edge_env *= edge_decay;
     }
 }
 
-/// Renders a stopped wooden flue pipe (Gedeckt) into `out`.
+/// Renders a stopped square wooden flue pipe (`Gedeckt 8'`, `4'`, `16'`, `32'`, `2'`) into `out`.
 ///
-/// The tone is additive: a dominant fundamental plus a weak odd-partial series, each
-/// partial with its own slow amplitude drift so the spectrum is alive instead of a fixed
-/// waveform. On top of that a real pipe has audible wind: a short broadband "spit" at the
-/// onset (scaled by `chiff_scale`), then a quiet breath hiss concentrated around the
-/// pipe resonances (fundamental and third partial).
+/// Voiced to sound like an authentic, mellow, soft, warm, flutey square wooden stopped pipe
+/// (*Holzgedeckt* / *Lieblich Gedeckt*):
+/// - **Mellow & Soft Level:** Normalized to a gentle `0.50` base gain (with high-pitch tapering
+///   above `380 Hz` so `Gedeckt 4'` and `Gedeckt 2'` stay dark and velvety) rather than an overly
+///   full Principal level.
+/// - **Square Wooden Pipe Cavity Formant (`320 Hz`) & Anti-Nasal Scoop (`950 Hz`):** Boosts warm
+///   wooden midrange body around `320 Hz` (`+32%`) while scooping out the `750–1250 Hz` nasal band
+///   (`-36%`) so the stopped 3rd harmonic (`twelfth`) sounds hollow-woody and flutey, never nasally.
+/// - **Steep Wooden Wall & Felt-Stopper Damping (`1350 Hz`):** Thick wooden walls and the top
+///   leather/felt stopper absorb upper harmonics along a steep low-pass curve, eliminating buzz.
+/// - **Cushioned Wooden Wind-Foot Speech (`28 ms` S-curve):** Smooth raised-cosine envelope with
+///   a soft, low-register wooden lip whisper (zero high-frequency click).
 pub fn render_stopped_flue(
     freq: f64,
     pitch_ratio: f64,
@@ -1523,13 +1766,14 @@ pub fn render_stopped_flue(
     let two_pi = 2.0 * std::f64::consts::PI;
     let chiff = chiff_scale.max(0.0) as f64;
 
-    // Bass pipes keep a little more upper-partial colour, treble pipes are plainer.
-    let bass_tilt = (1.0 + 0.25 * (261.63 / f0).log2()).clamp(0.7, 1.5);
+    // Gentle Töpfer scaling: keeps upper odd partials soft across the entire compass
+    // so bass and midrange notes never become nasal or square-wave buzzy.
+    let bass_tilt = (1.0 + 0.10 * (261.63 / f0).log2()).clamp(0.68, 1.12);
 
-    // (harmonic, amplitude, onset boost, drift rate, drift depth, drift phase)
+    // Tuple: (k, amp, phase_off, rate, depth, lfo_phase)
     let mut partials: Vec<(f64, f64, f64, f64, f64, f64)> = Vec::with_capacity(STOPPED_PARTIALS.len());
     let mut amp_sum = 0.0;
-    for (i, &(k, a, boost, rate, depth)) in STOPPED_PARTIALS.iter().enumerate() {
+    for (i, &(k, a, phase_off, rate, depth)) in STOPPED_PARTIALS.iter().enumerate() {
         let pf = f0 * k;
         if pf >= nyquist * 0.9 {
             continue;
@@ -1538,21 +1782,33 @@ pub fn render_stopped_flue(
         if k >= 3.0 {
             amp *= bass_tilt;
         }
-        // Soft high-frequency roll-off from the wooden walls and the stopper.
-        amp /= 1.0 + (pf / 3000.0).powi(2);
+
+        // Square wooden pipe cavity warmth (~320 Hz, +32%) + anti-nasal scoop (~950 Hz, -36%).
+        let d_wood = (pf / 320.0).log2() / 1.15;
+        let d_nasal = (pf / 950.0).log2() / 0.75;
+        amp *= (1.0 + 0.32 * (-d_wood * d_wood).exp()) * (1.0 - 0.36 * (-d_nasal * d_nasal).exp());
+
+        // Thick wooden walls and felt-lined stopper absorb high frequencies steeply above 1350 Hz.
+        let r = pf / 1350.0;
+        amp /= 1.0 + r * r + 0.35 * r * r * r;
+
         amp_sum += amp;
-        partials.push((k, amp, boost, rate, depth, 0.7 * i as f64 + 0.3));
+        partials.push((k, amp, phase_off, rate, depth, 0.7 * i as f64 + 0.3));
     }
-    let norm = 0.8 / amp_sum.max(1e-6);
 
-    let mut breath_low = NoiseResonator::new(f0, f0 * 0.35, sr);
-    let mut breath_high = if f0 * 3.0 < nyquist * 0.9 {
-        Some(NoiseResonator::new(f0 * 3.0, f0 * 0.75, sr))
+    // Taper output slightly on high-pitched pipes (Gedeckt 4' and Gedeckt 2') so they stay soft and flutey,
+    // while keeping standard 8' / 16' / 32' Gedeckt warm, mellow, and gentle (0.50 base level).
+    let high_taper = if f0 > 500.0 {
+        (500.0 / f0).powf(0.28).clamp(0.45, 1.0)
     } else {
-        None
+        1.0
     };
+    let norm = (0.50 * high_taper) / amp_sum.max(1e-6);
 
-    // Deterministic noise so that the same pitch always renders the same tone.
+    // Soft wooden air-column breath tuned strictly to the fundamental (no nasal high-frequency whistle).
+    let mut breath_low = NoiseResonator::new(f0.clamp(24.0, 900.0), (f0 * 0.30).max(10.0), sr);
+
+    // Deterministic Xorshift32 noise generator seeded by pipe pitch.
     let mut rng: u32 = ((f0 * 100.0) as u32) ^ 0x9E37_79B9;
     if rng == 0 {
         rng = 1;
@@ -1564,46 +1820,39 @@ pub fn render_stopped_flue(
         (rng as f64 / u32::MAX as f64) * 2.0 - 1.0
     };
 
-    let spit_decay = (-1.0 / (0.045 * sr)).exp();
-    let edge_decay = (-1.0 / (0.018 * sr)).exp();
-    let spit_level = 0.05 + 0.30 * chiff;
-    let edge_level = 0.02 + 0.12 * chiff;
-    let hiss_level = 0.012;
+    // Soft wooden "kuh" onset puff (no sharp high-pass edge click).
+    let spit_decay = (-1.0 / (0.036 * sr)).exp();
+    let spit_level = (0.018 + 0.10 * chiff) * high_taper;
+    let hiss_level = 0.004 * high_taper;
 
     let step = f0 / sr;
     let mut phase = 0.0f64;
     let mut spit_env = 1.0f64;
-    let mut edge_env = 1.0f64;
-    let mut prev_white = 0.0f64;
 
-    let tone_attack_len = (0.015 * sr).max(1.0);
+    // Cushioned 26 ms raised-cosine S-curve attack characteristic of a stopped wooden pipe foot.
+    let tone_attack_len = (0.026 * sr).max(1.0);
 
     for (i, sample) in out.iter_mut().enumerate() {
         let t = i as f64 / sr;
         let wind = if i < wind_mod.len() { wind_mod[i] as f64 } else { 0.0 };
 
         let mut tone = 0.0f64;
-        let tone_attack = (i as f64 / tone_attack_len).min(1.0);
-        for &(k, amp, _boost, rate, depth, lfo_phase) in &partials {
+        let u = (i as f64 / tone_attack_len).min(1.0);
+        let tone_attack = 0.5 - 0.5 * (std::f64::consts::PI * u).cos();
+        for &(k, amp, phase_off, rate, depth, lfo_phase) in &partials {
             let drift = 1.0 + depth * sine_lut.sin(two_pi * rate * t + lfo_phase) as f64;
-            tone += amp * tone_attack * drift * sine_lut.sin(two_pi * k * phase) as f64;
+            tone += amp * tone_attack * drift * sine_lut.sin(two_pi * k * phase + phase_off) as f64;
         }
 
         let white = next_noise();
-        let mut breath = 0.7 * breath_low.process(white);
-        if let Some(res) = breath_high.as_mut() {
-            breath += 0.5 * res.process(white);
-        }
-        let edge = (white - prev_white) * edge_level * edge_env;
-        prev_white = white;
-        let noise = breath * (hiss_level + spit_level * spit_env) + edge;
+        let breath = breath_low.process(white);
+        let noise = breath * (hiss_level + spit_level * spit_env) * tone_attack;
 
         *sample += (norm * tone + noise) as f32;
 
-        // wind_mod is a direct fractional frequency deviation (see dsp::pipe_wind_modulation).
+        // Advance phase with wind-pressure pitch modulation.
         phase = (phase + step * (1.0 + wind)).fract();
         spit_env *= spit_decay;
-        edge_env *= edge_decay;
     }
 }
 
@@ -1636,25 +1885,36 @@ pub const DIAPASON_PARTIALS: &[(f64, f64, f64, f64, f64, f64)] = &[
 
 /// Organological registration balance weight for each stop in multi-stop and Full Organ (Tutti) mixes.
 ///
-/// Weighting the 32'/16' pedal & manual bass ranks (1.50x-1.62x) and the 8' Open Diapason / Principal Chorus
-/// backbone (1.46x) above 4' octaves (0.88x) and 2'/Mixtures (0.60x) preserves authentic cathedral gravitas
-/// and bold Principal leadership in any registration.
+/// Why this weighting curve is structured this way:
+/// - 32' and 16' pedal/manual bass ranks (`1.52x` and `1.44x`) provide a solid cathedral floor, trimmed
+///   microscopically from the previous `1.62x`/`1.50x` so the sub-bass never overwhelms the midrange.
+/// - 8' Principal (`Diapason 8'`), Chorus (`Principal Chorus`), and solo Trumpet reeds (`45..=49`) sit
+///   at `1.28x-1.44x` so the singing midrange body leads the registration.
+/// - `Gedeckt 8'` (Stop ID 17) is weighted at a soft, mellow `0.96x` so it acts as a gentle, warm
+///   stopped wooden accompaniment flute rather than a loud nasal horn.
+/// - 4' octaves (`0.78x`) and 2'/Mixtures (`0.52x`) are attenuated so upper ranks crown the ensemble
+///   without making the organ sound overly bright.
 pub fn stop_registration_weight(stop_id: i32) -> f32 {
     match stop_id {
-        // 32' Sub-Bass Ranks (colossal cathedral gravity)
-        10 | 20 | 33 => 1.62, // Contrabassoon 32', Gedeckt 32', Bourdon 32'
+        // 32' Sub-Bass Ranks (deep cathedral gravity, trimmed microscopically for cleaner midrange balance)
+        10 | 20 | 33 => 1.52, // Contrabassoon 32', Gedeckt 32', Bourdon 32'
         // 16' Manual & Pedal Foundation Ranks
-        2 | 3 | 4 | 19 | 27 | 34 | 35 | 36 | 37 | 38 | 39 => 1.50,
+        2 | 3 | 4 | 19 | 27 | 34 | 35 | 36 | 37 | 38 | 39 => 1.46,
         // 8' Principal Foundation & Chorus Ranks (commanding Great Organ backbone)
-        11 | 32 => 1.46, // Diapason 8', Principal Chorus
+        11 | 32 => 1.42, // Diapason 8', Principal Chorus
+        // 8' Solo & Chorus Trumpet / Reed Ranks (commanding brass & woodwind presence)
+        1 | 30 | 45 | 46 | 47 | 48 | 49 => 1.28, // Clarinet 8', Clarion 8', Trumpet 8' family
+        // Mellow Stopped Wooden Gedeckt 8' (soft, warm, unobtrusive accompaniment voice)
+        17 => 0.96,
         // Delicate Airy 8' Flute Ranks
-        40 | 41 | 42 | 43 | 44 => 1.08,
-        // Standard 8' Flue, String & Reed Ranks
-        0 | 1 | 6 | 16 | 17 | 24 | 25 | 30 => 1.22,
-        // 4' Octave & Solo Mutation Ranks
-        7 | 8 | 9 | 12 | 13 | 18 | 26 | 28 => 0.88,
-        // 2' Super-Octaves & High Mixtures (silvery crown without hollowing out the bass)
-        5 | 14 | 15 | 21 | 22 | 23 | 29 | 31 => 0.60,
+        40 | 41 | 42 | 43 | 44 => 1.02,
+        // Standard 8' Flue, String & Secondary Reed Ranks
+        0 | 6 | 16 | 24 | 25 => 1.14,
+        // 4' Octave, Solo Mutation & Clarion 4' Ranks (warmly balanced, never piercing)
+        7 | 8 | 9 | 12 | 13 | 18 | 26 | 28 | 50 => 0.78,
+        // 2' Super-Octaves & High Mixtures (gentle crown without excessive treble brightness)
+        5 | 14 | 15 | 21 | 22 | 23 | 29 | 31 => 0.52,
+        // Fallback unity weight for any unmapped stop ID
         _ => 1.0,
     }
 }
@@ -1676,7 +1936,9 @@ pub fn render_open_diapason(
     wind_mod: &[f32],
     chiff_scale: f32,
 ) {
+    // Convert sample rate to f64 for high-precision phase and filter calculations
     let sr = sample_rate as f64;
+    // Compute the sounding fundamental frequency after applying the stop's footage pitch ratio (1.0 for 8', 0.5 for 16')
     let f0 = freq * pitch_ratio;
     if f0 <= 0.0 || out.is_empty() {
         return;
@@ -1692,17 +1954,21 @@ pub fn render_open_diapason(
     // Strong singing 4' octave presence across bass and midrange
     let oct_weight = (1.0 + 0.18 * (340.0 / f0).log2().max(0.0)).clamp(1.0, 1.36);
 
-    // Tuple: (k, amp, phase_off, boost, attack_samples, rate, depth, lfo_phase)
+    // Precomputed partial descriptor tuple:
+    // (harmonic_k, shaped_amp, phase_offset, onset_boost, attack_samples, drift_rate_hz, drift_depth, lfo_phase_seed)
     let mut partials: Vec<(f64, f64, f64, f64, f64, f64, f64, f64)> =
         Vec::with_capacity(DIAPASON_PARTIALS.len());
     let mut base_amp_sum = 0.0;
     for (i, &(k, a, phase_off, boost, rate, depth)) in DIAPASON_PARTIALS.iter().enumerate() {
+        // Compute the absolute frequency of the k-th harmonic partial
         let pf = f0 * k;
+        // Guard against Nyquist aliasing
         if pf >= nyquist * 0.9 {
             continue;
         }
         base_amp_sum += a;
 
+        // Apply register-dependent fundamental, octave, or upper-chorus Töpfer scaling
         let mut amp = if (k - 1.0).abs() < 0.1 {
             a * fund_weight
         } else if (k - 2.0).abs() < 0.1 {
@@ -1718,6 +1984,7 @@ pub fn render_open_diapason(
         let d_nasal = (pf / 900.0).log2() / 0.65;
         // 3. Open Spotted-Metal Principal Crown Formant (~2100 Hz) — gives bold metallic Principal ring
         let d_crown = (pf / 2100.0).log2() / 1.05;
+        // Combine all four log-Gaussian spectral shaping curves multiplicatively
         let formant_gain = (1.0 + 0.34 * (-d_sub * d_sub).exp())
             * (1.0 + 0.32 * (-d_mid * d_mid).exp())
             * (1.0 - 0.16 * (-d_nasal * d_nasal).exp())
@@ -1727,6 +1994,7 @@ pub fn render_open_diapason(
         // Extended open metal pipe radiation up to 5.8 kHz (never muffled like a stopped flute)
         amp /= 1.0 + (pf / 5800.0).powi(2);
 
+        // Higher partials speak slightly faster than the fundamental during open-pipe transient bloom
         let attack_s = (0.017 * k.powf(-0.24)).clamp(0.007, 0.022);
         let attack_samples = (attack_s * sr).max(1.0);
 
@@ -1756,6 +2024,7 @@ pub fn render_open_diapason(
     let crown_air_hz = (f0 * 3.0).clamp(1200.0, 3200.0).min(nyquist * 0.85);
     let mut breath_crown = NoiseResonator::new(crown_air_hz, crown_air_hz * 0.38, sr);
 
+    // Deterministic per-pitch xorshift32 PRNG for reproducible wind turbulence
     let mut rng: u32 = ((f0 * 100.0) as u32) ^ 0x55AA_A55A;
     if rng == 0 {
         rng = 1;
@@ -1767,6 +2036,7 @@ pub fn render_open_diapason(
         (rng as f64 / u32::MAX as f64) * 2.0 - 1.0
     };
 
+    // Exponential decay constants for onset chiff spit, labium edge click, and 2nd-harmonic bloom
     let spit_decay = (-1.0 / (0.026 * sr)).exp();
     let edge_decay = (-1.0 / (0.014 * sr)).exp();
     let bloom_decay = (-1.0 / (0.032 * sr)).exp();
@@ -1774,6 +2044,7 @@ pub fn render_open_diapason(
     let edge_level = 0.016 + 0.10 * chiff;
     let hiss_level = 0.010;
 
+    // Slight initial flat pitch (-2.2 cents) that settles exponentially as wind pressure stabilizes
     let mut onset_cents = -2.2f64;
     let onset_decay = (-1.0 / (0.016 * sr)).exp();
     const CENTS_TO_RATIO: f64 = 0.000_577_622_65;
@@ -1786,6 +2057,7 @@ pub fn render_open_diapason(
     let mut bloom_env = 1.0f64;
     let mut prev_white = 0.0f64;
 
+    // Sample-by-sample additive + physical wind synthesis loop
     for (i, sample) in out.iter_mut().enumerate() {
         let t = i as f64 / sr;
         let n_f = i as f64;
@@ -1793,19 +2065,23 @@ pub fn render_open_diapason(
 
         let mut tone = 0.0f64;
         for &(k, amp, phase_off, boost, attack_samples, rate, depth, lfo_phase) in &partials {
+            // Raised-cosine S-curve onset envelope combined with transient harmonic bloom
             let u = (n_f / attack_samples).min(1.0);
             let env = (0.5 - 0.5 * (std::f64::consts::PI * u).cos())
                 * (1.0 + boost * (0.4 + 0.6 * chiff) * bloom_env);
+            // Slow organic amplitude micro-drift per partial
             let drift = 1.0 + depth * sine_lut.sin(two_pi * rate * t + lfo_phase) as f64;
             let p_main = two_pi * (k * phase_main) + phase_off;
             tone += env * drift * amp * sine_lut.sin(p_main) as f64;
         }
+        // Add subtle phase-locked sub-octave chest resonance in the bass/tenor compass
         if sub_oct_gain > 0.0 {
             let u_sub = (n_f / (0.025 * sr)).min(1.0);
             let env_sub = 0.5 - 0.5 * (std::f64::consts::PI * u_sub).cos();
             tone += env_sub * sub_oct_gain * sine_lut.sin(two_pi * phase_sub + 0.45) as f64;
         }
 
+        // Synthesize resonant wind breath and first-difference labium edge transient
         let white = next_noise();
         let breath = 0.55 * breath_low.process(white) + 0.45 * breath_crown.process(white);
         let edge = (white - prev_white) * edge_level * edge_env;
@@ -1814,6 +2090,7 @@ pub fn render_open_diapason(
 
         *sample += (norm * tone + noise) as f32;
 
+        // Advance phase accumulators with wind-chest modulation and onset pitch stabilization
         let pitch_bend = 1.0 + onset_cents * CENTS_TO_RATIO;
         let delta = step_main * (1.0 + wind) * pitch_bend;
         phase_main = (phase_main + delta).fract();
@@ -1839,7 +2116,7 @@ pub const BOURDON_PARTIALS: &[(f64, f64, f64, f64, f64)] = &[
 /// Renders a heavy, wide-scale stopped wooden Bourdon 16' / 32' or Subbass 16' pipe.
 ///
 /// Features deep sub-bass fundamental reinforcement, acoustic resultant / sub-harmonic gravity
-/// coupling, warm wooden chest resonances (~95 Hz & ~240 Hz), steep wooden wall roll-off (~1100 Hz),
+/// coupling, warm wooden chest resonances (~95 Hz & ~260 Hz), steep wooden wall roll-off (~1100 Hz),
 /// and a cushioned wooden wind-foot speech envelope.
 pub fn render_bourdon_flue(
     freq: f64,
@@ -1860,7 +2137,8 @@ pub fn render_bourdon_flue(
     let two_pi = 2.0 * std::f64::consts::PI;
     let chiff = chiff_scale.max(0.0) as f64;
 
-    let low_bass_boost = (1.0 + 0.42 * (180.0 / f0.max(16.0)).log2().max(0.0)).clamp(1.0, 2.10);
+    // Boost the fundamental in the deep pedal and manual bass register (< 180 Hz)
+    let low_bass_boost = (1.0 + 0.38 * (180.0 / f0.max(16.0)).log2().max(0.0)).clamp(1.0, 1.95);
 
     let mut partials: Vec<(f64, f64, f64, f64, f64, f64)> = Vec::with_capacity(BOURDON_PARTIALS.len());
     let mut base_sum = 0.0;
@@ -1875,17 +2153,17 @@ pub fn render_bourdon_flue(
         } else {
             base_a
         };
-        // Deep wooden cavity resonance (~95 Hz & ~240 Hz)
+        // Deep wooden cavity resonance (~95 Hz & ~260 Hz)
         let d_sub = (pf / 95.0).log2() / 1.3;
-        let d_wood = (pf / 240.0).log2() / 1.1;
-        amp *= (1.0 + 0.45 * (-d_sub * d_sub).exp()) * (1.0 + 0.28 * (-d_wood * d_wood).exp());
-        // Thick wooden pipe wall damping above 1100 Hz
+        let d_wood = (pf / 260.0).log2() / 1.1;
+        amp *= (1.0 + 0.42 * (-d_sub * d_sub).exp()) * (1.0 + 0.30 * (-d_wood * d_wood).exp());
+        // Thick wooden pipe wall damping above 1100 Hz (3rd-order low-pass roll-off)
         let r = pf / 1100.0;
         amp /= 1.0 + r * r * r;
 
         partials.push((k, amp, phase_off, rate, depth, 0.73 * i as f64 + 0.35));
     }
-    let norm = 0.68 / base_sum.max(1e-6);
+    let norm = 0.66 / base_sum.max(1e-6);
 
     let mut breath_low = NoiseResonator::new(f0.max(20.0), (f0 * 0.30).max(8.0), sr);
     let mut rng: u32 = ((f0 * 100.0) as u32) ^ 0xB002_D016;
@@ -1967,7 +2245,7 @@ pub fn render_open_wood_bass(
     let nyquist = sr * 0.5;
     let two_pi = 2.0 * std::f64::consts::PI;
     let chiff = chiff_scale.max(0.0) as f64;
-    let bass_boost = (1.0 + 0.40 * (200.0 / f0.max(16.0)).log2().max(0.0)).clamp(1.0, 2.0);
+    let bass_boost = (1.0 + 0.36 * (200.0 / f0.max(16.0)).log2().max(0.0)).clamp(1.0, 1.90);
 
     let mut partials = Vec::with_capacity(OPEN_WOOD_PARTIALS.len());
     let mut base_sum = 0.0;
@@ -1978,13 +2256,14 @@ pub fn render_open_wood_bass(
         }
         base_sum += a;
         let mut amp = if k <= 2.0 { a * bass_boost } else { a };
+        // Warm timber chest (~120 Hz) and midrange body (~310 Hz)
         let d_chest = (pf / 120.0).log2() / 1.25;
-        let d_mid = (pf / 290.0).log2() / 1.15;
-        amp *= (1.0 + 0.44 * (-d_chest * d_chest).exp()) * (1.0 + 0.32 * (-d_mid * d_mid).exp());
-        amp /= 1.0 + (pf / 1650.0).powi(2);
+        let d_mid = (pf / 310.0).log2() / 1.15;
+        amp *= (1.0 + 0.42 * (-d_chest * d_chest).exp()) * (1.0 + 0.34 * (-d_mid * d_mid).exp());
+        amp /= 1.0 + (pf / 1550.0).powi(2);
         partials.push((k, amp, phase_off, rate, depth, 0.67 * i as f64 + 0.2));
     }
-    let norm = 0.66 / base_sum.max(1e-6);
+    let norm = 0.64 / base_sum.max(1e-6);
 
     let mut breath_low = NoiseResonator::new(f0.max(20.0), (f0 * 0.28).max(8.0), sr);
     let mut rng: u32 = ((f0 * 100.0) as u32) ^ 0x09E4_800D;
@@ -2034,15 +2313,9 @@ pub fn render_open_wood_bass(
 ///   noise (one-pole low-pass, 22-46 Hz), producing narrow sidebands that hug each partial. Upper
 ///   partials flutter more than the fundamental, giving a soft, breathing, unstable-jet quality.
 /// - **Harmonic breath halo:** two very narrow noise bands (bandwidth ~6% of centre) locked to the
-///   stop's characteristic harmonics, mixed about 30 dB below the tone so they read as pitched breath.
-/// - **Onset puff:** a short (30 ms) band-limited breath that speaks just ahead of the tone.
-///
-/// Each of the 5 stops keeps a distinct organological harmonic architecture:
-/// 1. `Harmonic Flute 8'` (40): Double-length overblown metal concert flute (`2f0 = 0.72`, `4.8 Hz` breath vibrato).
-/// 2. `Hohlflöte 8'` (41): Wide hollow triangular wood flute (suppressed `2f0 = 0.06`, strong odd `3f0 = 0.52`, `5f0 = 0.18`).
-/// 3. `Melodia 8'` (42): Romantic open wood solo flute (pure even harmonics `2f0 = 0.56`, `4f0 = 0.22`, suppressed `3f0 = 0.03`, slow `42 ms` scoop bloom).
-/// 4. `Flauto Dolce 8'` (43): Whisper-soft inverted-conical chamber flute (`pp` level, `+0.55 Hz` twin-pipe Unda-Maris shimmer, strongest breath flutter).
-/// 5. `Rohrflöte 8'` (44): Metal chimney flute (stopped body + open chimney resonating the 5th harmonic `5f0 = 0.46 > 3f0 = 0.24`).
+///   stop's characteristic harmonics, mixed about 38 dB below the tone so they read as pitched breath.
+/// - **Warm Midrange Voicing:** formants are centered in the warm `360-520 Hz` midrange and high-frequency
+///   cutoffs are lowered to `1850-2500 Hz` so the flutes never sound overly bright or piercing.
 pub fn render_soft_flute(
     freq: f64,
     pitch_ratio: f64,
@@ -2056,43 +2329,43 @@ pub fn render_soft_flute(
     // Tuple: (harmonic_k, base_amplitude, phase_offset_rad, onset_chime_boost)
     const HARMONIC_FLUTE_SPEC: &[(f64, f64, f64, f64)] = &[
         (1.0, 0.780, 0.00, 0.00), // Light, airy fundamental (double-length pipe node)
-        (2.0, 0.720, 1.30, 0.45), // Dominant overblown 2nd harmonic (concert flute singing node)
-        (3.0, 0.260, 2.50, 0.20), // Shimmering silver 3rd partial
-        (4.0, 0.180, 0.85, 0.15), // Bright open-metal 4th partial
-        (5.0, 0.075, 1.95, 0.05),
-        (6.0, 0.035, 2.90, 0.00),
+        (2.0, 0.760, 1.30, 0.35), // Dominant overblown 2nd harmonic (concert flute singing node)
+        (3.0, 0.220, 2.50, 0.15), // Warm silver 3rd partial
+        (4.0, 0.130, 0.85, 0.10), // Gentle 4th partial
+        (5.0, 0.045, 1.95, 0.04),
+        (6.0, 0.018, 2.90, 0.00),
     ];
     const HOHLFLOTE_SPEC: &[(f64, f64, f64, f64)] = &[
         (1.0, 0.840, 0.00, 0.00), // Hollow wide-mouth wooden fundamental
-        (2.0, 0.060, 1.45, 0.00), // Strongly suppressed even harmonic (wide triangular cut-up)
-        (3.0, 0.520, 2.65, 0.50), // Prominent hollow wooden twelfth ("kuh" cavity resonance)
-        (4.0, 0.022, 0.90, 0.00), // Suppressed 4th harmonic
-        (5.0, 0.180, 2.10, 0.22), // Woody odd 5th harmonic
-        (7.0, 0.045, 0.55, 0.08),
+        (2.0, 0.055, 1.45, 0.00), // Strongly suppressed even harmonic (wide triangular cut-up)
+        (3.0, 0.520, 2.65, 0.35), // Prominent hollow wooden twelfth ("kuh" cavity resonance)
+        (4.0, 0.018, 0.90, 0.00), // Suppressed 4th harmonic
+        (5.0, 0.145, 2.10, 0.16), // Woody odd 5th harmonic
+        (7.0, 0.028, 0.55, 0.05),
     ];
     const MELODIA_SPEC: &[(f64, f64, f64, f64)] = &[
         (1.0, 0.820, 0.00, 0.00), // Liquid open-wood solo fundamental
-        (2.0, 0.560, 1.20, 0.15), // Pure romantic even-harmonic octave sweetness
-        (3.0, 0.032, 2.40, 0.00), // Deeply suppressed odd 3rd (inverted-lip smooth wood profile)
-        (4.0, 0.220, 0.70, 0.08), // Silky double-octave
-        (5.0, 0.012, 1.80, 0.00),
-        (6.0, 0.070, 2.60, 0.00),
+        (2.0, 0.560, 1.20, 0.12), // Pure romantic even-harmonic octave sweetness
+        (3.0, 0.028, 2.40, 0.00), // Deeply suppressed odd 3rd (inverted-lip smooth wood profile)
+        (4.0, 0.180, 0.70, 0.06), // Silky double-octave
+        (5.0, 0.010, 1.80, 0.00),
+        (6.0, 0.045, 2.60, 0.00),
     ];
     const FLAUTO_DOLCE_SPEC: &[(f64, f64, f64, f64)] = &[
         (1.0, 0.760, 0.00, 0.00), // Delicate whisper-light fundamental
-        (2.0, 0.280, 1.35, 0.12), // Gentle inverted-conical Dolcan octave
-        (3.0, 0.150, 2.55, 0.10), // Soft chamber twelfth
-        (4.0, 0.085, 0.95, 0.06), // Airy upper shimmer
-        (5.0, 0.040, 2.15, 0.04),
+        (2.0, 0.270, 1.35, 0.10), // Gentle inverted-conical Dolcan octave
+        (3.0, 0.130, 2.55, 0.08), // Soft chamber twelfth
+        (4.0, 0.065, 0.95, 0.04), // Warm upper shimmer
+        (5.0, 0.025, 2.15, 0.02),
     ];
     const ROHRFLOTE_SPEC: &[(f64, f64, f64, f64)] = &[
         (1.0, 0.800, 0.00, 0.00), // Stopped metal body fundamental
-        (2.0, 0.040, 1.15, 0.00), // Cancelled even 2nd harmonic
-        (3.0, 0.240, 2.35, 0.18), // Moderate stopped twelfth
-        (4.0, 0.018, 0.65, 0.00), // Cancelled even 4th harmonic
-        (5.0, 0.460, 1.85, 0.65), // Signature open-chimney 5th harmonic (louder than 3rd!)
-        (6.0, 0.015, 2.75, 0.00),
-        (7.0, 0.140, 0.95, 0.25), // Sparkling chimney 7th partial
+        (2.0, 0.036, 1.15, 0.00), // Cancelled even 2nd harmonic
+        (3.0, 0.210, 2.35, 0.14), // Moderate stopped twelfth
+        (4.0, 0.015, 0.65, 0.00), // Cancelled even 4th harmonic
+        (5.0, 0.480, 1.85, 0.45), // Signature open-chimney 5th harmonic (louder than 3rd!)
+        (6.0, 0.012, 2.75, 0.00),
+        (7.0, 0.095, 0.95, 0.16), // Warm chimney 7th partial
     ];
 
     // Variant parameters:
@@ -2114,71 +2387,71 @@ pub fn render_soft_flute(
     ) = match variant {
         SoftFluteVariant::HarmonicFlute => (
             HARMONIC_FLUTE_SPEC,
-            720.0,
-            4600.0,
-            0.44,
+            460.0,  // Warm midrange concert-flute body formant
+            2250.0, // Smooth upper roll-off (eliminates harsh treble brightness)
+            0.40,
             0.022,
-            2.0,   // Overblown octave node breath halo
-            4.0,   // Silver upper-octave breath halo
+            2.0,    // Overblown octave node breath halo
+            3.0,    // Gentle twelfth breath halo
             0.24,
-            0.012,
-            0.040,
+            0.010,
+            0.032,
             0.30,
             -2.8,
         ),
         SoftFluteVariant::Hohlflote => (
             HOHLFLOTE_SPEC,
-            480.0,
-            3200.0,
-            0.45,
+            360.0,  // Deep hollow triangular-wood midrange formant
+            1950.0, // Dark, woody high-frequency roll-off
+            0.41,
             0.020,
-            3.0,   // Hollow wooden twelfth cavity halo
-            5.0,   // Woody odd-harmonic halo
+            3.0,    // Hollow wooden twelfth cavity halo
+            5.0,    // Woody odd-harmonic halo
             0.22,
-            0.012,
-            0.045,
+            0.010,
+            0.036,
             0.35,
             -1.8,
         ),
         SoftFluteVariant::Melodia => (
             MELODIA_SPEC,
-            580.0,
-            3600.0,
-            0.44,
-            0.042, // Slow, cushioned romantic bloom
-            2.0,   // Open wood octave halo
-            4.0,   // Silky double-octave halo
+            410.0,  // Liquid open-wood midrange formant
+            2050.0, // Warm romantic wood roll-off
+            0.40,
+            0.042,  // Slow, cushioned romantic bloom
+            2.0,    // Open wood octave halo
+            4.0,    // Silky double-octave halo
             0.20,
-            0.010,
-            0.032,
+            0.009,
+            0.028,
             0.25,
-            -4.2,  // Expressive romantic pitch scoop on attack
+            -4.2,   // Expressive romantic pitch scoop on attack
         ),
         SoftFluteVariant::FlautoDolce => (
             FLAUTO_DOLCE_SPEC,
-            640.0,
-            4200.0,
-            0.35,  // Ethereal pp chamber level
+            390.0,  // Intimate chamber-flute midrange warmth
+            1850.0, // Soft, velvety upper roll-off
+            0.32,   // Ethereal pp chamber level
             0.032,
-            2.0,   // Gentle Dolcan octave halo
-            3.0,   // Soft chamber twelfth halo
-            0.30,  // Strongest breath flutter for intimate airiness
-            0.014,
-            0.036,
+            2.0,    // Gentle Dolcan octave halo
+            3.0,    // Soft chamber twelfth halo
+            0.30,   // Strongest breath flutter for intimate airiness
+            0.011,
+            0.030,
             0.30,
             -1.5,
         ),
         SoftFluteVariant::Rohrflote => (
             ROHRFLOTE_SPEC,
-            820.0,
-            4800.0,
-            0.43,
-            0.018, // Crisp, articulate Baroque chimney speech
-            5.0,   // Open chimney 5th-harmonic halo
-            3.0,   // Stopped-body twelfth halo
+            520.0,  // Warm chimney-flute midrange resonance
+            2500.0, // Preserves the 5th-harmonic chimney chime while rolling off harshness above 2.5 kHz
+            0.39,
+            0.018,  // Articulate Baroque chimney speech
+            5.0,    // Open chimney 5th-harmonic halo
+            3.0,    // Stopped-body twelfth halo
             0.22,
-            0.011,
-            0.045,
+            0.010,
+            0.036,
             0.30,
             -1.2,
         ),
@@ -2207,9 +2480,10 @@ pub fn render_soft_flute(
         base_sum += a;
         let mut amp = if (k - 1.0).abs() < 0.1 { a * bass_tame } else { a };
 
-        // Gentle pipe-body formant without heavy low-frequency mud
-        let d_form = (pf / formant_hz).log2() / 1.20;
-        amp *= 1.0 + 0.24 * (-d_form * d_form).exp();
+        // Warm midrange pipe-body formant (centered at 360-520 Hz)
+        let d_form = (pf / formant_hz).log2() / 1.15;
+        amp *= 1.0 + 0.30 * (-d_form * d_form).exp();
+        // Smooth 2nd-order low-pass roll-off above cutoff_hz (1850-2500 Hz)
         amp /= 1.0 + (pf / cutoff_hz).powi(2);
 
         let rate = 0.33 + 0.17 * i as f64;
@@ -2241,15 +2515,15 @@ pub fn render_soft_flute(
     let mut flutter_state = vec![0.0f64; partials.len()];
 
     // Harmonic Breath Halo: very narrow noise bands locked to two characteristic harmonics.
-    // Because the bandwidth is only ~6% of the centre frequency, the noise is perceived as a
-    // soft pitched breath surrounding the tone rather than as broadband hiss.
-    let halo_a_hz = (f0 * halo_mult_a).min(nyquist * 0.80);
-    let halo_b_hz = (f0 * halo_mult_b).min(nyquist * 0.80);
+    // Because the bandwidth is only ~6% of the centre frequency (and capped at 2200 Hz), the noise
+    // is perceived as a soft pitched breath surrounding the tone rather than as broadband hiss.
+    let halo_a_hz = (f0 * halo_mult_a).min(2200.0).min(nyquist * 0.80);
+    let halo_b_hz = (f0 * halo_mult_b).min(2400.0).min(nyquist * 0.80);
     let mut halo_a = NoiseResonator::new(halo_a_hz, (halo_a_hz * 0.06).max(6.0), sr);
     let mut halo_b = NoiseResonator::new(halo_b_hz, (halo_b_hz * 0.06).max(6.0), sr);
     // Soft onset puff: a short, moderately band-limited breath that precedes the tone on key-down
-    let puff_hz = (f0 * halo_mult_a).clamp(300.0, nyquist * 0.6);
-    let mut puff = NoiseResonator::new(puff_hz, puff_hz * 0.35, sr);
+    let puff_hz = (f0 * halo_mult_a).clamp(260.0, 1800.0).min(nyquist * 0.6);
+    let mut puff = NoiseResonator::new(puff_hz, puff_hz * 0.32, sr);
 
     let mut rng: u32 = ((f0 * 100.0) as u32) ^ (variant as u32 + 1).wrapping_mul(0x7F4A_7C15);
     if rng == 0 {
@@ -2412,7 +2686,9 @@ pub fn render_clarinet_pipe(
         let attack_samples = (tau_ms * 0.001 * sr).max(1.0);
         partials.push((k, amp, phase_off, attack_samples, rate, depth, 0.83 * i as f64 + 0.4));
     }
-    let norm = 0.84 / amp_sum.max(1e-6);
+    // Scale Clarinet 4' (pitch_ratio = 2.0) slightly gentler than Clarinet 8' so 4' never sounds piercing
+    let footage_scale = if pitch_ratio > 1.5 { 0.72 } else { 0.84 };
+    let norm = footage_scale / amp_sum.max(1e-6);
 
     // Reed-aperture air breath filtered at cylindrical pipe resonances (f0 and 3*f0)
     let mut breath_f0 = NoiseResonator::new(f0, (f0 * 0.30).max(12.0), sr);
@@ -2433,7 +2709,6 @@ pub fn render_clarinet_pipe(
         (rng as f64 / u32::MAX as f64) * 2.0 - 1.0
     };
 
-    // Subtle reed-tongue onset articulation and woody 3rd-harmonic bloom
     let mut onset_cents = -3.0f64;
     let onset_decay = (-1.0 / (0.016 * sr)).exp();
     let woody_bloom_decay = (-1.0 / (0.032 * sr)).exp();
@@ -2485,14 +2760,12 @@ pub fn render_clarinet_pipe(
 /// Tuple: (harmonic_k, amplitude, phase_offset_rad, drift_rate_hz, drift_depth).
 pub const SALICIONAL_CELESTE_PARTIALS: &[(f64, f64, f64, f64, f64)] = &[
     (1.0, 1.000, 0.00, 0.27, 0.014), // Warm 8' flue-string foundation
-    (2.0, 0.620, 1.25, 0.39, 0.020), // Singing 4' octave warmth
-    (3.0, 0.310, 2.60, 0.51, 0.025), // Gentle 2-2/3' vocal twelfth
-    (4.0, 0.155, 0.75, 0.64, 0.030), // Silky 2' fifteenth
-    (5.0, 0.076, 2.95, 0.77, 0.034), // Soft spotted-metal string-flue sheen
-    (6.0, 0.038, 1.65, 0.89, 0.038),
-    (7.0, 0.018, 0.40, 1.02, 0.042),
-    (8.0, 0.008, 2.15, 1.14, 0.045),
-    (9.0, 0.004, 1.05, 1.26, 0.045),
+    (2.0, 0.560, 1.25, 0.39, 0.020), // Singing 4' octave warmth
+    (3.0, 0.250, 2.60, 0.51, 0.025), // Gentle 2-2/3' vocal twelfth
+    (4.0, 0.115, 0.75, 0.64, 0.030), // Silky 2' fifteenth
+    (5.0, 0.048, 2.95, 0.77, 0.034), // Soft spotted-metal string-flue sheen
+    (6.0, 0.020, 1.65, 0.89, 0.038),
+    (7.0, 0.008, 0.40, 1.02, 0.042),
 ];
 
 /// Rank II of Voix Céleste 8': Undulating Unda Maris / Céleste 8' companion pipe.
@@ -2501,13 +2774,11 @@ pub const SALICIONAL_CELESTE_PARTIALS: &[(f64, f64, f64, f64, f64)] = &[
 /// a 100% comb-filter phaser cancellation notch.
 pub const UNDA_MARIS_CELESTE_PARTIALS: &[(f64, f64, f64, f64, f64)] = &[
     (1.0, 1.000, 0.95, 0.33, 0.016),
-    (2.0, 0.560, 2.45, 0.46, 0.022),
-    (3.0, 0.265, 0.55, 0.58, 0.027),
-    (4.0, 0.125, 1.90, 0.71, 0.032),
-    (5.0, 0.058, 0.30, 0.84, 0.036),
-    (6.0, 0.026, 2.75, 0.96, 0.040),
-    (7.0, 0.011, 1.40, 1.09, 0.044),
-    (8.0, 0.005, 2.90, 1.21, 0.046),
+    (2.0, 0.510, 2.45, 0.46, 0.022),
+    (3.0, 0.215, 0.55, 0.58, 0.027),
+    (4.0, 0.095, 1.90, 0.71, 0.032),
+    (5.0, 0.038, 0.30, 0.84, 0.036),
+    (6.0, 0.015, 2.75, 0.96, 0.040),
 ];
 
 /// Renders a single open flue-string pipe for the Voix Céleste ensemble.
@@ -2536,7 +2807,7 @@ fn render_celeste_flue_rank(
     let two_pi = 2.0 * std::f64::consts::PI;
     let chiff = chiff_scale.max(0.0) as f64;
 
-    let bass_tilt = (1.0 + 0.20 * (261.63 / f0).log2()).clamp(0.75, 1.38);
+    let bass_tilt = (1.0 + 0.18 * (261.63 / f0).log2()).clamp(0.72, 1.32);
 
     let mut partials: Vec<(f64, f64, f64, f64, f64, f64)> = Vec::with_capacity(partials_spec.len());
     let mut amp_sum = 0.0;
@@ -2549,24 +2820,24 @@ fn render_celeste_flue_rank(
         if k >= 2.0 {
             amp *= bass_tilt;
         }
-        // Warm vocal open-flue mouth radiation formant (~780 Hz)
-        let d_mouth = (pf / 780.0).log2() / 1.1;
-        amp *= 1.0 + 0.28 * (-d_mouth * d_mouth).exp();
+        // Warm vocal midrange open-flue mouth radiation formant (~420 Hz)
+        let d_mouth = (pf / 420.0).log2() / 1.15;
+        amp *= 1.0 + 0.34 * (-d_mouth * d_mouth).exp();
 
-        // Smooth open flue wall dissipation above 2800 Hz (eliminates synth sawtooth buzz)
-        amp /= 1.0 + (pf / 2800.0).powi(2);
+        // Smooth open flue wall dissipation above 1850 Hz (warm, velvety, never overly bright)
+        amp /= 1.0 + (pf / 1850.0).powi(2);
 
         amp_sum += amp;
         let lfo_phase = (0.71 * i as f64 + (seed_salt & 0xFF) as f64 * 0.09) % two_pi;
         partials.push((k, amp, phase_off, rate, depth, lfo_phase));
     }
-    let norm = (0.86 * gain) / amp_sum.max(1e-6);
+    let norm = (0.74 * gain) / amp_sum.max(1e-6);
 
     // Soft open-flue air-column breath resonators
     let mut breath_low = NoiseResonator::new(f0, (f0 * 0.28).max(10.0), sr);
-    let mouth_center = (f0 * 2.0).min(850.0);
+    let mouth_center = (f0 * 2.0).min(720.0);
     let mut breath_mouth = if mouth_center < nyquist * 0.88 {
-        Some(NoiseResonator::new(mouth_center, (mouth_center * 0.40).max(25.0), sr))
+        Some(NoiseResonator::new(mouth_center, (mouth_center * 0.36).max(20.0), sr))
     } else {
         None
     };
@@ -2584,8 +2855,8 @@ fn render_celeste_flue_rank(
 
     let spit_decay = (-1.0 / (0.032 * sr)).exp();
     let mut spit_env = 1.0f64;
-    let spit_level = (0.025 + 0.16 * chiff) * gain;
-    let hiss_level = 0.006 * gain;
+    let spit_level = (0.018 + 0.12 * chiff) * gain;
+    let hiss_level = 0.005 * gain;
 
     let step = f0 / sr;
     let mut phase = ((seed_salt as f64) * 0.000_137).fract();
@@ -2610,7 +2881,7 @@ fn render_celeste_flue_rank(
         let white = next_noise();
         let mut breath = 0.65 * breath_low.process(white);
         if let Some(res) = breath_mouth.as_mut() {
-            breath += 0.40 * res.process(white);
+            breath += 0.35 * res.process(white);
         }
         let noise = breath * (hiss_level + spit_level * spit_env) * env;
 
@@ -2686,10 +2957,10 @@ pub fn render_voix_celeste(
 /// Specification of one open diapason / principal rank inside the Cathedral Principal Chorus:
 /// (pitch_ratio, rank_gain, detune_cents, attack_seconds, seed_salt).
 pub const PRINCIPAL_CHORUS_RANKS: &[(f64, f64, f64, f64, u32)] = &[
-    (1.0, 0.52,  0.0, 0.018, 0x1111_8008), // Open Diapason / Montre 8' (noble foundation)
-    (2.0, 0.36,  1.2, 0.014, 0x2222_4004), // Octave / Prestant 4' (singing octave clarity)
-    (3.0, 0.20, -1.0, 0.012, 0x3333_2667), // Twelfth / Quinte 2-2/3' (harmonic chorus binding)
-    (4.0, 0.25,  1.6, 0.010, 0x4444_2002), // Super Octave / Fifteenth 2' (silvery crown)
+    (1.0, 0.56,  0.0, 0.018, 0x1111_8008), // Open Diapason / Montre 8' (noble foundation)
+    (2.0, 0.34,  1.2, 0.014, 0x2222_4004), // Octave / Prestant 4' (singing octave clarity)
+    (3.0, 0.18, -1.0, 0.012, 0x3333_2667), // Twelfth / Quinte 2-2/3' (harmonic chorus binding)
+    (4.0, 0.20,  1.6, 0.010, 0x4444_2002), // Super Octave / Fifteenth 2' (warm silvery crown)
 ];
 
 /// Renders a single Open Diapason / Principal rank with custom tuning dispersion, speech time,
@@ -2713,7 +2984,7 @@ fn render_principal_chorus_rank(
     let two_pi = 2.0 * std::f64::consts::PI;
     let chiff = chiff_scale.max(0.0) as f64;
 
-    let bass_tilt = (1.0 + 0.22 * (261.63 / f0).log2()).clamp(0.75, 1.45);
+    let bass_tilt = (1.0 + 0.20 * (261.63 / f0).log2()).clamp(0.72, 1.40);
     let phase_rot = ((seed_salt & 0xFFFF) as f64 / 65535.0) * two_pi;
 
     let mut partials: Vec<(f64, f64, f64, f64, f64, f64)> = Vec::with_capacity(DIAPASON_PARTIALS.len());
@@ -2727,26 +2998,27 @@ fn render_principal_chorus_rank(
         if k >= 2.0 {
             amp *= bass_tilt;
         }
-        // Warm low-midrange open body (~160 Hz & ~340 Hz) + anti-nasal scoop (~920 Hz)
+        // Warm low-midrange open body (~160 Hz & ~360 Hz) + anti-nasal scoop (~920 Hz)
         let d_sub = (pf / 160.0).log2() / 1.25;
-        let d_mid = (pf / 340.0).log2() / 1.15;
+        let d_mid = (pf / 360.0).log2() / 1.15;
         let d_nasal = (pf / 920.0).log2() / 0.72;
-        let formant_gain = (1.0 + 0.36 * (-d_sub * d_sub).exp())
-            * (1.0 + 0.30 * (-d_mid * d_mid).exp())
-            * (1.0 - 0.16 * (-d_nasal * d_nasal).exp());
+        let formant_gain = (1.0 + 0.34 * (-d_sub * d_sub).exp())
+            * (1.0 + 0.36 * (-d_mid * d_mid).exp())
+            * (1.0 - 0.18 * (-d_nasal * d_nasal).exp());
         amp *= formant_gain;
-        amp /= 1.0 + (pf / 3800.0).powi(2);
+        // Warm 2400 Hz chorus roll-off prevents the 4-rank plenum from sounding piercing
+        amp /= 1.0 + (pf / 2400.0).powi(2);
 
         amp_sum += amp;
         let lfo_phase = (0.65 * i as f64 + phase_rot) % two_pi;
         partials.push((k, amp, phase_off + phase_rot, rate, depth, lfo_phase));
     }
-    let norm = (0.88 * gain) / amp_sum.max(1e-6);
+    let norm = (0.80 * gain) / amp_sum.max(1e-6);
 
     let mut breath_low = NoiseResonator::new(f0, (f0 * 0.25).max(10.0), sr);
-    let breath_center = (f0 * 2.0).min(900.0);
+    let breath_center = (f0 * 2.0).min(800.0);
     let mut breath_mid = if breath_center < nyquist * 0.9 {
-        Some(NoiseResonator::new(breath_center, (breath_center * 0.40).max(25.0), sr))
+        Some(NoiseResonator::new(breath_center, (breath_center * 0.38).max(22.0), sr))
     } else {
         None
     };
@@ -2764,9 +3036,9 @@ fn render_principal_chorus_rank(
 
     let spit_decay = (-1.0 / (0.028 * sr)).exp();
     let edge_decay = (-1.0 / (0.013 * sr)).exp();
-    let spit_level = (0.032 + 0.22 * chiff) * gain;
-    let edge_level = (0.012 + 0.08 * chiff) * gain;
-    let hiss_level = 0.007 * gain;
+    let spit_level = (0.026 + 0.18 * chiff) * gain;
+    let edge_level = (0.008 + 0.06 * chiff) * gain;
+    let hiss_level = 0.006 * gain;
 
     let step = f0 / sr;
     let mut phase = ((seed_salt >> 16) as f64 / 65536.0).fract();
@@ -2790,7 +3062,7 @@ fn render_principal_chorus_rank(
         let white = next_noise();
         let mut breath = 0.65 * breath_low.process(white);
         if let Some(res) = breath_mid.as_mut() {
-            breath += 0.45 * res.process(white);
+            breath += 0.40 * res.process(white);
         }
         let edge = (white - prev_white) * edge_level * edge_env;
         prev_white = white;
@@ -2820,9 +3092,9 @@ pub fn render_principal_chorus(
         return;
     }
     for (idx, &(base_ratio, gain, detune_cents, attack_s, seed_salt)) in PRINCIPAL_CHORUS_RANKS.iter().enumerate() {
-        // Classical organ break logic: fold upper chorus ranks down an octave when exceeding 5500 Hz
+        // Classical organ break logic: fold upper chorus ranks down an octave when exceeding 3600 Hz
         let mut ratio = base_ratio;
-        while ratio * freq > 5500.0 && ratio > 1.0 {
+        while ratio * freq > 3600.0 && ratio > 1.0 {
             ratio *= 0.5;
         }
         let detune_factor = (detune_cents * (std::f64::consts::LN_2 / 1200.0)).exp();
@@ -2889,9 +3161,9 @@ mod tests {
 
         assert!(out.iter().all(|s| s.is_finite()));
         let peak = out.iter().fold(0.0f32, |m, v| m.max(v.abs()));
-        assert!(peak < 1.5, "Onset peak must stay bounded, got {peak}");
+        assert!(peak < 1.2, "Onset peak must stay bounded and soft, got {peak}");
         let steady_peak = out[11025..].iter().fold(0.0f32, |m, v| m.max(v.abs()));
-        assert!(steady_peak < 1.0, "Steady-state peak must leave headroom, got {steady_peak}");
+        assert!(steady_peak < 0.85, "Steady-state peak must be mellow and leave headroom, got {steady_peak}");
 
         let window = &out[11025..21025];
         let m1 = tone_magnitude(window, 441.0, 44100.0);
@@ -2900,10 +3172,12 @@ mod tests {
         let m4 = tone_magnitude(window, 1764.0, 44100.0);
         let m5 = tone_magnitude(window, 2205.0, 44100.0);
 
-        assert!(m1 > 5.0 * m3, "Fundamental must dominate: m1={m1}, m3={m3}");
-        assert!(m3 > 0.08 * m1, "Third partial must be audible: m1={m1}, m3={m3}");
+        // Mellow stopped square-wooden Holzgedeckt: fundamental strongly dominates (m1 > 8.0 * m3),
+        // odd 3rd partial is gentle and flutey (not nasally), and odd partials dominate suppressed even ones.
+        assert!(m1 > 8.0 * m3, "Fundamental must strongly dominate for mellow flutey Gedeckt: m1={m1}, m3={m3}");
+        assert!(m3 > 0.025 * m1, "Third partial must provide gentle stopped-wood twelfth color: m1={m1}, m3={m3}");
         assert!(m3 > 3.0 * m2.max(m4), "Odd partials must dominate even ones: m2={m2}, m3={m3}, m4={m4}");
-        assert!(m3 > m5, "Partials must fall away with height: m3={m3}, m5={m5}");
+        assert!(m3 > 4.0 * m5, "Partials must fall away steeply with height: m3={m3}, m5={m5}");
     }
 
     #[test]
@@ -3073,7 +3347,7 @@ mod tests {
         assert!(m_tierce > 0.01, "Cornet 1-3/5' tierce rank missing: {m_tierce}");
 
         // 2. Mixture IV (stop 15) breaks test at treble notes
-        // At high key pitch (e.g. 1500 Hz), ranks above 6500 Hz must break down by octaves
+        // At high key pitch (e.g. 1500 Hz), ranks above 3200 Hz must break down by octaves
         let mut mix_out = vec![0.0f32; 4410];
         render_stop_into(15, 1500.0, 44100, &mut mix_out, &sine_lut, &wind, 0.2);
         assert!(mix_out.iter().all(|s| s.is_finite()));
@@ -3156,7 +3430,7 @@ mod tests {
 
         assert!(out.iter().all(|s| s.is_finite()));
         let peak = out.iter().fold(0.0f32, |m, v| m.max(v.abs()));
-        assert!(peak > 0.15 && peak < 1.5, "Voix Celeste peak out of range: {peak}");
+        assert!(peak > 0.12 && peak < 1.5, "Voix Celeste peak out of range: {peak}");
 
         // Spectral verification: warm open-flue foundation (1st & 2nd harmonics dominate, high buzz suppressed)
         let window = &out[22050..32050];
@@ -3171,7 +3445,7 @@ mod tests {
         // Every 100 ms window after speech onset must retain substantial RMS energy.
         for chunk in out[4410..].chunks_exact(4410) {
             let rms = (chunk.iter().map(|s| s * s).sum::<f32>() / 4410.0).sqrt();
-            assert!(rms > 0.04, "Voix Celeste suffered deep comb-filter cancellation notch: rms={rms}");
+            assert!(rms > 0.035, "Voix Celeste suffered deep comb-filter cancellation notch: rms={rms}");
         }
     }
 
@@ -3190,7 +3464,7 @@ mod tests {
         render_stop_into(32, 220.5, 44100, &mut out, &sine_lut, &wind, 0.2);
         assert!(out.iter().all(|s| s.is_finite()));
         let peak = out.iter().fold(0.0f32, |m, v| m.max(v.abs()));
-        assert!(peak > 0.20 && peak < 2.0, "Principal Chorus peak out of bounds: {peak}");
+        assert!(peak > 0.18 && peak < 2.0, "Principal Chorus peak out of bounds: {peak}");
 
         let window = &out[11025..21025];
         let m_8 = tone_magnitude(window, 220.5, 44100.0);
@@ -3199,9 +3473,9 @@ mod tests {
         let m_fifteenth = tone_magnitude(window, 882.0, 44100.0);
 
         assert!(m_8 > 0.08, "Principal Chorus 8' foundation rank missing: {m_8}");
-        assert!(m_4 > 0.06, "Principal Chorus 4' octave rank missing: {m_4}");
-        assert!(m_twelfth > 0.03, "Principal Chorus 2-2/3' twelfth rank missing: {m_twelfth}");
-        assert!(m_fifteenth > 0.03, "Principal Chorus 2' fifteenth rank missing: {m_fifteenth}");
+        assert!(m_4 > 0.05, "Principal Chorus 4' octave rank missing: {m_4}");
+        assert!(m_twelfth > 0.025, "Principal Chorus 2-2/3' twelfth rank missing: {m_twelfth}");
+        assert!(m_fifteenth > 0.025, "Principal Chorus 2' fifteenth rank missing: {m_fifteenth}");
 
         // Verify high-treble octave break protection at 2000 Hz
         let mut high_out = vec![0.0f32; 4410];
@@ -3289,7 +3563,7 @@ mod tests {
         let r2 = tone_magnitude(w_rohr, 882.0, 44100.0);
         let r3 = tone_magnitude(w_rohr, 1323.0, 44100.0);
         let r5 = tone_magnitude(w_rohr, 2205.0, 44100.0);
-        assert!(r5 > 1.2 * r3 && r5 > 5.0 * r2, "Rohrflöte 8' chimney 5th harmonic must dominate: r5={r5}, r3={r3}, r2={r2}");
+        assert!(r5 > 1.15 * r3 && r5 > 5.0 * r2, "Rohrflöte 8' chimney 5th harmonic must dominate: r5={r5}, r3={r3}, r2={r2}");
 
         // 3. Verify Diapason 8' (11) has bold Principal authority & upper chorus far stronger than Rohrflöte 8' (44)
         let mut diap = vec![0.0f32; 22050];
@@ -3304,5 +3578,59 @@ mod tests {
             "Diapason 8' Principal chorus harmonics must be much stronger than Rohrflöte 8': d_upper={d_upper}, r_upper={r_upper}"
         );
     }
-}
 
+    #[test]
+    fn test_new_trumpet_stops_and_mellow_gedeckt_voicing() {
+        let sine_lut = SineLut::new();
+        let wind = vec![0.0f32; 22050];
+
+        // 1. Verify all 6 new Trumpet stops (45..=50) render rich, finite brass waveforms
+        //    with strong fundamental and conical brass harmonics (2nd, 3rd, 4th partials)
+        let expected_names = [
+            (45, "Trumpet 8'"),
+            (46, "Trompette Harmonique 8'"),
+            (47, "Orchestral Trumpet 8'"),
+            (48, "State Trumpet 8'"),
+            (49, "Cornopean 8'"),
+            (50, "Trompette 4'"),
+        ];
+        for &(id, name) in &expected_names {
+            assert_eq!(STOP_DEFINITIONS[id as usize].id, id);
+            assert_eq!(STOP_DEFINITIONS[id as usize].name, name);
+
+            let mut out = vec![0.0f32; 22050];
+            render_stop_into(id, 220.5, 44100, &mut out, &sine_lut, &wind, 0.2);
+            assert!(out.iter().all(|s| s.is_finite()), "Trumpet stop {name} ({id}) produced non-finite samples");
+
+            let rms = (out[11025..].iter().map(|s| s * s).sum::<f32>() / 11025.0).sqrt();
+            assert!(rms > 0.08 && rms < 0.65, "Trumpet stop {name} ({id}) RMS out of range: {rms}");
+
+            let window = &out[11025..21025];
+            let f_base = if id == 50 { 441.0 } else { 220.5 };
+            let m1 = tone_magnitude(window, f_base, 44100.0);
+            let m2 = tone_magnitude(window, f_base * 2.0, 44100.0);
+            let m3 = tone_magnitude(window, f_base * 3.0, 44100.0);
+            assert!(m1 > 0.05, "{name} fundamental must be strong: m1={m1}");
+            assert!(m2 > 0.20 * m1 && m3 > 0.15 * m1, "{name} must have rich conical brass 2nd & 3rd harmonics: m1={m1}, m2={m2}, m3={m3}");
+        }
+
+        // 2. Verify Gedeckt 8' (17) is soft, warm, mellow, and flutey compared to Trumpet 8' (45)
+        let mut ged = vec![0.0f32; 22050];
+        let mut trp = vec![0.0f32; 22050];
+        render_stop_into(17, 441.0, 44100, &mut ged, &sine_lut, &wind, 0.2);
+        render_stop_into(45, 441.0, 44100, &mut trp, &sine_lut, &wind, 0.2);
+
+        let w_ged = &ged[11025..21025];
+        let w_trp = &trp[11025..21025];
+        let ged_upper = tone_magnitude(w_ged, 882.0, 44100.0)
+            + tone_magnitude(w_ged, 1323.0, 44100.0)
+            + tone_magnitude(w_ged, 1764.0, 44100.0);
+        let trp_upper = tone_magnitude(w_trp, 882.0, 44100.0)
+            + tone_magnitude(w_trp, 1323.0, 44100.0)
+            + tone_magnitude(w_trp, 1764.0, 44100.0);
+        assert!(
+            trp_upper > 3.5 * ged_upper,
+            "Trumpet 8' upper brass harmonics must be far stronger than mellow wooden Gedeckt 8': trp_upper={trp_upper}, ged_upper={ged_upper}"
+        );
+    }
+}

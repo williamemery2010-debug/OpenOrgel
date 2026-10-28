@@ -480,12 +480,12 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 
 ---
 
-### UT-40: Warm Cathedral Bass Shelf EQ & Full Organ Foundation Weighting
+### UT-40: Midrange-Forward & Microscopically Trimmed Bass Cathedral EQ & Full Organ Weighting
 - **Module:** [rust/src/dsp/mod.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/mod.rs) (`test_bass_warmth_eq_and_full_organ_foundation_weighting`)
-- **WHY:** Because 16 of the 31 console stops are high-pitched 4', 2', and Mixture stops, summing all drawn stops with equal $1.0$ weight caused Full Organ (*Tutti*) registrations to sound top-heavy and hollow. Additionally, Diapason and foundation ranks require warm low-shelf bass reinforcement ($< 240\text{ Hz}$ and $< 440\text{ Hz}$) to reproduce cathedral chest weight.
-- **WHAT:** Validates that `apply_bass_warmth_eq` boosts low frequencies ($110\text{ Hz}$) by more than $1.8\times$ relative to high frequencies ($3520\text{ Hz}$), and that `stop_registration_weight` prioritizes 32' ($1.50$), 16' ($1.42$), and 8' Diapason ($1.32$) foundations above high 2'/Mixture stops ($0.62$).
-- **METHOD:** Applies `apply_bass_warmth_eq` to unit $110\text{ Hz}$ and $3520\text{ Hz}$ sine buffers and compares steady-state RMS. Queries `stop_registration_weight` for Stop IDs 10, 3, 11, and 15.
-- **EXPECTED RESULT:** $\text{RMS}_{110\text{ Hz}} > 1.8 \times \text{RMS}_{3520\text{ Hz}}$ and $w_{8'\text{ Diapason}} > 1.8 \times w_{\text{Mixture IV}}$.
+- **WHY:** The creator requested more midrange presence, a microscopic reduction of the low-bass shelf, and de-brightening across the organ. `apply_bass_warmth_eq` was updated to trim the sub-bass/bass shelves slightly (`0.88` and `0.44`), boost the warm midrange (`220–760 Hz` via `0.62 * mid_chest + 0.74 * mid_presence` and a `380 Hz` pitch presence curve), maintain the `820–1220 Hz` anti-nasal scoop (`-0.24`), and apply a `2100 Hz` high-frequency warmth filter (`0.72 * lp_2100 + 0.28 * x`).
+- **WHAT:** Validates that `apply_bass_warmth_eq` boosts both bass ($110\text{ Hz}$) and midrange ($380\text{ Hz}$) relative to high treble ($3520\text{ Hz}$), and that `stop_registration_weight` weights 32'/16'/8' Principal foundations above 2'/Mixture stops.
+- **METHOD:** Applies `apply_bass_warmth_eq` to unit $110\text{ Hz}$, $380\text{ Hz}$, and $3520\text{ Hz}$ sine buffers and compares steady-state RMS. Queries `stop_registration_weight` for Stop IDs 10, 3, 11, and 15.
+- **EXPECTED RESULT:** $\text{RMS}_{110\text{ Hz}} > 1.8 \times \text{RMS}_{3520\text{ Hz}}$, $\text{RMS}_{380\text{ Hz}} > 1.55 \times \text{RMS}_{3520\text{ Hz}}$, and $w_{8'\text{ Diapason}} > 1.8 \times w_{\text{Mixture IV}}$.
 - **ACTUAL RESULT:** Passed.
 
 ---
@@ -508,10 +508,10 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
   2. `Harmonic Flute 8'` (40) exhibits an overblown 2nd-harmonic node ($m_2 > 0.65 m_1$).
   3. `Hohlflöte 8'` (41) exhibits a hollow odd-harmonic wooden spectrum ($m_3 > 4.0 m_2$).
   4. `Melodia 8'` (42) exhibits a pure even-harmonic open-wood spectrum ($m_2 > 8.0 m_3$).
-  5. `Rohrflöte 8'` (44) exhibits a prominent open-chimney 5th harmonic ($m_5 > 1.2 m_3$ and $m_5 > 5.0 m_2$).
+  5. `Rohrflöte 8'` (44) exhibits a prominent open-chimney 5th harmonic ($m_5 > 1.15 m_3$ and $m_5 > 5.0 m_2$).
   6. `Diapason 8'` (11) produces more than $2.2\times$ the upper Principal chorus harmonic energy ($m_2 + m_3 + m_4$) of `Rohrflöte 8'` (44).
 - **METHOD:** Renders 22,050 samples of Stop IDs 11 and 40–44 at $441.0\text{ Hz}$ and evaluates Goertzel DFT magnitudes at $f_0, 2f_0, 3f_0, 4f_0, 5f_0$.
-- **EXPECTED RESULT:** All harmonic ratio invariants hold ($m_2 > 0.65 m_1$ for ID 40, $m_3 > 4.0 m_2$ for ID 41, $m_2 > 8.0 m_3$ for ID 42, $m_5 > 1.2 m_3$ for ID 44, and $d_{\text{upper}} > 2.2 r_{\text{upper}}$ for ID 11 vs ID 44).
+- **EXPECTED RESULT:** All harmonic ratio invariants hold ($m_2 > 0.65 m_1$ for ID 40, $m_3 > 4.0 m_2$ for ID 41, $m_2 > 8.0 m_3$ for ID 42, $m_5 > 1.15 m_3$ for ID 44, and $d_{\text{upper}} > 2.2 r_{\text{upper}}$ for ID 11 vs ID 44).
 - **ACTUAL RESULT:** Passed.
 
 ---
@@ -522,6 +522,16 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 - **WHAT:** Validates that setting `dynamics = 0.25` (`pp`) attenuates output RMS relative to `dynamics = 1.00` (`f`) by more than $2.5\times$, and setting `dynamics = 1.40` (`fff`) boosts output RMS and low-frequency drive above `dynamics = 1.00` by more than $1.2\times$.
 - **METHOD:** Renders 4,096 samples through `Mixer::render` at `dynamics = 0.25`, `1.00`, and `1.40` using a $110\text{ Hz}$ test signal and compares steady-state RMS.
 - **EXPECTED RESULT:** $\text{RMS}_{1.00} > 2.5 \times \text{RMS}_{0.25}$ and $\text{RMS}_{1.40} > 1.2 \times \text{RMS}_{1.00}$.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-44: Six New Trumpet Stops & Mellow Square-Wooden Gedeckt Voicing
+- **Module:** [rust/src/dsp/stops_dsp.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/stops_dsp.rs) (`test_new_trumpet_stops_and_mellow_gedeckt_voicing`)
+- **WHY:** The creator requested additional Trumpety stops and noted that `Gedeckt` sounded too nasally and full rather than a stopped, mellow, soft, warm square wooden flute pipe. Six new Trumpet stops (`Trumpet 8'` ID 45, `Trompette Harmonique 8'` ID 46, `Orchestral Trumpet 8'` ID 47, `State Trumpet 8'` ID 48, `Cornopean 8'` ID 49, and `Trompette 4'` ID 50) were added, and `render_stopped_flue` (`Gedeckt 8'`, `4'`, `16'`, `32'`, `2'`) was revoiced with dispersed phases, gentle odd partials (`3rd = 0.115`, `5th = 0.018`), a `320 Hz` wooden cavity resonance, a `950 Hz` anti-nasal scoop, and a steep 3rd-order `1350 Hz` roll-off.
+- **WHAT:** Validates that all 6 new Trumpet stops (`45..=50`) are registered in `STOP_DEFINITIONS`, synthesize strong, finite conical brass waveforms with prominent 2nd and 3rd harmonics ($m_2 > 0.20 m_1$, $m_3 > 0.15 m_1$), and that `Trumpet 8'` (45) produces more than $3.5\times$ the upper harmonic energy ($m_2 + m_3 + m_4$) of the soft, mellow `Gedeckt 8'` (17).
+- **METHOD:** Renders 22,050 samples of Stop IDs 45–50 at $220.5\text{ Hz}$ and evaluates RMS and Goertzel magnitudes at $f_0, 2f_0, 3f_0$. Compares upper harmonic energy of `Trumpet 8'` (45) vs `Gedeckt 8'` (17) at $441.0\text{ Hz}$.
+- **EXPECTED RESULT:** All 6 Trumpet stops finite with $0.08 < \text{RMS} < 0.65$, $m_2 > 0.20 m_1$, $m_3 > 0.15 m_1$, and $\text{Upper}_{\text{Trumpet 8'}} > 3.5 \times \text{Upper}_{\text{Gedeckt 8'}}$.
 - **ACTUAL RESULT:** Passed.
 
 ---

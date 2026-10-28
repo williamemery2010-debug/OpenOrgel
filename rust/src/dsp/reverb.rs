@@ -19,10 +19,10 @@
 //! 4. The Grand Exhibition Building (Carlton Gardens, Melbourne)
 //!    Physical volume ~135,000 m³, vast cruciform Great Hall, soaring 68-metre octagonal
 //!    dome, timber floorboards, colossal reverberation with majestic bloom, RT60 = 7.5 s.
-//!
 
 use serde::{Deserialize, Serialize};
 
+/// Enumeration of selectable Melbourne architectural acoustic spaces.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AcousticVenue {
     HamerHall,
@@ -37,6 +37,7 @@ impl Default for AcousticVenue {
     }
 }
 
+/// Physical and acoustic parameters defining a venue's Schroeder/Moorer reverberation model.
 pub struct VenueSpecs {
     pub name: &'static str,
     pub short_name: &'static str,
@@ -46,9 +47,13 @@ pub struct VenueSpecs {
     pub rt60_seconds: f64,
     pub materials: &'static str,
     pub wet_mix: f32,
+    /// Mutual-prime delay line lengths (in samples at 44.1 kHz) for the 6 parallel comb filters.
+    /// Using prime numbers prevents coincident echo periodicity (flutter echo) in the late tail.
     pub comb_delays: [usize; 6],
+    /// One-pole low-pass damping coefficient inside each comb loop (`0.0` = bright stone, `0.4` = absorptive timber).
     pub damp_factor: f32,
-    pub early_taps: [(f64, f32); 4], // (delay_seconds, gain)
+    /// Discrete early boundary reflections `(arrival_delay_seconds, reflection_gain)`.
+    pub early_taps: [(f64, f32); 4],
 }
 
 impl AcousticVenue {
@@ -59,6 +64,7 @@ impl AcousticVenue {
         AcousticVenue::GrandExhibitionBuilding,
     ];
 
+    /// Returns the measured architectural and DSP specifications for `self`.
     pub fn specs(self) -> VenueSpecs {
         match self {
             AcousticVenue::HamerHall => VenueSpecs {
@@ -71,7 +77,7 @@ impl AcousticVenue {
                 materials: "Brushbox timber linings, ribbed concrete drum, suspended canopy",
                 wet_mix: 0.32,
                 comb_delays: [1116, 1277, 1439, 1613, 1789, 1993],
-                damp_factor: 0.26,
+                damp_factor: 0.28,
                 early_taps: [
                     (0.018, 0.35), // Overhead acoustic canopy reflection
                     (0.024, 0.30), // Lateral brushbox timber wall
@@ -89,7 +95,7 @@ impl AcousticVenue {
                 materials: "Barrabool sandstone, limestone piers, tile floor, timber vault",
                 wet_mix: 0.40,
                 comb_delays: [1381, 1553, 1723, 1949, 2153, 2381],
-                damp_factor: 0.12, // Very low damping: hard sandstone reflects high harmonics
+                damp_factor: 0.18, // Warm sandstone reflection damping
                 early_taps: [
                     (0.026, 0.32), // Clerestory arcade reflection
                     (0.038, 0.30), // Side aisle nave walls
@@ -107,7 +113,7 @@ impl AcousticVenue {
                 materials: "Curved timber acoustic flutter diffusers, micro-perforated absorbers",
                 wet_mix: 0.24,
                 comb_delays: [757, 887, 1019, 1151, 1289, 1427],
-                damp_factor: 0.36, // Higher absorption for crystal-clear clarity
+                damp_factor: 0.38, // Higher absorption for intimate chamber warmth
                 early_taps: [
                     (0.012, 0.40), // Proscenium acoustic reflector
                     (0.017, 0.34), // Lateral hardwood diffuser wall
@@ -125,7 +131,7 @@ impl AcousticVenue {
                 materials: "Colossal cruciform nave, 68m soaring dome, brick, hardwood floors",
                 wet_mix: 0.46,
                 comb_delays: [1987, 2269, 2579, 2897, 3217, 3559],
-                damp_factor: 0.18, // Long air absorption across extreme 150m ray paths
+                damp_factor: 0.22, // Air absorption across 150m ray paths
                 early_taps: [
                     (0.042, 0.28), // Great hall side walls
                     (0.075, 0.22), // Transept wing portals
@@ -158,6 +164,7 @@ impl AcousticVenue {
 // DSP FILTER PRIMITIVES
 // ---------------------------------------------------------------------------
 
+/// Single early reflection tap with its own one-pole wall-absorption low-pass filter.
 struct EarlyTap {
     delay_samples: usize,
     gain: f32,
@@ -165,6 +172,8 @@ struct EarlyTap {
     damp: f32,
 }
 
+/// Multi-tap circular delay line modeling first-order architectural boundary reflections
+/// (canopy, side walls, transepts, and rear boundary) via the Image-Source method.
 struct EarlyReflections {
     buffer: Vec<f32>,
     write_idx: usize,
@@ -173,6 +182,7 @@ struct EarlyReflections {
 
 impl EarlyReflections {
     fn new(sample_rate: u32, taps_def: &[(f64, f32)], damp: f32) -> Self {
+        // Size the circular buffer to hold the longest early reflection tap plus safety margin
         let max_delay = taps_def
             .iter()
             .map(|&(sec, _)| (sec * sample_rate as f64).ceil() as usize)
@@ -205,9 +215,10 @@ impl EarlyReflections {
         let mut sum = 0.0f32;
 
         for tap in self.taps.iter_mut() {
+            // Circular buffer read index `delay_samples` behind `write_idx`
             let read_idx = (self.write_idx + buf_len - tap.delay_samples) % buf_len;
             let raw_sample = self.buffer[read_idx];
-            // Material absorption low-pass smoothing
+            // One-pole low-pass filter modeling high-frequency absorption by timber/stone boundaries
             tap.filter_state = raw_sample * (1.0 - tap.damp) + tap.filter_state * tap.damp;
             sum += tap.filter_state * tap.gain;
         }
@@ -217,6 +228,10 @@ impl EarlyReflections {
     }
 }
 
+/// Moorer low-pass feedback comb filter (`y[n] = x[n - D]`, with filtered feedback `g * LP(y[n])`).
+///
+/// Models a single standing-wave axial/tangential room mode whose high frequencies decay
+/// faster than bass/midrange frequencies due to air and surface absorption.
 struct CombFilter {
     buffer: Vec<f32>,
     idx: usize,
@@ -239,7 +254,9 @@ impl CombFilter {
     #[inline(always)]
     fn process(&mut self, input: f32) -> f32 {
         let output = self.buffer[self.idx];
+        // One-pole low-pass filter inside the feedback loop: state[n] = (1 - d)*y[n] + d*state[n-1]
         self.filter_state = output * (1.0 - self.damp) + self.filter_state * self.damp;
+        // Write input plus attenuated filtered feedback back into the delay slot
         self.buffer[self.idx] = input + self.filter_state * self.feedback;
         self.idx += 1;
         if self.idx >= self.buffer.len() {
@@ -249,6 +266,10 @@ impl CombFilter {
     }
 }
 
+/// Schroeder unity-gain all-pass filter (`H(z) = (-g + z^-D) / (1 - g * z^-D)`).
+///
+/// Increases echo density in the reverberation tail without coloring the steady-state
+/// magnitude spectrum (`|H(e^{jw})| = 1` for all frequencies `w`).
 struct AllPassFilter {
     buffer: Vec<f32>,
     idx: usize,
@@ -281,6 +302,8 @@ impl AllPassFilter {
 // MASTER REVERBERATION ENGINE
 // ---------------------------------------------------------------------------
 
+/// Complete Moorer/Schroeder Architectural Reverberator combining discrete early boundary
+/// reflections, 6 parallel low-pass comb filters, and 3 series all-pass diffusers.
 pub struct Reverb {
     sample_rate: u32,
     venue: AcousticVenue,
@@ -294,11 +317,13 @@ impl Reverb {
     /// Constructs a physically modeled reverberator calibrated for the specified venue.
     pub fn for_venue(sample_rate: u32, venue: AcousticVenue) -> Self {
         let specs = venue.specs();
+        // Scale reference 44.1 kHz delay lengths to the active audio device sample rate
         let scale = sample_rate as f64 / 44100.0;
 
         let early = EarlyReflections::new(sample_rate, &specs.early_taps, specs.damp_factor);
 
-        // Sabine/Eyring feedback factor: g = 10^(-3 * delay / (fs * RT60))
+        // Sabine/Eyring feedback factor: g = 10^(-3 * delay_seconds / RT60)
+        // Guarantees that the comb loop decays by exactly 60 dB (factor of 10^-3) in RT60 seconds.
         let fs_f = sample_rate as f64;
         let rt = specs.rt60_seconds;
         let combs = specs
@@ -311,7 +336,7 @@ impl Reverb {
             })
             .collect();
 
-        // 3-stage prime all-pass diffusion matrix
+        // 3-stage prime all-pass diffusion cascade
         let ap_lengths = [
             (556.0 * scale).round() as usize,
             (441.0 * scale).round() as usize,
@@ -333,7 +358,7 @@ impl Reverb {
         }
     }
 
-    /// Legacy constructor maintaining backwards compatibility
+    /// Legacy constructor maintaining backwards compatibility.
     pub fn new(sample_rate: u32, _room_size: f32) -> Self {
         Self::for_venue(sample_rate, AcousticVenue::HamerHall)
     }
@@ -352,7 +377,7 @@ impl Reverb {
         self.wet_mix
     }
 
-    /// Process a buffer of audio samples in place through the physically modeled venue.
+    /// Processes a buffer of audio samples in place through the physically modeled venue.
     pub fn process(&mut self, samples: &mut [f32], wet_mix: f32) {
         let wet = wet_mix.clamp(0.0, 1.0);
         let dry = 1.0 - wet * 0.5;
