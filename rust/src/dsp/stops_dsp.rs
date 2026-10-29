@@ -156,7 +156,7 @@ pub const VOICING_CLARINET: PipeVoicing = PipeVoicing {
     even_scale: 0.12,        // Characteristic hollow odd-harmonic dominance of cylindrical resonators
     even_restore_hz: 2200.0, // Upper partials recover symmetry above pipe cutoff
     formants: &[(680.0, 0.85, 1.2), (1280.0, 0.9, 0.6)], // Warm woody chalumeau & bell resonance
-    rolloff_hz: 2100.0,
+    rolloff_hz: 5400.0,
     bass_tilt: 0.20,
     speech_cycles: 8.0,
     speech_min_s: 0.012,
@@ -185,7 +185,7 @@ pub const VOICING_BASSOON: PipeVoicing = PipeVoicing {
     even_scale: 1.0,         // Conical pipes resonate both odd and even harmonics
     even_restore_hz: 0.0,
     formants: &[(380.0, 0.95, 1.5), (780.0, 1.1, 0.8)], // Dark wooden boot & throat formant
-    rolloff_hz: 2200.0,
+    rolloff_hz: 5200.0,
     bass_tilt: 0.36,
     speech_cycles: 14.0,
     speech_min_s: 0.030,
@@ -214,7 +214,7 @@ pub const VOICING_CONTRABASSOON: PipeVoicing = PipeVoicing {
     even_scale: 1.0,
     even_restore_hz: 0.0,
     formants: &[(260.0, 1.1, 1.5), (580.0, 1.2, 0.9)],
-    rolloff_hz: 1850.0,
+    rolloff_hz: 4200.0,
     bass_tilt: 0.44,
     speech_cycles: 16.0,
     speech_min_s: 0.045,
@@ -243,7 +243,7 @@ pub const VOICING_BOMBARDE: PipeVoicing = PipeVoicing {
     even_scale: 1.0,
     even_restore_hz: 0.0,
     formants: &[(420.0, 0.95, 1.4), (920.0, 0.9, 1.0)], // Warm brass bell resonance
-    rolloff_hz: 2450.0,
+    rolloff_hz: 6500.0,
     bass_tilt: 0.32,
     speech_cycles: 10.0,
     speech_min_s: 0.020,
@@ -272,7 +272,7 @@ pub const VOICING_OPHICLEIDE: PipeVoicing = PipeVoicing {
     even_scale: 1.0,
     even_restore_hz: 0.0,
     formants: &[(380.0, 1.0, 1.5), (840.0, 1.0, 0.9)], // Round foundational brass power
-    rolloff_hz: 2250.0,
+    rolloff_hz: 6200.0,
     bass_tilt: 0.38,
     speech_cycles: 12.0,
     speech_min_s: 0.025,
@@ -301,7 +301,7 @@ pub const VOICING_COR_ANGLAIS: PipeVoicing = PipeVoicing {
     even_scale: 0.75,
     even_restore_hz: 1600.0,
     formants: &[(420.0, 0.85, 1.4), (860.0, 0.8, 0.85)], // Warm pear-bell midrange resonance
-    rolloff_hz: 2050.0,
+    rolloff_hz: 5200.0,
     bass_tilt: 0.22,
     speech_cycles: 9.0,
     speech_min_s: 0.015,
@@ -330,7 +330,7 @@ pub const VOICING_OBOE: PipeVoicing = PipeVoicing {
     even_scale: 1.0,
     even_restore_hz: 0.0,
     formants: &[(460.0, 0.85, 1.3), (940.0, 0.85, 0.75)],
-    rolloff_hz: 2150.0,
+    rolloff_hz: 5600.0,
     bass_tilt: 0.20,
     speech_cycles: 9.0,
     speech_min_s: 0.014,
@@ -359,7 +359,7 @@ pub const VOICING_VOX_HUMANA: PipeVoicing = PipeVoicing {
     even_scale: 0.45,
     even_restore_hz: 1800.0,
     formants: &[(480.0, 0.75, 1.5), (1020.0, 0.8, 0.85)], // Warm chest vowel formant
-    rolloff_hz: 1950.0,
+    rolloff_hz: 4800.0,
     bass_tilt: 0.18,
     speech_cycles: 7.0,
     speech_min_s: 0.012,
@@ -388,7 +388,7 @@ pub const VOICING_VIOL_4: PipeVoicing = PipeVoicing {
     even_scale: 1.0,
     even_restore_hz: 0.0,
     formants: &[(420.0, 1.0, 1.25), (880.0, 0.95, 0.55)], // Warm cello/viola body resonance
-    rolloff_hz: 2100.0,
+    rolloff_hz: 6800.0,
     bass_tilt: 0.24,
     speech_cycles: 12.0,
     speech_min_s: 0.016,
@@ -417,7 +417,7 @@ pub const VOICING_CELESTE_8: PipeVoicing = PipeVoicing {
     even_scale: 1.0,
     even_restore_hz: 0.0,
     formants: &[(380.0, 1.0, 1.2), (820.0, 0.95, 0.5)],
-    rolloff_hz: 1950.0,
+    rolloff_hz: 5800.0,
     bass_tilt: 0.22,
     speech_cycles: 13.0,
     speech_min_s: 0.018,
@@ -446,7 +446,7 @@ pub const VOICING_FLUTE_4: PipeVoicing = PipeVoicing {
     even_scale: 1.0,
     even_restore_hz: 0.0,
     formants: &[(380.0, 1.0, 0.9), (660.0, 0.9, 0.45)], // Warm midrange flute body
-    rolloff_hz: 1850.0,
+    rolloff_hz: 6200.0,
     bass_tilt: 0.18,
     speech_cycles: 10.0,
     speech_min_s: 0.014,
@@ -475,7 +475,7 @@ pub const VOICING_CRYSTAL_FLUTE_4: PipeVoicing = PipeVoicing {
     even_scale: 1.0,
     even_restore_hz: 0.0,
     formants: &[(440.0, 0.95, 0.95), (960.0, 0.85, 0.5)], // Warm crystalline midrange bell
-    rolloff_hz: 2100.0,
+    rolloff_hz: 7200.0,
     bass_tilt: 0.16,
     speech_cycles: 9.0,
     speech_min_s: 0.012,
@@ -504,7 +504,7 @@ pub const VOICING_OTTAVINO_2: PipeVoicing = PipeVoicing {
     even_scale: 1.0,
     even_restore_hz: 0.0,
     formants: &[(460.0, 1.0, 0.85), (840.0, 0.9, 0.4)],
-    rolloff_hz: 1950.0,
+    rolloff_hz: 8500.0,
     bass_tilt: 0.18,
     speech_cycles: 8.0,
     speech_min_s: 0.010,
@@ -533,7 +533,7 @@ pub const VOICING_PICCOLO_2: PipeVoicing = PipeVoicing {
     even_scale: 1.0,
     even_restore_hz: 0.0,
     formants: &[(440.0, 1.0, 0.85), (800.0, 0.95, 0.35)],
-    rolloff_hz: 1850.0,
+    rolloff_hz: 8200.0,
     bass_tilt: 0.15,
     speech_cycles: 8.0,
     speech_min_s: 0.010,
@@ -554,8 +554,8 @@ pub const VOICING_PICCOLO_2: PipeVoicing = PipeVoicing {
 };
 
 // PRINCIPAL / DIAPASON RANK (used in Mixtures and Choruses):
-// Voiced with strong 420 Hz midrange body and controlled 2150 Hz rolloff so Mixtures
-// crown the organ with warm golden harmony rather than piercing high-frequency brightness.
+// Voiced with strong 420 Hz midrange body and open 7800 Hz rolloff so Mixtures
+// crown the organ with brilliant, sparkling golden harmony.
 pub const VOICING_PRINCIPAL: PipeVoicing = PipeVoicing {
     spectrum: &[1.0, 0.48, 0.20, 0.10, 0.045, 0.022, 0.010, 0.004],
     extend_db_per_oct: -18.0,
@@ -563,7 +563,7 @@ pub const VOICING_PRINCIPAL: PipeVoicing = PipeVoicing {
     even_scale: 1.0,
     even_restore_hz: 0.0,
     formants: &[(420.0, 0.95, 0.95), (760.0, 0.9, 0.40)], // Warm midrange chorus resonance
-    rolloff_hz: 2150.0,
+    rolloff_hz: 7800.0,
     bass_tilt: 0.22,
     speech_cycles: 11.0,
     speech_min_s: 0.014,
@@ -591,7 +591,7 @@ pub const VOICING_CORNET_FLUTE: PipeVoicing = PipeVoicing {
     even_scale: 1.0,
     even_restore_hz: 0.0,
     formants: &[(420.0, 0.95, 0.90), (740.0, 0.85, 0.45)],
-    rolloff_hz: 2050.0,
+    rolloff_hz: 6800.0,
     bass_tilt: 0.20,
     speech_cycles: 10.0,
     speech_min_s: 0.012,
@@ -619,7 +619,7 @@ pub const VOICING_VIOLONE_16: PipeVoicing = PipeVoicing {
     even_scale: 1.0,
     even_restore_hz: 0.0,
     formants: &[(175.0, 1.1, 1.25), (380.0, 1.0, 1.35)],
-    rolloff_hz: 2200.0,
+    rolloff_hz: 5400.0,
     bass_tilt: 0.30,
     speech_cycles: 12.0,
     speech_min_s: 0.022,
@@ -647,7 +647,7 @@ pub const VOICING_TROMBONE_16: PipeVoicing = PipeVoicing {
     even_scale: 1.0,
     even_restore_hz: 0.0,
     formants: &[(165.0, 1.15, 1.4), (380.0, 1.1, 1.45)],
-    rolloff_hz: 2350.0,
+    rolloff_hz: 6000.0,
     bass_tilt: 0.38,
     speech_cycles: 12.0,
     speech_min_s: 0.024,
@@ -677,7 +677,7 @@ pub const VOICING_TRUMPET_8: PipeVoicing = PipeVoicing {
     even_scale: 1.0,
     even_restore_hz: 0.0,
     formants: &[(440.0, 0.95, 1.45), (1020.0, 0.85, 1.15)], // Warm brass chest & golden bell flare
-    rolloff_hz: 2400.0,
+    rolloff_hz: 7400.0,
     bass_tilt: 0.28,
     speech_cycles: 8.5,
     speech_min_s: 0.014,
@@ -707,7 +707,7 @@ pub const VOICING_TROMPETTE_HARMONIQUE_8: PipeVoicing = PipeVoicing {
     even_scale: 1.0,
     even_restore_hz: 0.0,
     formants: &[(500.0, 0.90, 1.55), (1140.0, 0.85, 1.25)], // Heroic Cavaillé-Coll harmonic brass formants
-    rolloff_hz: 2550.0,
+    rolloff_hz: 7800.0,
     bass_tilt: 0.26,
     speech_cycles: 8.0,
     speech_min_s: 0.013,
@@ -737,7 +737,7 @@ pub const VOICING_ORCHESTRAL_TRUMPET_8: PipeVoicing = PipeVoicing {
     even_scale: 1.0,
     even_restore_hz: 0.0,
     formants: &[(480.0, 0.85, 1.50), (1080.0, 0.80, 1.20)], // Symphonic brass bell formants
-    rolloff_hz: 2450.0,
+    rolloff_hz: 7600.0,
     bass_tilt: 0.24,
     speech_cycles: 7.5,
     speech_min_s: 0.012,
@@ -767,7 +767,7 @@ pub const VOICING_STATE_TRUMPET_8: PipeVoicing = PipeVoicing {
     even_scale: 1.0,
     even_restore_hz: 0.0,
     formants: &[(420.0, 0.95, 1.65), (960.0, 0.85, 1.30), (1520.0, 0.80, 0.65)],
-    rolloff_hz: 2600.0,
+    rolloff_hz: 8200.0,
     bass_tilt: 0.30,
     speech_cycles: 8.0,
     speech_min_s: 0.013,
@@ -797,7 +797,7 @@ pub const VOICING_CORNOPEAN_8: PipeVoicing = PipeVoicing {
     even_scale: 1.0,
     even_restore_hz: 0.0,
     formants: &[(380.0, 1.00, 1.50), (840.0, 0.90, 0.95)], // Dark-gold English horn-trumpet warmth
-    rolloff_hz: 2050.0,
+    rolloff_hz: 6800.0,
     bass_tilt: 0.30,
     speech_cycles: 9.5,
     speech_min_s: 0.016,
@@ -860,6 +860,161 @@ pub const SCHARF_RANKS: &[CompoundRank] = &[
 pub const VOIX_CELESTE_RANKS: &[CompoundRank] = &[
     CompoundRank { voicing: &VOICING_CELESTE_8, pitch_ratio: 1.0, gain: 0.62, detune_cents: 0.0 },
     CompoundRank { voicing: &VOICING_CELESTE_8, pitch_ratio: 1.0, gain: 0.62, detune_cents: 5.5 }, // Undulating beating rank
+];
+
+// ---------------------------------------------------------------------------
+// MUTATION RANKS (NAZARD, TIERCE, LARIGOT, SEPTIÈME, SIFFLÖTE, SESQUIALTERA)
+// ---------------------------------------------------------------------------
+
+// NAZARD / NASAT 2 2/3' (12th Quint Flute Mutation, pitch ratio 3.0):
+// Wide-scale stopped/tapered chimney flute voiced for vocal, sweet, liquid quint body
+pub const VOICING_NAZARD_2_2_3: PipeVoicing = PipeVoicing {
+    spectrum: &[1.0, 0.42, 0.16, 0.05, 0.015],
+    extend_db_per_oct: -18.0,
+    max_harmonics: 8,
+    even_scale: 0.90,
+    even_restore_hz: 0.0,
+    formants: &[(1200.0, 0.90, 0.80), (2800.0, 0.95, 0.60)],
+    rolloff_hz: 7500.0,
+    bass_tilt: 0.16,
+    speech_cycles: 8.0,
+    speech_min_s: 0.010,
+    speech_max_s: 0.035,
+    upper_lead: 0.18,
+    overshoot_harmonic: 2,
+    overshoot: 0.16,
+    upper_overshoot: 0.0,
+    onset_cents: -2.0,
+    onset_time_s: 0.016,
+    phase_coherence: 0.10,
+    breath: 0.007,
+    chiff: 0.18,
+    chiff_harmonic: 2.2,
+    chiff_cycles: 8.0,
+    jitter: 0.005,
+    flicker: 0.015,
+};
+
+// TIERCE / TERZ 1 3/5' (17th Major Third Flute Mutation, pitch ratio 5.0):
+// Conical/cylindrical flute with warm, golden third singing presence (French Jeu de Tierce)
+pub const VOICING_TIERCE_1_3_5: PipeVoicing = PipeVoicing {
+    spectrum: &[1.0, 0.30, 0.08, 0.02],
+    extend_db_per_oct: -20.0,
+    max_harmonics: 6,
+    even_scale: 1.0,
+    even_restore_hz: 0.0,
+    formants: &[(1400.0, 0.95, 0.85), (3200.0, 0.90, 0.50)],
+    rolloff_hz: 8000.0,
+    bass_tilt: 0.14,
+    speech_cycles: 7.0,
+    speech_min_s: 0.008,
+    speech_max_s: 0.030,
+    upper_lead: 0.18,
+    overshoot_harmonic: 2,
+    overshoot: 0.14,
+    upper_overshoot: 0.0,
+    onset_cents: -1.8,
+    onset_time_s: 0.014,
+    phase_coherence: 0.08,
+    breath: 0.006,
+    chiff: 0.16,
+    chiff_harmonic: 2.0,
+    chiff_cycles: 7.0,
+    jitter: 0.005,
+    flicker: 0.014,
+};
+
+// LARIGOT 1 1/3' (19th Super-Quint Flute Mutation, pitch ratio 6.0):
+// Silvery, sparkling high quint flute adding exquisite crystalline brilliance
+pub const VOICING_LARIGOT_1_1_3: PipeVoicing = PipeVoicing {
+    spectrum: &[1.0, 0.28, 0.06, 0.01],
+    extend_db_per_oct: -22.0,
+    max_harmonics: 6,
+    even_scale: 1.0,
+    even_restore_hz: 0.0,
+    formants: &[(1600.0, 1.00, 0.80), (3600.0, 0.90, 0.45)],
+    rolloff_hz: 8500.0,
+    bass_tilt: 0.12,
+    speech_cycles: 6.0,
+    speech_min_s: 0.008,
+    speech_max_s: 0.026,
+    upper_lead: 0.20,
+    overshoot_harmonic: 2,
+    overshoot: 0.12,
+    upper_overshoot: 0.0,
+    onset_cents: -1.5,
+    onset_time_s: 0.012,
+    phase_coherence: 0.06,
+    breath: 0.006,
+    chiff: 0.15,
+    chiff_harmonic: 2.0,
+    chiff_cycles: 6.0,
+    jitter: 0.004,
+    flicker: 0.012,
+};
+
+// SEPTIÈME 1 1/7' (21st Harmonic Flat-Seventh Mutation, pitch ratio 7.0):
+// Pungent, exotic, narrow-scale mutation providing spicy acoustic overtone shimmer
+pub const VOICING_SEPTIEME_1_1_7: PipeVoicing = PipeVoicing {
+    spectrum: &[1.0, 0.24, 0.05],
+    extend_db_per_oct: -24.0,
+    max_harmonics: 5,
+    even_scale: 1.0,
+    even_restore_hz: 0.0,
+    formants: &[(1800.0, 1.00, 0.75), (4000.0, 0.90, 0.40)],
+    rolloff_hz: 9000.0,
+    bass_tilt: 0.10,
+    speech_cycles: 6.0,
+    speech_min_s: 0.007,
+    speech_max_s: 0.024,
+    upper_lead: 0.20,
+    overshoot_harmonic: 2,
+    overshoot: 0.10,
+    upper_overshoot: 0.0,
+    onset_cents: -1.2,
+    onset_time_s: 0.010,
+    phase_coherence: 0.05,
+    breath: 0.005,
+    chiff: 0.14,
+    chiff_harmonic: 2.0,
+    chiff_cycles: 6.0,
+    jitter: 0.004,
+    flicker: 0.012,
+};
+
+// SIFFLÖTE 1' (22nd Super-Octave High Crown Flute, pitch ratio 8.0):
+// Bell-like high-octave flute crowning the organ with soaring, airy brilliance
+pub const VOICING_SIFFLOTE_1: PipeVoicing = PipeVoicing {
+    spectrum: &[1.0, 0.20, 0.04],
+    extend_db_per_oct: -24.0,
+    max_harmonics: 4,
+    even_scale: 1.0,
+    even_restore_hz: 0.0,
+    formants: &[(2200.0, 1.00, 0.80), (4800.0, 0.95, 0.45)],
+    rolloff_hz: 9500.0,
+    bass_tilt: 0.10,
+    speech_cycles: 5.0,
+    speech_min_s: 0.006,
+    speech_max_s: 0.020,
+    upper_lead: 0.22,
+    overshoot_harmonic: 2,
+    overshoot: 0.10,
+    upper_overshoot: 0.0,
+    onset_cents: -1.0,
+    onset_time_s: 0.008,
+    phase_coherence: 0.04,
+    breath: 0.005,
+    chiff: 0.14,
+    chiff_harmonic: 2.0,
+    chiff_cycles: 5.0,
+    jitter: 0.004,
+    flicker: 0.010,
+};
+
+// SESQUIALTERA II (Classic German 2-Rank Solo Mutation: Nazard 2 2/3' + Tierce 1 3/5'):
+pub const SESQUIALTERA_II_RANKS: &[CompoundRank] = &[
+    CompoundRank { voicing: &VOICING_NAZARD_2_2_3, pitch_ratio: 3.0, gain: 0.52, detune_cents: 0.0 }, // Nazard 2 2/3'
+    CompoundRank { voicing: &VOICING_TIERCE_1_3_5, pitch_ratio: 5.0, gain: 0.44, detune_cents: 0.0 }, // Tierce 1 3/5'
 ];
 
 pub const STOP_DEFINITIONS: &[StopDefinition] = &[
@@ -1305,6 +1460,64 @@ pub const STOP_DEFINITIONS: &[StopDefinition] = &[
             voicing: &VOICING_TRUMPET_8,
             pitch_ratio: 2.0,
             gain: 0.82,
+        },
+    },
+    // 51: Nazard 2 2/3' (12th Quint Flute Mutation)
+    StopDefinition {
+        name: "Nazard 2 2/3'",
+        id: 51,
+        model: StopSynthesisModel::PhysicalPipe {
+            voicing: &VOICING_NAZARD_2_2_3,
+            pitch_ratio: 3.0,
+            gain: 0.72,
+        },
+    },
+    // 52: Tierce 1 3/5' (17th Major Third Flute Mutation)
+    StopDefinition {
+        name: "Tierce 1 3/5'",
+        id: 52,
+        model: StopSynthesisModel::PhysicalPipe {
+            voicing: &VOICING_TIERCE_1_3_5,
+            pitch_ratio: 5.0,
+            gain: 0.64,
+        },
+    },
+    // 53: Larigot 1 1/3' (19th Super-Quint Flute Mutation)
+    StopDefinition {
+        name: "Larigot 1 1/3'",
+        id: 53,
+        model: StopSynthesisModel::PhysicalPipe {
+            voicing: &VOICING_LARIGOT_1_1_3,
+            pitch_ratio: 6.0,
+            gain: 0.58,
+        },
+    },
+    // 54: Septième 1 1/7' (21st Harmonic Flat-Seventh Mutation)
+    StopDefinition {
+        name: "Septième 1 1/7'",
+        id: 54,
+        model: StopSynthesisModel::PhysicalPipe {
+            voicing: &VOICING_SEPTIEME_1_1_7,
+            pitch_ratio: 7.0,
+            gain: 0.52,
+        },
+    },
+    // 55: Sifflöte 1' (22nd Super-Octave High Crown Flute)
+    StopDefinition {
+        name: "Sifflöte 1'",
+        id: 55,
+        model: StopSynthesisModel::PhysicalPipe {
+            voicing: &VOICING_SIFFLOTE_1,
+            pitch_ratio: 8.0,
+            gain: 0.50,
+        },
+    },
+    // 56: Sesquialtera II (German 2-Rank Solo Mutation: Nazard 2 2/3' + Tierce 1 3/5')
+    StopDefinition {
+        name: "Sesquialtera II",
+        id: 56,
+        model: StopSynthesisModel::Compound {
+            ranks: SESQUIALTERA_II_RANKS,
         },
     },
 ];
@@ -1912,6 +2125,8 @@ pub fn stop_registration_weight(stop_id: i32) -> f32 {
         0 | 6 | 16 | 24 | 25 => 1.14,
         // 4' Octave, Solo Mutation & Clarion 4' Ranks (warmly balanced, never piercing)
         7 | 8 | 9 | 12 | 13 | 18 | 26 | 28 | 50 => 0.78,
+        // Solo & Harmonic Mutation Ranks (distinct color & sparkling harmonic overtones)
+        51 | 52 | 53 | 54 | 55 | 56 => 0.65, // Nazard 2 2/3', Tierce 1 3/5', Larigot 1 1/3', Septième, Sifflöte, Sesquialtera
         // 2' Super-Octaves & High Mixtures (gentle crown without excessive treble brightness)
         5 | 14 | 15 | 21 | 22 | 23 | 29 | 31 => 0.52,
         // Fallback unity weight for any unmapped stop ID
@@ -3632,5 +3847,55 @@ mod tests {
             trp_upper > 3.5 * ged_upper,
             "Trumpet 8' upper brass harmonics must be far stronger than mellow wooden Gedeckt 8': trp_upper={trp_upper}, ged_upper={ged_upper}"
         );
+    }
+
+    #[test]
+    fn test_mutations_and_high_end_presence() {
+        let sine_lut = SineLut::new();
+        let wind = vec![0.0f32; 22050];
+
+        // 1. Verify all 6 mutation stops (51..=56) exist with valid IDs, names, and finite rendering
+        let expected_mutations = [
+            (51, "Nazard 2 2/3'", 3.0),
+            (52, "Tierce 1 3/5'", 5.0),
+            (53, "Larigot 1 1/3'", 6.0),
+            (54, "Septième 1 1/7'", 7.0),
+            (55, "Sifflöte 1'", 8.0),
+        ];
+
+        let f_key = 220.0;
+        for &(id, name, ratio) in &expected_mutations {
+            assert_eq!(STOP_DEFINITIONS[id as usize].id, id);
+            assert_eq!(STOP_DEFINITIONS[id as usize].name, name);
+
+            let mut out = vec![0.0f32; 22050];
+            render_stop_into(id, f_key, 44100, &mut out, &sine_lut, &wind, 0.2);
+            assert!(out.iter().all(|s| s.is_finite()), "Mutation {name} produced non-finite samples");
+
+            let window = &out[11025..21025];
+            let f_sounding = f_key * ratio;
+            let m_harmonic = tone_magnitude(window, f_sounding, 44100.0);
+            assert!(m_harmonic > 0.04, "{name} harmonic at {f_sounding} Hz must be prominent: {m_harmonic}");
+        }
+
+        // 2. Verify Sesquialtera II (56) renders both Nazard (3x) and Tierce (5x) ranks simultaneously
+        assert_eq!(STOP_DEFINITIONS[56].id, 56);
+        assert_eq!(STOP_DEFINITIONS[56].name, "Sesquialtera II");
+        let mut sesq_out = vec![0.0f32; 22050];
+        render_stop_into(56, f_key, 44100, &mut sesq_out, &sine_lut, &wind, 0.2);
+        assert!(sesq_out.iter().all(|s| s.is_finite()));
+        let w_sesq = &sesq_out[11025..21025];
+        let m_nazard = tone_magnitude(w_sesq, f_key * 3.0, 44100.0);
+        let m_tierce = tone_magnitude(w_sesq, f_key * 5.0, 44100.0);
+        assert!(m_nazard > 0.02, "Sesquialtera II must contain Nazard 2 2/3' rank: {m_nazard}");
+        assert!(m_tierce > 0.02, "Sesquialtera II must contain Tierce 1 3/5' rank: {m_tierce}");
+
+        // 3. Verify high-end presence: voicings for high flue and mutation stops must have rolloff_hz >= 6000 Hz
+        assert!(VOICING_NAZARD_2_2_3.rolloff_hz >= 6000.0);
+        assert!(VOICING_TIERCE_1_3_5.rolloff_hz >= 6000.0);
+        assert!(VOICING_LARIGOT_1_1_3.rolloff_hz >= 6000.0);
+        assert!(VOICING_SIFFLOTE_1.rolloff_hz >= 6000.0);
+        assert!(VOICING_OTTAVINO_2.rolloff_hz >= 6000.0);
+        assert!(VOICING_PRINCIPAL.rolloff_hz >= 6000.0);
     }
 }

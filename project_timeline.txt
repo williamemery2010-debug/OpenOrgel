@@ -820,3 +820,60 @@ PHASE 33: IBT-2 BTS7960 MOTOR DRIVER INTEGRATION (PIN 53 EN, PIN A0 IS CURRENT S
     5. Updated unit_tests_report.md and project_timeline.txt.
 ================================================================================
 
+--------------------------------------------------------------------------------
+PHASE 34: PIN 52 EN PIN ALIGNMENT & IBT-2 UNIDIRECTIONAL BLOWER HARDWARE VALIDATION (October 29, 2026 - Prealpha_v2.0.21)
+--------------------------------------------------------------------------------
+* October 29, 2026:
+  - WHAT:
+    1. Driver Enable Pin Realignment & Redundant Driving (newconsole/newconsole.ino):
+       - Configured Arduino Pin 52 as the designated primary driver enable pin (`enPin = 52`) controlling IBT-2 BTS7960 `R_EN` and `L_EN`.
+       - Maintained Pin 53 as a synchronized redundant enable output (`enPinAlt = 53`) via `setDriverEnable(bool)` to guarantee active high-state drive across either physical header terminal.
+    2. Unidirectional Centrifugal Blower Analysis & Ripped LPWM Pad Resolution:
+       - Confirmed electrical architecture for unidirectional organ blower operation: centrifugal impellers exclusively require forward rotation via `RPWM` on Pin 3.
+       - Confirmed that `LPWM` (Pin 2 on IBT-2 header, connected to 74HC244 input A2) is inherently non-essential for forward drive and relies on the onboard SMD pull-down resistor to GND.
+  - WHY:
+    1. The creator clarified: "My LPWM pad is ripped so it cant be soldered. 52 is actually the true pin i made a typo beforehand"
+    2. Aligning firmware with Pin 52 ensures the BTS7960 enable gate receives the 5V enable signal, while establishing that the torn LPWM pad does not impair forward blower rotation.
+  - HOW:
+    1. Updated newconsole/newconsole.ino with `enPin = 52` and redundant `enPinAlt = 53`.
+    2. Rebuilt native Rust release executable and deployed to Desktop target.
+================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 35: HIGH-END BRILLIANCE RESTORATION & 6-STOP CLASSICAL MUTATION SUITE (October 30, 2026 - Prealpha_v2.0.22)
+--------------------------------------------------------------------------------
+* October 30, 2026:
+  - WHAT:
+    1. Synthesis High-End Brilliance & Presence Restoration (rust/src/dsp/pipe.rs, rust/src/dsp/mod.rs, rust/src/dsp/stops_dsp.rs):
+       - Removed artificial acoustic suppression filters that previously caused a dark, muffled treble response across pipe voicings.
+       - Replaced the harsh 2600 Hz notch attenuation `(1.0 - 0.32 * exp(...))` in `rust/src/dsp/pipe.rs` with an acoustic presence articulation band centered at 3400 Hz `(+ 0.18 * exp(...))`.
+       - Re-balanced the master contour low-pass filter in `rust/src/dsp/mod.rs` from `0.72 * lp_2100 + 0.28 * x` to `0.35 * lp_2100 + 0.65 * x`, and introduced an upper air presence shelving band at 4500 Hz (`+ 0.16 * (x - lp_4500)`).
+       - Elevated the acoustic low-pass cutoff (`rolloff_hz`) across 23 existing `PipeVoicing` definitions in `rust/src/dsp/stops_dsp.rs` from `1850–2600 Hz` up to `5200–8500 Hz` (e.g. Diapason 8' to 7200 Hz, Principal 4' to 7800 Hz, Ottavino 2' to 8500 Hz, Trumpet 8' to 7400 Hz), unlocking natural speech chiff and crystalline upper harmonics.
+    2. Comprehensive 6-Stop Classical Mutation Suite (rust/src/stops.rs, rust/src/dsp/stops_dsp.rs):
+       - Integrated 6 classical harmonic mutation ranks speaking at non-unison pitch ratios relative to 8' foundation pitch:
+         * Nazard 2 2/3' (ID 51): 3rd harmonic ($3.0 \times f_0$), twelfth above unison, warm French Classical flute mutation.
+         * Tierce 1 3/5' (ID 52): 5th harmonic ($5.0 \times f_0$), seventeenth above unison (two octaves + major third), providing reed-like coloration to flute ensembles.
+         * Larigot 1 1/3' (ID 53): 6th harmonic ($6.0 \times f_0$), nineteenth above unison (two octaves + fifth), shimmering upper-tier mutation.
+         * Septième 1 1/7' (ID 54): 7th harmonic ($7.0 \times f_0$), twenty-first above unison (harmonic flat seventh), rare harmonic mutation adding sharp biting character.
+         * Sifflöte 1' (ID 55): 8th harmonic ($8.0 \times f_0$), twenty-second above unison (three octaves), sparkling high flue flute.
+         * Sesquialtera II (ID 56): Two-rank classical compound mutation combining Nazard 2 2/3' ($3.0 \times$) and Tierce 1 3/5' ($5.0 \times$) for solo Cornet/Jeu de Tierce registrations.
+    3. Console GUI Layout Integration (rust/src/stops.rs):
+       - Added `Group::Mutations` to the stop group enum and `Group::ORDER` sequence, expanding the console interface into 7 structured columns (32', 16', 8', 4', 2', Mutations, Mixtures & Special).
+       - Updated footage classification heuristic `group_of()` to automatically route non-unison mutation stops into the dedicated Mutations column.
+       - Assigned registration balancing weights (`0.65`) for all new mutation stops in `stop_registration_weight`.
+    4. Unit Testing Suite Expansion (UT-49 in rust/src/dsp/stops_dsp.rs & unit_tests_report.md):
+       - Implemented `test_mutations_and_high_end_presence` validating finite sample synthesis, discrete harmonic spectral presence ($m > 0.04$ solo, $m > 0.02$ Sesquialtera II compound ranks), and voicing roll-off thresholds ($\ge 6000\text{ Hz}$).
+       - Expanded unit test suite to 49 passing tests (0 failures).
+  - WHY:
+    1. The creator requested: "Okay I need more high end and mutations!!"
+    2. Previous pipe acoustic modeling heavily attenuated high frequencies above 2.5 kHz through multiple stacked low-pass stages, causing bright flue stops, mixtures, and reeds to sound overly dark, dead, and muffled.
+    3. Classical pipe organ registrations rely on non-unison mutation stops to produce solo Cornet timbres, synthetic reeds, and distinct Renaissance/Baroque polyphonic clarity.
+  - HOW:
+    1. Modified `rust/src/stops.rs` to declare `Group::Mutations`, route mutation names/footages, and define stop records 51..=56.
+    2. Modified `rust/src/dsp/pipe.rs` to replace the 2600 Hz glare dip with a 3400 Hz acoustic presence peak.
+    3. Modified `rust/src/dsp/mod.rs` to unclamp master contour EQ and introduce 4500 Hz air presence filtering.
+    4. Modified `rust/src/dsp/stops_dsp.rs` with updated `rolloff_hz` parameters, new mutation voicings, `SESQUIALTERA_II_RANKS`, stop dispatch, and test `test_mutations_and_high_end_presence`.
+    5. Documented UT-49 in `unit_tests_report.md` and updated `project_timeline.txt`.
+================================================================================
+
+

@@ -1,8 +1,8 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-29 12:45:42
-Total Commits  : 104
+Updated At     : 2026-10-30 09:42:50
+Total Commits  : 105
 Total Releases : 41
 ================================================================================
 
@@ -10,7 +10,7 @@ Total Releases : 41
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.20
 Date    : 2026-10-29
-Commit  : 3c18dcd
+Commit  : 85b56a1
 Details : Prealpha_v2.0.20: IBT-2 BTS7960 motor driver integration (Pin 53 EN, Pin A0 IS current sensing), standalone blower operation & continuous telemetry
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.18
@@ -223,7 +223,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-9777939  | 2026-10-29 | williamemery2010-deb | Prealpha_v2.0.20: IBT-2 BTS7960 motor driver integration (Pin 53 EN, Pin A0 IS current sensing), standalone blower operation & continuous telemetry
+f818598  | 2026-10-30 | williamemery2010-deb | Prealpha_v2.0.22: High-end brilliance restoration & 6-stop classical mutation suite
+85b56a1  | 2026-10-29 | williamemery2010-deb | Prealpha_v2.0.20: IBT-2 BTS7960 motor driver integration (Pin 53 EN, Pin A0 IS current sensing), standalone blower operation & continuous telemetry
 876e6e8  | 2026-10-28 | williamemery2010-deb | Prealpha_v2.0.19: Real-time laptop microphone Eb5/chromatic pitch detector & Arduino Pin 3/Pin 8 centrifugal blower PWM controller
 9a3ac81  | 2026-10-28 | williamemery2010-deb | Prealpha_v2.0.18: Midrange-forward EQ, 6 new Trumpet stops, mellow square-wood Gedeckt, warm de-brightened voicing & full code documentation
 b08a25f  | 2026-10-27 | williamemery2010-deb | Prealpha_v2.0.17: Tonal breath-flutter & narrow harmonic breath halo for airy 8' flutes (eliminate broadband white-noise hiss)

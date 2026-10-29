@@ -17,18 +17,21 @@ pub enum Group {
     Ft4,
     /// 2' Super-Octave Principal & Flute Ranks (sounding two octaves above written pitch).
     Ft2,
+    /// Solo & Harmonic Mutation Ranks (Nazard 2 2/3', Tierce 1 3/5', Larigot 1 1/3', Septième 1 1/7', Sifflöte 1', Sesquialtera).
+    Mutations,
     /// Multi-rank Compound Stops, Choruses & Mixtures.
     Special,
 }
 
 impl Group {
     /// Fixed left-to-right column display order in the Organ Console GUI.
-    pub const ORDER: [Group; 6] = [
+    pub const ORDER: [Group; 7] = [
         Group::Ft32,
         Group::Ft16,
         Group::Ft8,
         Group::Ft4,
         Group::Ft2,
+        Group::Mutations,
         Group::Special,
     ];
 
@@ -40,19 +43,8 @@ impl Group {
             Group::Ft8 => "8' Ranks",
             Group::Ft4 => "4' Ranks",
             Group::Ft2 => "2' Ranks",
+            Group::Mutations => "Mutations",
             Group::Special => "Mixtures & Special",
-        }
-    }
-
-    /// Substring suffix used to classify a stop into its corresponding footage column.
-    fn marker(self) -> Option<&'static str> {
-        match self {
-            Group::Ft32 => Some(" 32'"),
-            Group::Ft16 => Some(" 16'"),
-            Group::Ft8 => Some(" 8'"),
-            Group::Ft4 => Some(" 4'"),
-            Group::Ft2 => Some(" 2'"),
-            Group::Special => None,
         }
     }
 }
@@ -117,21 +109,45 @@ pub const STOPS: &[StopInfo] = &[
     StopInfo { name: "State Trumpet 8'", id: 48 },
     StopInfo { name: "Cornopean 8'", id: 49 },
     StopInfo { name: "Trompette 4'", id: 50 },
+    StopInfo { name: "Nazard 2 2/3'", id: 51 },
+    StopInfo { name: "Tierce 1 3/5'", id: 52 },
+    StopInfo { name: "Larigot 1 1/3'", id: 53 },
+    StopInfo { name: "Septième 1 1/7'", id: 54 },
+    StopInfo { name: "Sifflöte 1'", id: 55 },
+    StopInfo { name: "Sesquialtera II", id: 56 },
 ];
 
 /// The stop that is pulled out when the console first wakes up.
 pub const DEFAULT_STOP: &str = "Diapason 8'";
 
-/// Footage group of a stop, using the same substring rule as the legacy GUI.
+/// Footage group of a stop, correctly routing 32', 16', 8', 4', 2', Mutations, and Mixtures.
 pub fn group_of(name: &str) -> Group {
-    for g in Group::ORDER {
-        if let Some(m) = g.marker() {
-            if name.contains(m) {
-                return g;
-            }
-        }
+    if name.contains(" 32'") {
+        Group::Ft32
+    } else if name.contains(" 16'") {
+        Group::Ft16
+    } else if name.contains(" 8'") {
+        Group::Ft8
+    } else if name.contains(" 4'") {
+        Group::Ft4
+    } else if name.contains(" 2 2/3'")
+        || name.contains(" 1 3/5'")
+        || name.contains(" 1 1/3'")
+        || name.contains(" 1 1/7'")
+        || name.contains(" 1'")
+        || name.contains("Sesquialtera")
+        || name.contains("Nazard")
+        || name.contains("Tierce")
+        || name.contains("Larigot")
+        || name.contains("Sifflöte")
+        || name.contains("Septième")
+    {
+        Group::Mutations
+    } else if name.contains(" 2'") {
+        Group::Ft2
+    } else {
+        Group::Special
     }
-    Group::Special
 }
 
 /// Stops indices grouped for display, alphabetical within each group.

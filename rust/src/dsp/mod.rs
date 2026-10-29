@@ -193,6 +193,7 @@ fn apply_bass_warmth_eq_internal(
     let a_820 = 1.0 - (-two_pi * 820.0 / sr).exp();
     let a_1220 = 1.0 - (-two_pi * 1220.0 / sr).exp();
     let a_2100 = 1.0 - (-two_pi * 2100.0 / sr).exp();
+    let a_4500 = 1.0 - (-two_pi * 4500.0 / sr).exp();
 
     let mut lp_sub1 = 0.0f64;
     let mut lp_sub2 = 0.0f64;
@@ -202,6 +203,7 @@ fn apply_bass_warmth_eq_internal(
     let mut lp_820 = 0.0f64;
     let mut lp_1220 = 0.0f64;
     let mut lp_2100 = 0.0f64;
+    let mut lp_4500 = 0.0f64;
 
     // Sub-bass & bass shelf gains: microscopically reduced from (1.10, 0.58) to (0.88, 0.44)
     // so the bass remains deep and authoritative without being overdone.
@@ -236,24 +238,28 @@ fn apply_bass_warmth_eq_internal(
         lp_820 += a_820 * (x - lp_820);
         lp_1220 += a_1220 * (x - lp_1220);
         lp_2100 += a_2100 * (x - lp_2100);
+        lp_4500 += a_4500 * (x - lp_4500);
 
         // Band-pass subtraction:
         // - `mid_chest` (220-520 Hz) adds warm wooden/metal chest fullness.
         // - `mid_presence` (220-760 Hz) projects vocal midrange clarity.
         // - `nasal_band` (820-1220 Hz) scoops out nasal honk.
+        // - `air_shimmer` (> 4500 Hz) adds open cathedral acoustic air and brilliance.
         let mid_chest = lp_520 - lp_220;
         let mid_presence = lp_760 - lp_220;
         let nasal_band = lp_1220 - lp_820;
+        let air_shimmer = x - lp_4500;
 
-        // Blend 72% warm 2.1 kHz low-passed signal with 28% full-bandwidth signal to tame excessive brightness.
-        let warm_dry = 0.72 * lp_2100 + 0.28 * x;
+        // Open up full-bandwidth high-end clarity: blend 65% full-bandwidth with 35% gentle low-pass smoothing.
+        let warm_dry = 0.35 * lp_2100 + 0.65 * x;
 
         let eq_val = (warm_dry
             + sub_gain * lp_sub2
             + bass_gain * lp_220
             + 0.62 * mid_chest
             + 0.74 * mid_presence
-            - 0.24 * nasal_band)
+            - 0.24 * nasal_band
+            + 0.16 * air_shimmer)
             * total_pitch_gain;
         *s = eq_val as f32;
     }

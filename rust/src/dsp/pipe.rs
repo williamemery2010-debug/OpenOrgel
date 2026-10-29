@@ -311,11 +311,11 @@ pub fn shaped_amplitude(v: &PipeVoicing, k: usize, f0: f64, sample_rate: f64) ->
         a *= if k == 1 { 1.0 + 0.55 * low_factor } else { 1.0 + 0.28 * low_factor };
     }
 
-    // 4. Universal warm midrange chest resonance (~380 Hz, +38%) and anti-glare ear-canal dip (~2600 Hz, -32%)
-    // so pipes project a rich, singing midrange and never sound piercingly bright.
+    // 4. Universal warm midrange chest resonance (~380 Hz, +32%) and presence articulation (~3400 Hz, +18%)
+    // so pipes project a rich, singing body with sparkling acoustic air and clarity.
     let d_mid = (f / 380.0).log2() / 1.15;
-    let d_glare = (f / 2600.0).log2() / 0.95;
-    a *= (1.0 + 0.38 * (-d_mid * d_mid).exp()) * (1.0 - 0.32 * (-d_glare * d_glare).exp());
+    let d_pres = (f / 3400.0).log2() / 1.10;
+    a *= (1.0 + 0.32 * (-d_mid * d_mid).exp()) * (1.0 + 0.18 * (-d_pres * d_pres).exp());
 
     // 5. Stop-specific Gaussian log-frequency formants (bell, throat, mouth, or wooden cavity resonances).
     for &(fc, width, boost) in v.formants {

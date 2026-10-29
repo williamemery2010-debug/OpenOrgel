@@ -3,9 +3,9 @@
 // ============================================================================
 // Hardware Configuration:
 //   - Pin 3  (pwmPin):          PWM speed output driving IBT-2 RPWM (Pin 3)
-//                               (Centrifugal blower forward drive; LPWM held LOW/GND)
-//   - Pin 53 (enPin):           Driver Enable output driving IBT-2 R_EN and L_EN
-//                               (HIGH = H-bridge active, LOW = H-bridge disabled)
+//                               (Centrifugal blower forward drive; LPWM unused / held LOW)
+//   - Pin 52 (enPin):           Driver Enable output driving IBT-2 R_EN and L_EN (Pin 52)
+//                               (HIGH = H-bridge active, LOW = H-bridge disabled; Pin 53 also driven as mirror)
 //   - Pin A0 (currentSensePin): Analog input measuring IBT-2 IS current-sense output
 //                               (R_IS / L_IS connected to Pin A0)
 //   - Pin 8  (switchPin):       Physical ON-ON toggle switch wired between Pin 8 & GND
@@ -13,14 +13,14 @@
 //
 // Standalone Operation Guarantee:
 //   - When Pin 8 switch is ON (Pin 8 connected to GND / LOW):
-//       * Pin 53 (enPin) is driven HIGH (IBT-2 BTS7960 output stage ENABLED).
+//       * Pin 52 (enPin) is driven HIGH (IBT-2 BTS7960 output stage ENABLED).
 //       * Pin 3 (pwmPin) is driven at currentPwmPercent (nominal 50.0% on boot).
 //       * The centrifugal organ blower runs reliably and continuously EVEN IF:
 //           - No USB cable is connected (standalone physical organ performance)
 //           - The laptop microphone tuner is OFF or disabled
 //           - The OpenOrgel desktop application is not open or running
 //   - When Pin 8 switch is OFF (HIGH):
-//       * Pin 53 (enPin) is driven LOW (IBT-2 BTS7960 disabled to prevent power draw).
+//       * Pin 52 (enPin) is driven LOW (IBT-2 BTS7960 disabled to prevent power draw).
 //       * Pin 3 (pwmPin) is set to 0.
 //       * currentPwmPercent resets to 50.0% nominal ready for the next startup.
 //       * Measured motor current is clamped to 0.00 A.
@@ -53,9 +53,16 @@
 // ============================================================================
 
 const int pwmPin = 3;           // PWM output to IBT-2 RPWM (Pin 3)
-const int enPin = 53;           // Driver Enable output to IBT-2 R_EN and L_EN (Pin 53)
+const int enPin = 52;           // Primary Driver Enable output to IBT-2 R_EN and L_EN (Pin 52)
+const int enPinAlt = 53;        // Redundant Driver Enable output (Pin 53)
 const int currentSensePin = A0; // Analog input for IBT-2 IS current sense (Pin A0)
 const int switchPin = 8;        // ON-ON toggle switch (Pin 8 to GND, active LOW)
+
+// Helper: drives both Pin 52 and Pin 53 HIGH (enabled) or LOW (disabled)
+void setDriverEnable(bool enable) {
+  digitalWrite(enPin, enable ? HIGH : LOW);
+  digitalWrite(enPinAlt, enable ? HIGH : LOW);
+}
 
 float currentPwmPercent = 50.0;            // Nominal starting pressure at 50.0% power
 unsigned long lastAdjustmentTime = 0;      // Timestamp (ms) of the last pitch adjustment
@@ -158,11 +165,12 @@ void setup() {
 
   pinMode(pwmPin, OUTPUT);
   pinMode(enPin, OUTPUT);
+  pinMode(enPinAlt, OUTPUT);
   pinMode(switchPin, INPUT_PULLUP); // ON-ON toggle switch between Pin 8 & GND
   pinMode(currentSensePin, INPUT);
 
   // Initialize outputs safely disabled
-  digitalWrite(enPin, LOW);
+  setDriverEnable(false);
   analogWrite(pwmPin, 0);
 
   // Read initial physical switch state
@@ -171,7 +179,7 @@ void setup() {
 
   if (isSystemOn) {
     // Switch is ON on boot: enable driver immediately for standalone operation
-    digitalWrite(enPin, HIGH);
+    setDriverEnable(true);
     applyBlowerPwm(currentPwmPercent);
   }
 }
@@ -185,12 +193,12 @@ void loop() {
     lastSwitchState = isSystemOn;
 
     if (isSystemOn) {
-      // Switch flipped ON: Enable IBT-2 driver (Pin 53) and apply nominal PWM (Pin 3)
-      digitalWrite(enPin, HIGH);
+      // Switch flipped ON: Enable IBT-2 driver (Pin 53 & Pin 52) and apply nominal PWM (Pin 3)
+      setDriverEnable(true);
       applyBlowerPwm(currentPwmPercent);
     } else {
       // Switch flipped OFF: Disable IBT-2 driver immediately
-      digitalWrite(enPin, LOW);
+      setDriverEnable(false);
       analogWrite(pwmPin, 0);
       currentPwmPercent = 50.0; // Reset to 50.0% nominal ready for next startup
       smoothedCurrentAmps = 0.0;
@@ -206,7 +214,7 @@ void loop() {
 
   // When system is OFF: keep outputs disabled, drain serial buffer, and broadcast OFF heartbeat
   if (!isSystemOn) {
-    digitalWrite(enPin, LOW);
+    setDriverEnable(false);
     analogWrite(pwmPin, 0);
     smoothedCurrentAmps = 0.0;
 
@@ -226,8 +234,8 @@ void loop() {
   }
 
   // System is ON:
-  // Ensure IBT-2 BTS7960 enable pin (Pin 53) is active HIGH
-  digitalWrite(enPin, HIGH);
+  // Ensure IBT-2 BTS7960 enable pins (Pin 53 & Pin 52) are active HIGH
+  setDriverEnable(true);
 
   // Apply current PWM duty cycle to Pin 3 (runs reliably standalone even if tuner/app is closed)
   applyBlowerPwm(currentPwmPercent);

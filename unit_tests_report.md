@@ -74,8 +74,9 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 | **UT-46** | `tuner` | `test_blower_pwm_controller_flat_sharp_step_and_delay` | **PASSED** | < 0.001 s |
 | **UT-47** | `tuner` | `test_chromatic_and_temperament_target_calculation` | **PASSED** | < 0.001 s |
 | **UT-48** | `serial` | `test_parse_motor_current_and_telemetry` | **PASSED** | < 0.001 s |
+| **UT-49** | `dsp::stops_dsp` | `test_mutations_and_high_end_presence` | **PASSED** | < 0.005 s |
 
-**Overall Result: 48 Passed, 0 Failed, 0 Ignored.**
+**Overall Result: 49 Passed, 0 Failed, 0 Ignored.**
 
 ---
 
@@ -577,6 +578,19 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 - **WHAT:** Validates that `parse_line` correctly extracts and dispatches `SerialEvent::MotorCurrent` with float precision, converts alias identifiers (`"AMPS"`), clamps negative values to `0.0`, and safely ignores malformed or unrecognized commands without crashing.
 - **METHOD:** Feeds test strings (`"CURRENT:1.85"`, `"AMPS:3.42"`, `"CURRENT:-0.15"`, `"BLOWER:1"`, `"BLOWER:0"`, `"PWM:52.5"`, `"A4_1"`, `"GARBAGE"`) into `parse_line` over an unbounded crossbeam channel and asserts exact event types and values.
 - **EXPECTED RESULT:** Dispatches `MotorCurrent(1.85)`, `MotorCurrent(3.42)`, `MotorCurrent(0.0)` (clamped), `BlowerSwitch(true/false)`, and `BlowerPwm(52.5)`. Rejects invalid lines with zero channel events.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-49: Mutation Stop Synthesis & High-End Harmonic Presence
+- **Module:** [rust/src/dsp/stops_dsp.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/dsp/stops_dsp.rs) (`test_mutations_and_high_end_presence`)
+- **WHY:** Classical organ mutation stops (Nazard $2\frac{2}{3}'$, Tierce $1\frac{3}{5}'$, Larigot $1\frac{1}{3}'$, Septième $1\frac{1}{7}'$, Sifflöte $1'$, Sesquialtera II) speak at non-unison pitch ratios ($3\times, 5\times, 6\times, 7\times, 8\times$) relative to key fundamental $f_{\text{key}}$, giving the organ chorus its characteristic acoustic color, vowel-like formant reinforcement, and upper brilliance. Furthermore, excessive high-frequency damping (`rolloff_hz < 3000 Hz`) previously muffled upper harmonics and subdued speech chiff. Both the harmonic ratios and high-frequency roll-off thresholds must be strictly validated.
+- **WHAT:** Validates that:
+  1. All 5 individual mutation stops (IDs 51–55) synthesize numerically finite waveforms and exhibit their exact nominal harmonic partials ($3\times, 5\times, 6\times, 7\times, 8\times f_{\text{key}}$) with spectral magnitude $m > 0.04$.
+  2. The compound rank `Sesquialtera II` (ID 56) synthesizes finite audio and contains prominent spectral energy for both its Nazard ($3\times$) and Tierce ($5\times$) constituent ranks ($m > 0.02$).
+  3. All high-frequency flue and mutation voicings (`VOICING_NAZARD_2_2_3`, `VOICING_TIERCE_1_3_5`, `VOICING_LARIGOT_1_1_3`, `VOICING_SIFFLOTE_1`, `VOICING_OTTAVINO_2`, `VOICING_PRINCIPAL`) configure acoustic low-pass cutoffs $\ge 6000.0\text{ Hz}$.
+- **METHOD:** Renders $22,050$ samples ($0.5\text{ s}$) at $44.1\text{ kHz}$ for each mutation stop at $f_{\text{key}} = 220.0\text{ Hz}$. Evaluates the Fourier magnitude at $f_{\text{key}} \times \text{ratio}$ using discrete Goertzel-style single-frequency correlation (`tone_magnitude`) over the steady-state window ($t \in [0.25\text{s}, 0.476\text{s}]$). Verifies voicing roll-off parameters.
+- **EXPECTED RESULT:** All stops finite; $m(\text{harmonic}) > 0.04$ for solo mutations; $m(\text{Nazard}) > 0.02$ and $m(\text{Tierce}) > 0.02$ for Sesquialtera II; all high-rank `rolloff_hz >= 6000.0`.
 - **ACTUAL RESULT:** Passed.
 
 ---
