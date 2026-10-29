@@ -1,17 +1,27 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-10-28 22:39:42
-Total Commits  : 103
-Total Releases : 39
+Updated At     : 2026-10-29 12:45:42
+Total Commits  : 104
+Total Releases : 41
 ================================================================================
 
 🚀 RELEASES / TAGS
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.20
+Date    : 2026-10-29
+Commit  : 3c18dcd
+Details : Prealpha_v2.0.20: IBT-2 BTS7960 motor driver integration (Pin 53 EN, Pin A0 IS current sensing), standalone blower operation & continuous telemetry
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.18
 Date    : 2026-10-28
 Commit  : 9a3ac81
 Details : Prealpha_v2.0.18: Midrange EQ, New Trumpet Stops, Mellow Wooden Gedeckt & Comprehensive Code Comments
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.19
+Date    : 2026-10-28
+Commit  : 876e6e8
+Details : Prealpha_v2.0.19: Laptop Microphone Eb5/Chromatic Pitch Detector & Blower PWM PID Controller
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.16
 Date    : 2026-10-27
@@ -213,7 +223,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-7cdefe3  | 2026-10-28 | williamemery2010-deb | Prealpha_v2.0.19: Real-time laptop microphone Eb5/chromatic pitch detector & Arduino Pin 3/Pin 8 centrifugal blower PWM controller
+9777939  | 2026-10-29 | williamemery2010-deb | Prealpha_v2.0.20: IBT-2 BTS7960 motor driver integration (Pin 53 EN, Pin A0 IS current sensing), standalone blower operation & continuous telemetry
+876e6e8  | 2026-10-28 | williamemery2010-deb | Prealpha_v2.0.19: Real-time laptop microphone Eb5/chromatic pitch detector & Arduino Pin 3/Pin 8 centrifugal blower PWM controller
 9a3ac81  | 2026-10-28 | williamemery2010-deb | Prealpha_v2.0.18: Midrange-forward EQ, 6 new Trumpet stops, mellow square-wood Gedeckt, warm de-brightened voicing & full code documentation
 b08a25f  | 2026-10-27 | williamemery2010-deb | Prealpha_v2.0.17: Tonal breath-flutter & narrow harmonic breath halo for airy 8' flutes (eliminate broadband white-noise hiss)
 2f6704d  | 2026-10-27 | williamemery2010-deb | Prealpha_v2.0.16: Bold open-metal Diapason 8' Principal crown & distinct airy wind-jet 8' flutes

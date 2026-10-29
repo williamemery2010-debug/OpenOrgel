@@ -99,6 +99,8 @@ pub struct TunerStatus {
     pub confidence: f32,
     /// Current blower motor PWM duty cycle (`0.0%` to `100.0%`, starting at `50.0%` nominal).
     pub current_pwm_percent: f32,
+    /// Live centrifugal blower motor current in Amperes reported by IBT-2 BTS7960 IS pin on Pin A0.
+    pub motor_current_amps: f32,
     /// Most recent control action taken by the regulator.
     pub last_action: BlowerAdjustment,
     /// Hardware blower switch state reported by Arduino Pin 8 (`None` if not yet reported).
@@ -117,6 +119,7 @@ impl Default for TunerStatus {
             cents_error: 0.0,
             confidence: 0.0,
             current_pwm_percent: NOMINAL_PWM_PERCENT,
+            motor_current_amps: 0.0,
             last_action: BlowerAdjustment::WaitingForSignal,
             hardware_switch_on: None,
         }
@@ -495,11 +498,6 @@ impl MicrophoneTuner {
             auto_regulate_pwm: true,
             status: TunerStatus::default(),
         }
-    }
-
-    /// Returns true if the microphone capture stream is currently running.
-    pub fn is_Listening(&self) -> bool {
-        self.stream.is_some()
     }
 
     /// Returns true if the microphone capture stream is currently running.

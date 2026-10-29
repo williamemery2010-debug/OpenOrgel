@@ -778,3 +778,45 @@ PHASE 32: REAL-TIME LAPTOP MICROPHONE EB5 / CHROMATIC PITCH DETECTOR & ARDUINO P
   - HOW:
     1. Created rust/src/tuner.rs and updated newconsole/newconsole.ino, rust/src/serial.rs, rust/src/app.rs, rust/src/main.rs, unit_tests_report.md, and project_timeline.txt.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 33: IBT-2 BTS7960 MOTOR DRIVER INTEGRATION (PIN 53 EN, PIN A0 IS CURRENT SENSING), STANDALONE BLOWER OPERATION & CONTINUOUS TELEMETRY (October 29, 2026 - Prealpha_v2.0.20)
+--------------------------------------------------------------------------------
+* October 29, 2026:
+  - WHAT:
+    1. IBT-2 BTS7960 High-Power H-Bridge Driver Hardware Integration (newconsole/newconsole.ino):
+       - Configured Arduino Pin 53 as active HIGH driver enable output (`enPin`) controlling BTS7960 `R_EN` and `L_EN`.
+       - Configured Pin 3 as PWM drive output (`pwmPin`) connected to BTS7960 `RPWM` (forward drive).
+       - Configured Pin A0 as analog current-sensing input (`currentSensePin`) connected to BTS7960 `IS` (current mirror output).
+       - Configured Pin 8 as physical ON-ON toggle switch (`switchPin`, `INPUT_PULLUP`: LOW = ON, HIGH = OFF).
+    2. Guaranteed Standalone Blower Operation (Independent of Laptop / Tuner):
+       - When Pin 8 toggle switch is flipped ON (LOW), the microcontroller immediately drives Pin 53 (`enPin`) HIGH and applies nominal 50.0% PWM to Pin 3 (`pwmPin`).
+       - The blower motor runs continuously at nominal pressure EVEN IF:
+         * No USB serial connection is present (completely standalone performance)
+         * The laptop microphone tuner is OFF or disabled
+         * The OpenOrgel desktop application is closed
+       - If the OpenOrgel tuner is connected, pitch adjustment commands ('F' for Flat +0.5%, 'S' for Sharp -0.5%, 'R' for Reset 50.0%, or direct PWM setpoints) actively regulate blower pressure, adhering to the 500 ms anti-oscillation delay.
+       - Disabling or stopping the laptop tuner maintains the blower running steadily at its current duty cycle without stopping.
+    3. Mathematical Current Measurement & Low-Pass Filtering:
+       - Modeled BTS7960 current sense transfer function: with onboard 1 kΩ pull-down resistor and typical current mirror ratio K_ILIS = 8500, load current is I_load = V_IS * 8.5 A = ADC * (5.0 * 8.5 / 1023) ≈ ADC * 0.041544 A.
+       - Implemented 16-sample oversampling to prevent PWM chopping phase artifacts, followed by an Exponential Moving Average (EMA, alpha = 0.20) low-pass filter to output smooth, accurate DC load current.
+    4. USB Serial Bidirectional Telemetry Protocol & Rust Dispatch (rust/src/serial.rs, rust/src/tuner.rs):
+       - Added `"CURRENT:<amps>"` (and `"AMPS:<amps>"`) periodic telemetry broadcast (every 100 ms).
+       - Added `SerialEvent::MotorCurrent(f32)` to serial channel events with clamping for negative values.
+       - Added `motor_current_amps` field to `TunerStatus` for real-time UI state tracking.
+    5. Always-Visible Motor Current Display & Live GUI Gauge (rust/src/app.rs):
+       - Top Header Telemetry Badge: Added persistent Blower current and duty cycle badge (`Blower: X.XX A (YY.Y%)`) rendered in `header(ui)` across all pages and views at all times.
+       - Dedicated Live Motor Current Meter: Added a visual 0-12A meter bar, numerical readout, and load status indicator (`NOMINAL RUNNING`, `ELEVATED LOAD`, `HIGH LOAD WARNING`, `STANDBY / IDLE`) in the Blower Pitch-Lock panel.
+       - Added UT-48 unit test validating serial parsing, aliases, negative clamping, and invalid line rejection (48 unit tests total, all passing).
+  - WHY:
+    1. The creator requested: "okay hi we are using newconsole.ino as the arduino code now. The pwm pin for the motor which is connected to an IBT-2 BTS7960, the EN pin is on 53, the IS (current measuring output) is connected to A0. I need this code to work even if the tuner is off, currently i fear that if the tuner isnt open and the openorgel synth app isnt open then nothing will work. in short I need it to work standalone and also with the app. I want motor current to be measured in the app and displayed at all times"
+    2. Previously, Pin 53 (EN pin) was not configured or driven HIGH in firmware, meaning the BTS7960 H-bridge drivers remained in high-impedance shutdown mode, preventing the motor from spinning even with PWM on Pin 3.
+    3. Furthermore, motor current telemetry from the BTS7960 IS pin was absent, and the user needed continuous visibility into motor load and current draw directly on the console interface at all times.
+  - HOW:
+    1. Updated newconsole/newconsole.ino to manage Pin 53 EN, Pin 3 PWM, Pin A0 IS, and Pin 8 ON-ON switch with standalone execution and high-rate telemetry.
+    2. Updated rust/src/serial.rs with `SerialEvent::MotorCurrent`, `"CURRENT:<amps>"` parser, and test suite UT-48.
+    3. Updated rust/src/tuner.rs with `motor_current_amps` in `TunerStatus`.
+    4. Updated rust/src/app.rs to display live current in the global header and center visualizer column.
+    5. Updated unit_tests_report.md and project_timeline.txt.
+================================================================================
+

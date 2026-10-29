@@ -677,15 +677,20 @@ impl OrgelApp {
                     if !on {
                         self.tuner.controller.reset_to_nominal();
                         self.tuner.status.current_pwm_percent = 50.0;
+                        self.tuner.status.motor_current_amps = 0.0;
                     }
                 }
                 SerialEvent::BlowerPwm(pwm) => {
                     self.tuner.controller.current_pwm_percent = pwm;
                     self.tuner.status.current_pwm_percent = pwm;
                 }
+                SerialEvent::MotorCurrent(amps) => {
+                    self.tuner.status.motor_current_amps = amps;
+                }
                 SerialEvent::Connected(p) => self.toast(format!("Console connected on {p}"), GREEN),
                 SerialEvent::Disconnected => {
                     self.tuner.status.hardware_switch_on = None;
+                    self.tuner.status.motor_current_amps = 0.0;
                     self.toast("Console connection lost, retrying...", AMBER);
                 }
             }
@@ -770,6 +775,38 @@ impl OrgelApp {
                     } else {
                         badge(ui, "Console: Searching...", TEXT_MUTED);
                     }
+
+                    // Live Centrifugal Blower Motor Telemetry (always displayed)
+                    let (blower_label, blower_color) = match self.tuner.status.hardware_switch_on {
+                        Some(true) => (
+                            format!(
+                                "Blower: {:.2} A ({:.1}%)",
+                                self.tuner.status.motor_current_amps,
+                                self.tuner.status.current_pwm_percent
+                            ),
+                            if self.tuner.status.motor_current_amps > 10.0 {
+                                RED
+                            } else if self.tuner.status.motor_current_amps > 6.0 {
+                                AMBER
+                            } else {
+                                GREEN
+                            },
+                        ),
+                        Some(false) => ("Blower: OFF (0.00 A)".to_string(), RED),
+                        None => (
+                            if self.tuner.status.motor_current_amps > 0.05 {
+                                format!(
+                                    "Blower: {:.2} A ({:.1}%)",
+                                    self.tuner.status.motor_current_amps,
+                                    self.tuner.status.current_pwm_percent
+                                )
+                            } else {
+                                "Blower: Standby".to_string()
+                            },
+                            TEXT_MUTED,
+                        ),
+                    };
+                    badge(ui, &blower_label, blower_color);
                 });
             });
         });
@@ -1487,6 +1524,44 @@ impl OrgelApp {
 
             ui.add_space(4.0);
 
+            // Live Centrifugal Blower Motor Current Meter (Pin A0 IS from IBT-2 BTS7960)
+            inner_card(ui, |ui| {
+                let current_amps = self.tuner.status.motor_current_amps;
+                let (current_col, current_state) = if current_amps > 10.0 {
+                    (RED, "HIGH LOAD WARNING")
+                } else if current_amps > 6.0 {
+                    (AMBER, "ELEVATED LOAD")
+                } else if current_amps > 0.05 {
+                    (GREEN, "NOMINAL RUNNING")
+                } else {
+                    (TEXT_MUTED, "STANDBY / IDLE")
+                };
+                ui.horizontal(|ui| {
+                    ui.label(bold(format!("Motor Current: {:.2} A", current_amps), 12.0).color(current_col));
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.label(RichText::new(current_state).size(11.0).color(current_col));
+                    });
+                });
+                ui.add_space(3.0);
+                // Visual current meter bar (0.0 to 12.0 A full-scale)
+                let (c_rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 8.0), Sense::hover());
+                ui.painter().rect_filled(c_rect, CornerRadius::same(4), BORDER);
+                let mut c_fill = c_rect;
+                let norm_curr = (current_amps / 12.0).clamp(0.0, 1.0);
+                c_fill.set_width(c_rect.width() * norm_curr);
+                ui.painter().rect_filled(c_fill, CornerRadius::same(4), current_col);
+
+                ui.add_space(2.0);
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("0A (A0)").size(9.0).color(TEXT_MUTED));
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.label(RichText::new("12A F.S.").size(9.0).color(TEXT_MUTED));
+                    });
+                });
+            });
+
+            ui.add_space(4.0);
+
             // Blower Motor PWM Output Bar (Nominal 50.0%, +/-0.5% step control on Pin 3)
             inner_card(ui, |ui| {
                 let pwm = self.tuner.controller.current_pwm_percent;
@@ -1516,24 +1591,32 @@ impl OrgelApp {
                         self.tuner.controller.current_pwm_percent =
                             (self.tuner.controller.current_pwm_percent - 0.5).clamp(0.0, 100.0);
                         self.tuner.status.current_pwm_percent = self.tuner.controller.current_pwm_percent;
-                        self.link.send_line("S
-");
+                        self.link.send_line("S\n");
                     }
                     if pill_button(ui, "50% Nominal", CHIP, ACCENT_HOVER, Vec2::new(bw, 24.0), true).clicked() {
                         self.tuner.controller.reset_to_nominal();
                         self.tuner.status.current_pwm_percent = 50.0;
-                        self.link.send_line("R
-");
+                        self.link.send_line("R\n");
                     }
                     if pill_button(ui, "+0.5% ('F')", CHIP, GREEN_HOVER, Vec2::new(bw, 24.0), true).clicked() {
                         self.tuner.controller.current_pwm_percent =
                             (self.tuner.controller.current_pwm_percent + 0.5).clamp(0.0, 100.0);
                         self.tuner.status.current_pwm_percent = self.tuner.controller.current_pwm_percent;
-                        self.link.send_line("F
-");
+                        self.link.send_line("F\n");
                     }
                 });
             });
+
+            ui.add_space(3.0);
+            ui.horizontal(|ui| {
+                badge(ui, "IBT-2 BTS7960: PWM Pin 3, EN Pin 53, IS Pin A0", ACCENT);
+            });
+            ui.add_space(2.0);
+            ui.label(
+                RichText::new("✓ Standalone Ready: Centrifugal blower operates at nominal pressure without laptop / when tuner is OFF. Pitch auto-locks when Mic is active.")
+                    .size(10.0)
+                    .color(TEXT_MUTED),
+            );
         });
     }
 
@@ -1651,8 +1734,7 @@ impl eframe::App for OrgelApp {
 
         // Poll laptop microphone pitch detector and regulate Arduino Pin 3 blower PWM ('F' / 'S')
         if let Some(cmd) = self.tuner.poll_and_regulate(self.engine.a4(), self.temperament) {
-            self.link.send_line(&format!("{cmd}
-"));
+            self.link.send_line(&format!("{cmd}\n"));
         }
 
         // visualizer + A4 servo

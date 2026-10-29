@@ -34,6 +34,8 @@ pub enum SerialEvent {
     BlowerSwitch(bool),
     /// Live Pin 3 blower MOSFET PWM duty cycle (`0.0%` to `100.0%`) reported by the Arduino.
     BlowerPwm(f32),
+    /// Live centrifugal blower motor current in Amperes reported by IBT-2 BTS7960 IS pin on Pin A0.
+    MotorCurrent(f32),
     /// Serial connection established on the named COM port.
     Connected(String),
     /// Serial connection lost.
@@ -93,6 +95,12 @@ fn parse_line(line: &str, tx: &Sender<SerialEvent>) {
     if ident == "PWM" {
         if let Ok(pwm) = val_str.parse::<f32>() {
             let _ = tx.send(SerialEvent::BlowerPwm(pwm.clamp(0.0, 100.0)));
+        }
+        return;
+    }
+    if ident == "CURRENT" || ident == "AMPS" || ident == "CUR" {
+        if let Ok(amps) = val_str.parse::<f32>() {
+            let _ = tx.send(SerialEvent::MotorCurrent(amps.max(0.0)));
         }
         return;
     }
@@ -199,3 +207,69 @@ impl ArduinoLink {
         }
     }
 }
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+    use crossbeam_channel::unbounded;
+
+    #[test]
+    fn test_parse_motor_current_and_telemetry() {
+        let (tx, rx) = unbounded();
+
+        // 1. Current telemetry: "CURRENT:1.85"
+        parse_line("CURRENT:1.85", &tx);
+        match rx.try_recv().expect("Expected MotorCurrent event") {
+            SerialEvent::MotorCurrent(amps) => {
+                assert!((amps - 1.85).abs() < 1e-4, "Expected 1.85A, got {amps}");
+            }
+            other => panic!("Unexpected event for CURRENT: {other:?}"),
+        }
+
+        // 2. Fallback aliases: "AMPS:3.42" and "CUR:0.50"
+        parse_line("AMPS:3.42", &tx);
+        match rx.try_recv().expect("Expected MotorCurrent event") {
+            SerialEvent::MotorCurrent(amps) => {
+                assert!((amps - 3.42).abs() < 1e-4, "Expected 3.42A, got {amps}");
+            }
+            other => panic!("Unexpected event for AMPS: {other:?}"),
+        }
+
+        // 3. Negative current clamping to 0.0
+        parse_line("CURRENT:-0.15", &tx);
+        match rx.try_recv().expect("Expected MotorCurrent event") {
+            SerialEvent::MotorCurrent(amps) => {
+                assert_eq!(amps, 0.0, "Expected negative current to clamp to 0.0");
+            }
+            other => panic!("Unexpected event for clamped current: {other:?}"),
+        }
+
+        // 4. Blower switch ON and OFF
+        parse_line("BLOWER:1", &tx);
+        match rx.try_recv().expect("Expected BlowerSwitch event") {
+            SerialEvent::BlowerSwitch(on) => assert!(on),
+            other => panic!("Unexpected event for BLOWER:1: {other:?}"),
+        }
+        parse_line("BLOWER:0", &tx);
+        match rx.try_recv().expect("Expected BlowerSwitch event") {
+            SerialEvent::BlowerSwitch(on) => assert!(!on),
+            other => panic!("Unexpected event for BLOWER:0: {other:?}"),
+        }
+
+        // 5. Blower PWM
+        parse_line("PWM:52.5", &tx);
+        match rx.try_recv().expect("Expected BlowerPwm event") {
+            SerialEvent::BlowerPwm(pwm) => {
+                assert!((pwm - 52.5).abs() < 1e-4, "Expected 52.5%, got {pwm}");
+            }
+            other => panic!("Unexpected event for PWM:52.5: {other:?}"),
+        }
+
+        // 6. Ignored / malformed lines produce no events
+        parse_line("A4_1", &tx);
+        assert!(rx.try_recv().is_err());
+        parse_line("GARBAGE", &tx);
+        assert!(rx.try_recv().is_err());
+    }
+}
+

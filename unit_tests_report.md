@@ -69,8 +69,13 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 | **UT-41** | `dsp::stops_dsp` | `test_bourdon_and_16_32_ranks_deep_low_bass_gravity` | **PASSED** | < 0.005 s |
 | **UT-42** | `dsp::stops_dsp` | `test_soft_flute_8_stops_warm_velvety_spectrum` | **PASSED** | < 0.005 s |
 | **UT-43** | `engine` | `test_dynamics_slider_swell_expression_and_gain` | **PASSED** | < 0.001 s |
+| **UT-44** | `dsp::stops_dsp` | `test_new_trumpet_stops_and_mellow_gedeckt_voicing` | **PASSED** | < 0.010 s |
+| **UT-45** | `tuner` | `test_nsdf_pitch_detection_on_harmonic_eb5_organ_pipe` | **PASSED** | < 0.005 s |
+| **UT-46** | `tuner` | `test_blower_pwm_controller_flat_sharp_step_and_delay` | **PASSED** | < 0.001 s |
+| **UT-47** | `tuner` | `test_chromatic_and_temperament_target_calculation` | **PASSED** | < 0.001 s |
+| **UT-48** | `serial` | `test_parse_motor_current_and_telemetry` | **PASSED** | < 0.001 s |
 
-**Overall Result: 43 Passed, 0 Failed, 0 Ignored.**
+**Overall Result: 48 Passed, 0 Failed, 0 Ignored.**
 
 ---
 
@@ -562,6 +567,16 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 - **WHAT:** Validates that `evaluate_chromatic_target` computes the exact $E\flat_5$ (`MIDI 75`) target frequency in both Equal Temperament ($622.25\text{ Hz}$) and 1/4-Comma Meantone ($+20.53\text{ cents}$) and calculates accurate negative cent error for a slightly flat $618.0\text{ Hz}$ input.
 - **METHOD:** Evaluates `evaluate_chromatic_target` at $618.0\text{ Hz}$ with $A_4 = 440.0\text{ Hz}$ across `Temperament::Equal` and `Temperament::Meantone14`.
 - **EXPECTED RESULT:** `note == 75`, `target_hz == 622.25397`, and $-15.0 < \Delta\text{cents} < -10.0$.
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-48: Serial Link Motor Current Telemetry Parsing & Clamping
+- **Module:** [rust/src/serial.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/serial.rs) (`test_parse_motor_current_and_telemetry`)
+- **WHY:** The organ blower system incorporates an IBT-2 BTS7960 high-power H-bridge motor driver with current sensing output (IS) connected to Arduino Pin A0. The hardware continuously measures motor current and reports it to OpenOrgel via the serial telemetry protocol (`"CURRENT:<amps>"` or `"AMPS:<amps>"`). The serial parsing layer must reliably parse, validate, and clamp these current readings, while handling blower toggle switch transitions (`"BLOWER:1|0"`), duty cycle feedback (`"PWM:<pct>"`), and ignoring invalid lines.
+- **WHAT:** Validates that `parse_line` correctly extracts and dispatches `SerialEvent::MotorCurrent` with float precision, converts alias identifiers (`"AMPS"`), clamps negative values to `0.0`, and safely ignores malformed or unrecognized commands without crashing.
+- **METHOD:** Feeds test strings (`"CURRENT:1.85"`, `"AMPS:3.42"`, `"CURRENT:-0.15"`, `"BLOWER:1"`, `"BLOWER:0"`, `"PWM:52.5"`, `"A4_1"`, `"GARBAGE"`) into `parse_line` over an unbounded crossbeam channel and asserts exact event types and values.
+- **EXPECTED RESULT:** Dispatches `MotorCurrent(1.85)`, `MotorCurrent(3.42)`, `MotorCurrent(0.0)` (clamped), `BlowerSwitch(true/false)`, and `BlowerPwm(52.5)`. Rejects invalid lines with zero channel events.
 - **ACTUAL RESULT:** Passed.
 
 ---
