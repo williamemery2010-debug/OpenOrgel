@@ -899,3 +899,23 @@ PHASE 36: PIN 13 PWM SPEED CONTROL REASSIGNMENT FOR OPTIMIZED CABLE MANAGEMENT (
     3. Verified test harness via `cargo test` (49 tests passing).
     4. Recompiled native release binary and deployed `openorgelsynth.exe` to Desktop target path.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 37: PIN 12 DRIVER ENABLE & PIN 11 5V LOGIC POWER CONSOLIDATION (November 1, 2026 - Prealpha_v2.0.24)
+--------------------------------------------------------------------------------
+* November 1, 2026:
+  - WHAT:
+    1. Consolidated Adjacent Jumper Harness (Pins 11, 12, 13) in newconsole/newconsole.ino:
+       - Configured Pin 12 as the primary driver enable output (`enPin = 12`) controlling IBT-2 BTS7960 `R_EN` (and `L_EN`). Maintained Pins 52 and 53 as synchronized redundant enable outputs via `setDriverEnable(bool)`.
+       - Configured Pin 11 as dedicated 5V logic power supply (`vccPin = 11`, `pinMode(vccPin, OUTPUT); digitalWrite(vccPin, HIGH);`) powering the IBT-2 onboard 74HC244 buffer chip directly adjacent to the control lines.
+    2. Software Status Telemetry Alignment (rust/src/app.rs):
+       - Updated GUI hardware connection badge to reflect the consolidated header: `"IBT-2 BTS7960: PWM Pin 13, EN Pin 12, VCC Pin 11, IS Pin A0"`.
+  - WHY:
+    1. The creator requested: "Ive put REN on pin 12 as well and VCC is on pin 11 for cable management so we can just have VCC always on high to provide the 5v"
+    2. Placing PWM (Pin 13), Enable (Pin 12), and VCC Logic (Pin 11) in a contiguous 3-pin block allows a clean 3-wire ribbon/DuPont harness directly along the top digital header, eliminating sprawling jumper wires across the Arduino Mega PCB.
+  - HOW:
+    1. Updated `newconsole/newconsole.ino` (`enPin = 12`, `vccPin = 11`).
+    2. Updated `rust/src/app.rs` badge label.
+    3. Verified test harness via `cargo test` (49 tests passing).
+    4. Recompiled native release binary and deployed `openorgelsynth.exe` to Desktop target path.
+================================================================================

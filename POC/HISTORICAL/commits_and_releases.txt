@@ -1,12 +1,17 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-11-01 15:15:48
-Total Commits  : 106
-Total Releases : 42
+Updated At     : 2026-11-01 15:33:07
+Total Commits  : 107
+Total Releases : 43
 ================================================================================
 
 🚀 RELEASES / TAGS
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.23
+Date    : 2026-11-01
+Commit  : 97a38e5
+Details : Prealpha_v2.0.23: Reassign blower PWM speed output to Pin 13 for cable management
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.22
 Date    : 2026-10-30
@@ -228,7 +233,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-a908dbb  | 2026-11-01 | williamemery2010-deb | Prealpha_v2.0.23: Reassign blower PWM speed output to Pin 13 for cable management
+2351c6c  | 2026-11-01 | williamemery2010-deb | Prealpha_v2.0.24: Configure Pin 12 R_EN and Pin 11 VCC 5V logic supply for consolidated harness
+97a38e5  | 2026-11-01 | williamemery2010-deb | Prealpha_v2.0.23: Reassign blower PWM speed output to Pin 13 for cable management
 2446d22  | 2026-10-30 | williamemery2010-deb | Prealpha_v2.0.22: High-end brilliance restoration & 6-stop classical mutation suite
 85b56a1  | 2026-10-29 | williamemery2010-deb | Prealpha_v2.0.20: IBT-2 BTS7960 motor driver integration (Pin 53 EN, Pin A0 IS current sensing), standalone blower operation & continuous telemetry
 876e6e8  | 2026-10-28 | williamemery2010-deb | Prealpha_v2.0.19: Real-time laptop microphone Eb5/chromatic pitch detector & Arduino Pin 3/Pin 8 centrifugal blower PWM controller
