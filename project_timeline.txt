@@ -921,22 +921,22 @@ PHASE 37: PIN 12 DRIVER ENABLE & PIN 11 5V LOGIC POWER CONSOLIDATION (November 1
 ================================================================================
 
 --------------------------------------------------------------------------------
-PHASE 38: PIN 11 R_EN & PIN 10 VCC REASSIGNMENT TO PREVENT PIN 12 SHORT (November 1, 2026 - Prealpha_v2.0.25)
+PHASE 38: PIN A1 DRIVER ENABLE & PIN A2 5V LOGIC SUPPLY REALLOCATION (November 1, 2026 - Prealpha_v2.0.25)
 --------------------------------------------------------------------------------
 * November 1, 2026:
   - WHAT:
-    1. Short-Circuit Prevention Pin Realignment (newconsole/newconsole.ino):
-       - Reassigned the primary driver enable output (`enPin`) from Pin 12 to Arduino Mega Pin 11 (`enPin = 11`) controlling IBT-2 `R_EN` (and `L_EN`). Maintained Pins 12, 52, and 53 as synchronized redundant enable outputs via `setDriverEnable(bool)`.
-       - Reassigned the continuous 5V logic power supply (`vccPin`) from Pin 11 to Arduino Mega Pin 10 (`vccPin = 10`, `pinMode(vccPin, OUTPUT); digitalWrite(vccPin, HIGH);`) powering the IBT-2 onboard 74HC244 buffer chip.
-       - Speed PWM remains securely assigned to Pin 13 (`pwmPin = 13`).
+    1. Analog Header Control Cable Consolidation (Pins A0, A1, A2) in newconsole/newconsole.ino:
+       - Configured Pin A1 as the primary driver enable output (`enPin = A1` in digital mode) controlling IBT-2 BTS7960 `R_EN` (and `L_EN`). Maintained Pins 12, 52, and 53 as synchronized redundant enable outputs via `setDriverEnable(bool)`.
+       - Configured Pin A2 as dedicated 5V logic power supply (`vccPin = A2` in digital output mode, `pinMode(vccPin, OUTPUT); digitalWrite(vccPin, HIGH);`) providing continuous 5.0V power to the IBT-2 onboard 74HC244 buffer chip.
+       - Kept Pin A0 as the analog current sense input (`currentSensePin = A0`), creating a contiguous 3-pin block (A0 current sense, A1 driver enable, A2 5V logic supply) on the Arduino Mega analog header.
     2. Software Status Display Alignment (rust/src/app.rs):
-       - Updated GUI connection badge to reflect active layout: `"IBT-2 BTS7960: PWM Pin 13, EN Pin 11, VCC Pin 10, IS Pin A0"`.
+       - Updated GUI connection badge to `"IBT-2 BTS7960: PWM Pin 13, EN Pin A1, VCC Pin A2, IS Pin A0"`.
   - WHY:
-    1. The creator requested: "correction REN 11 VCC 10 because of a potential short"
-    2. Moving the jumper lines to Pins 10 (VCC), 11 (R_EN), and 13 (RPWM) avoids physical contact or shorting on Pin 12, ensuring electrical safety for the Arduino Mega and IBT-2 module.
+    1. The creator requested: "correction REN a1 (as digital) VCC a2 (as digital again)"
+    2. Grouping current sense (A0), enable (A1), and logic VCC (A2) onto three contiguous pins on the analog header simplifies the physical wiring loom and leaves digital Pin 13 solely for high-speed PWM speed control.
   - HOW:
-    1. Updated `newconsole/newconsole.ino` (`enPin = 11`, `vccPin = 10`).
-    2. Updated `rust/src/app.rs` badge.
+    1. Updated `newconsole/newconsole.ino` (`enPin = A1`, `vccPin = A2`).
+    2. Updated `rust/src/app.rs` badge label.
     3. Verified test harness via `cargo test` (49 tests passing).
     4. Recompiled native release binary and deployed `openorgelsynth.exe` to Desktop target path.
 ================================================================================

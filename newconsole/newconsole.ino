@@ -4,9 +4,9 @@
 // Hardware Configuration:
 //   - Pin 13 (pwmPin):          PWM speed output driving IBT-2 RPWM (Pin 13)
 //                               (Centrifugal blower forward drive; LPWM unused / held LOW)
-//   - Pin 11 (enPin):           Driver Enable output driving IBT-2 R_EN and L_EN (Pin 11)
+//   - Pin A1 (enPin):           Driver Enable output driving IBT-2 R_EN and L_EN (Pin A1 as digital)
 //                               (HIGH = H-bridge active, LOW = H-bridge disabled; Pins 12/52/53 also driven as mirrors)
-//   - Pin 10 (vccPin):          Dedicated 5V logic supply output for IBT-2 VCC (Pin 10, constant HIGH)
+//   - Pin A2 (vccPin):          Dedicated 5V logic supply output for IBT-2 VCC (Pin A2 as digital, constant HIGH)
 //   - Pin A0 (currentSensePin): Analog input measuring IBT-2 IS current-sense output
 //                               (R_IS / L_IS connected to Pin A0)
 //   - Pin 8  (switchPin):       Physical ON-ON toggle switch wired between Pin 8 & GND
@@ -14,15 +14,15 @@
 //
 // Standalone Operation Guarantee:
 //   - When Pin 8 switch is ON (Pin 8 connected to GND / LOW):
-//       * Pin 10 (vccPin) provides steady 5V logic power to IBT-2 buffer chip.
-//       * Pin 11 (enPin) is driven HIGH (IBT-2 BTS7960 output stage ENABLED).
+//       * Pin A2 (vccPin) provides steady 5V logic power to IBT-2 buffer chip.
+//       * Pin A1 (enPin) is driven HIGH (IBT-2 BTS7960 output stage ENABLED).
 //       * Pin 13 (pwmPin) is driven at currentPwmPercent (nominal 50.0% on boot).
 //       * The centrifugal organ blower runs reliably and continuously EVEN IF:
 //           - No USB cable is connected (standalone physical organ performance)
 //           - The laptop microphone tuner is OFF or disabled
 //           - The OpenOrgel desktop application is not open or running
 //   - When Pin 8 switch is OFF (HIGH):
-//       * Pin 11 (enPin) is driven LOW (IBT-2 BTS7960 disabled to prevent power draw).
+//       * Pin A1 (enPin) is driven LOW (IBT-2 BTS7960 disabled to prevent power draw).
 //       * Pin 13 (pwmPin) is set to 0.
 //       * currentPwmPercent resets to 50.0% nominal ready for the next startup.
 //       * Measured motor current is clamped to 0.00 A.
@@ -55,15 +55,15 @@
 // ============================================================================
 
 const int pwmPin = 13;          // PWM output to IBT-2 RPWM (Pin 13)
-const int enPin = 11;           // Primary Driver Enable output to IBT-2 R_EN and L_EN (Pin 11)
-const int vccPin = 10;          // Dedicated 5V logic supply output for IBT-2 VCC (Pin 10, constant HIGH)
+const int enPin = A1;           // Primary Driver Enable output to IBT-2 R_EN and L_EN (Pin A1 as digital)
+const int vccPin = A2;          // Dedicated 5V logic supply output for IBT-2 VCC (Pin A2 as digital, constant HIGH)
 const int enPinAlt = 12;        // Redundant Driver Enable output (Pin 12)
 const int enPinAlt2 = 52;       // Redundant Driver Enable output (Pin 52)
 const int enPinAlt3 = 53;       // Redundant Driver Enable output (Pin 53)
 const int currentSensePin = A0; // Analog input for IBT-2 IS current sense (Pin A0)
 const int switchPin = 8;        // ON-ON toggle switch (Pin 8 to GND, active LOW)
 
-// Helper: drives Pin 11, Pin 12, Pin 52, and Pin 53 HIGH (enabled) or LOW (disabled)
+// Helper: drives Pin A1, Pin 12, Pin 52, and Pin 53 HIGH (enabled) or LOW (disabled)
 void setDriverEnable(bool enable) {
   digitalWrite(enPin, enable ? HIGH : LOW);
   digitalWrite(enPinAlt, enable ? HIGH : LOW);
@@ -170,7 +170,7 @@ void processLineCommand(String cmd) {
 void setup() {
   Serial.begin(115200); // High baud rate (115200) for low-latency communication with OpenOrgel
 
-  // Configure Pin 10 as continuous 5V logic supply for IBT-2 VCC
+  // Configure Pin A2 as continuous 5V logic supply for IBT-2 VCC
   pinMode(vccPin, OUTPUT);
   digitalWrite(vccPin, HIGH);
 
@@ -206,7 +206,7 @@ void loop() {
     lastSwitchState = isSystemOn;
 
     if (isSystemOn) {
-      // Switch flipped ON: Enable IBT-2 driver (Pin 11, Pin 12, Pin 52 & Pin 53) and apply nominal PWM (Pin 13)
+      // Switch flipped ON: Enable IBT-2 driver (Pin A1, Pin 12, Pin 52 & Pin 53) and apply nominal PWM (Pin 13)
       digitalWrite(vccPin, HIGH);
       setDriverEnable(true);
       applyBlowerPwm(currentPwmPercent);
@@ -248,7 +248,7 @@ void loop() {
   }
 
   // System is ON:
-  // Ensure Pin 10 VCC is 5V and IBT-2 BTS7960 enable pins (Pin 11, Pin 12, Pin 52 & Pin 53) are active HIGH
+  // Ensure Pin A2 VCC is 5V and IBT-2 BTS7960 enable pins (Pin A1, Pin 12, Pin 52 & Pin 53) are active HIGH
   digitalWrite(vccPin, HIGH);
   setDriverEnable(true);
 
