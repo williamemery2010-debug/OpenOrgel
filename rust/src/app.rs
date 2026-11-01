@@ -1609,7 +1609,7 @@ impl OrgelApp {
 
             ui.add_space(3.0);
             ui.horizontal(|ui| {
-                badge(ui, "IBT-2 BTS7960: PWM Pin 13, EN Pin 12, VCC Pin 11, IS Pin A0", ACCENT);
+                badge(ui, "IBT-2 BTS7960: PWM Pin 13, EN Pin 11, VCC Pin 10, IS Pin A0", ACCENT);
             });
             ui.add_space(2.0);
             ui.label(

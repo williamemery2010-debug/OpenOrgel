@@ -919,3 +919,24 @@ PHASE 37: PIN 12 DRIVER ENABLE & PIN 11 5V LOGIC POWER CONSOLIDATION (November 1
     3. Verified test harness via `cargo test` (49 tests passing).
     4. Recompiled native release binary and deployed `openorgelsynth.exe` to Desktop target path.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 38: PIN 11 R_EN & PIN 10 VCC REASSIGNMENT TO PREVENT PIN 12 SHORT (November 1, 2026 - Prealpha_v2.0.25)
+--------------------------------------------------------------------------------
+* November 1, 2026:
+  - WHAT:
+    1. Short-Circuit Prevention Pin Realignment (newconsole/newconsole.ino):
+       - Reassigned the primary driver enable output (`enPin`) from Pin 12 to Arduino Mega Pin 11 (`enPin = 11`) controlling IBT-2 `R_EN` (and `L_EN`). Maintained Pins 12, 52, and 53 as synchronized redundant enable outputs via `setDriverEnable(bool)`.
+       - Reassigned the continuous 5V logic power supply (`vccPin`) from Pin 11 to Arduino Mega Pin 10 (`vccPin = 10`, `pinMode(vccPin, OUTPUT); digitalWrite(vccPin, HIGH);`) powering the IBT-2 onboard 74HC244 buffer chip.
+       - Speed PWM remains securely assigned to Pin 13 (`pwmPin = 13`).
+    2. Software Status Display Alignment (rust/src/app.rs):
+       - Updated GUI connection badge to reflect active layout: `"IBT-2 BTS7960: PWM Pin 13, EN Pin 11, VCC Pin 10, IS Pin A0"`.
+  - WHY:
+    1. The creator requested: "correction REN 11 VCC 10 because of a potential short"
+    2. Moving the jumper lines to Pins 10 (VCC), 11 (R_EN), and 13 (RPWM) avoids physical contact or shorting on Pin 12, ensuring electrical safety for the Arduino Mega and IBT-2 module.
+  - HOW:
+    1. Updated `newconsole/newconsole.ino` (`enPin = 11`, `vccPin = 10`).
+    2. Updated `rust/src/app.rs` badge.
+    3. Verified test harness via `cargo test` (49 tests passing).
+    4. Recompiled native release binary and deployed `openorgelsynth.exe` to Desktop target path.
+================================================================================
