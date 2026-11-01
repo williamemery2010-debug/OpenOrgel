@@ -554,7 +554,7 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 
 ### UT-46: Centrifugal Blower PWM Controller Flat/Sharp 0.5% Step & 500 ms Anti-Oscillation Delay
 - **Module:** [rust/src/tuner.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/tuner.rs) (`test_blower_pwm_controller_flat_sharp_step_and_delay`)
-- **WHY:** The centrifugal organ blower controller (`newconsole/newconsole.ino` on Pin 3 PWM and Pin 8 ON-ON switch) starts at `50.0%` nominal PWM, increases PWM by `+0.5%` (`'F'`) when the $E\flat_5$ pipe is Flat, decreases PWM by `-0.5%` (`'S'`) when Sharp, holds steady when In Tune, and enforces a `500 ms` settling delay to prevent closed-loop pressure oscillation.
+- **WHY:** The centrifugal organ blower controller (`newconsole/newconsole.ino` on Pin 13 PWM and Pin 8 ON-ON switch) starts at `50.0%` nominal PWM, increases PWM by `+0.5%` (`'F'`) when the $E\flat_5$ pipe is Flat, decreases PWM by `-0.5%` (`'S'`) when Sharp, holds steady when In Tune, and enforces a `500 ms` settling delay to prevent closed-loop pressure oscillation.
 - **WHAT:** Validates that `BlowerController::update_from_cents_error` starts at `50.0%`, increments by `+0.5%` (`'F'`) on a Flat reading (`-18 cents`), blocks further adjustments before `500 ms` (`t0 + 200 ms`), increments to `51.0%` after `550 ms`, decrements by `-0.5%` (`'S'`) to `50.5%` on a Sharp reading (`+14 cents`), and holds PWM steady within the $\pm 3.5\text{ cent}$ deadband.
 - **METHOD:** Drives `BlowerController::update_from_cents_error` across synthetic timestamps `t0`, `t0 + 200ms`, `t0 + 550ms`, `t0 + 1100ms`, and `t0 + 1700ms`.
 - **EXPECTED RESULT:** Exact state transitions (`50.0% -> 50.5% -> 50.5% (blocked) -> 51.0% -> 50.5% -> 50.5% (hold)`).

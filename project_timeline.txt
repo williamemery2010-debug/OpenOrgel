@@ -877,3 +877,25 @@ PHASE 35: HIGH-END BRILLIANCE RESTORATION & 6-STOP CLASSICAL MUTATION SUITE (Oct
 ================================================================================
 
 
+
+--------------------------------------------------------------------------------
+PHASE 36: PIN 13 PWM SPEED CONTROL REASSIGNMENT FOR OPTIMIZED CABLE MANAGEMENT (November 1, 2026 - Prealpha_v2.0.23)
+--------------------------------------------------------------------------------
+* November 1, 2026:
+  - WHAT:
+    1. Centrifugal Blower PWM Hardware Pin Reassignment (newconsole/newconsole.ino):
+       - Reassigned the PWM speed output pin from Arduino Mega Pin 3 to hardware Timer PWM Pin 13 (`pwmPin = 13`) driving IBT-2 BTS7960 `RPWM`.
+       - Maintained Pin 52 (and redundant mirror Pin 53) as driver enable (`enPin`), Pin A0 as current sensing input (`currentSensePin`), and Pin 8 as the ON-ON physical toggle switch (`switchPin`).
+    2. Software Status Display & Telemetry Documentation Alignment (rust/src/app.rs, rust/src/serial.rs, rust/src/tuner.rs, unit_tests_report.md):
+       - Updated GUI status badges in `rust/src/app.rs` to reflect the active wiring: `"IBT-2 BTS7960: PWM Pin 13, EN Pin 52/53, IS Pin A0"` and `"Pin 13 PWM / Pin 8"`.
+       - Synchronized protocol documentation and module docstrings across `rust/src/serial.rs` and `rust/src/tuner.rs`.
+       - Updated UT-46 unit test documentation in `unit_tests_report.md`.
+  - WHY:
+    1. The creator requested: "ive changed the pwm pin to 13 for cable management so change the code to reflect that, after thats done ill tell you if the code works"
+    2. Re-routing the jumper lead from Pin 3 to Pin 13 simplifies the physical cable harness and reduces mechanical strain on the Arduino Mega header and IBT-2 control terminals.
+  - HOW:
+    1. Updated `newconsole/newconsole.ino` (`const int pwmPin = 13;`).
+    2. Updated `rust/src/app.rs`, `rust/src/serial.rs`, `rust/src/tuner.rs`, and `unit_tests_report.md`.
+    3. Verified test harness via `cargo test` (49 tests passing).
+    4. Recompiled native release binary and deployed `openorgelsynth.exe` to Desktop target path.
+================================================================================

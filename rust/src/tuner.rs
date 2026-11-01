@@ -4,7 +4,7 @@
 //! pipe frequency `f0` using the McLeod Pitch Method (Normalized Square Difference Function,
 //! NSDF) with 3-point parabolic sub-sample interpolation, maps the pitch against the active
 //! Master Tuning (`A4`) and Historical Temperament (`Equal`, `Werckmeister III`, `Meantone`, etc.),
-//! and regulates the centrifugal organ blower's MOSFET PWM duty cycle (Arduino Pin 3, with
+//! and regulates the centrifugal organ blower's MOSFET PWM duty cycle (Arduino Pin 13, with
 //! ON-ON switch on Pin 8) starting from 50.0% nominal power in 0.5% steps (or PID mode)
 //! with a 500 ms anti-oscillation settling delay.
 
@@ -21,7 +21,7 @@ use crate::temperament::Temperament;
 /// In 12-TET at `A4 = 440 Hz`, `Eb5` (MIDI 75) has a nominal frequency of `622.25397 Hz`.
 pub const EB5_MIDI_NOTE: u8 = 75;
 
-/// Nominal starting PWM duty cycle (%) for the centrifugal blower motor controller on Pin 3.
+/// Nominal starting PWM duty cycle (%) for the centrifugal blower motor controller on Pin 13.
 pub const NOMINAL_PWM_PERCENT: f32 = 50.0;
 
 /// Single-step PWM adjustment increment (%) applied when the pipe is Flat (`+0.5%`) or Sharp (`-0.5%`).
@@ -599,7 +599,7 @@ impl MicrophoneTuner {
     /// against the active `a4` reference and `temperament`, and updates the blower PWM controller.
     ///
     /// Returns `Some(serial_char)` (`'F'` or `'S'`) whenever a PWM step adjustment should be
-    /// sent over Serial to the Arduino on Pin 3.
+    /// sent over Serial to the Arduino on Pin 13.
     pub fn poll_and_regulate(&mut self, a4: f64, temperament: Temperament) -> Option<char> {
         // Keep the target frequency updated even when silent so the GUI always shows the active Eb5 target
         let default_eb5_hz = temperament.midi_to_freq(a4, EB5_MIDI_NOTE);

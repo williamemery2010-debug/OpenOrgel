@@ -7,10 +7,10 @@
 //!     - `"VOL:0..100"`        master volume percentage
 //!     - `"<index>:1|0"`       legacy numeric stop index fallback
 //!     - `"BLOWER:1|0"`        Pin 8 ON-ON blower toggle switch state (`1` = ON, `0` = OFF)
-//!     - `"PWM:<0.0..100.0>"`  live Pin 3 MOSFET blower PWM duty cycle percentage reported by Arduino
+//!     - `"PWM:<0.0..100.0>"`  live Pin 13 MOSFET blower PWM duty cycle percentage reported by Arduino
 //!   Outbound from OpenOrgel -> Arduino:
-//!     - `"F\n"`               pipe pitch is Flat  -> increase blower PWM by `+0.5%` on Pin 3
-//!     - `"S\n"`               pipe pitch is Sharp -> decrease blower PWM by `-0.5%` on Pin 3
+//!     - `"F\n"`               pipe pitch is Flat  -> increase blower PWM by `+0.5%` on Pin 13
+//!     - `"S\n"`               pipe pitch is Sharp -> decrease blower PWM by `-0.5%` on Pin 13
 //!     - `"R\n"`               reset blower PWM to `50.0%` nominal pressure
 //!     - `"PWM:<val>\n"`       explicit PWM duty cycle percentage (`0.0..100.0`)
 //!     - `"A4_1\n"` / `"A4_0\n"` servo flag for the A4 pipe
@@ -32,7 +32,7 @@ pub enum SerialEvent {
     Volume(f32),
     /// Pin 8 ON-ON blower toggle switch state (`true` = ON / LOW, `false` = OFF / HIGH).
     BlowerSwitch(bool),
-    /// Live Pin 3 blower MOSFET PWM duty cycle (`0.0%` to `100.0%`) reported by the Arduino.
+    /// Live Pin 13 blower MOSFET PWM duty cycle (`0.0%` to `100.0%`) reported by the Arduino.
     BlowerPwm(f32),
     /// Live centrifugal blower motor current in Amperes reported by IBT-2 BTS7960 IS pin on Pin A0.
     MotorCurrent(f32),

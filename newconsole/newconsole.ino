@@ -2,7 +2,7 @@
 // OPENORGEL CENTRIFUGAL BLOWER CONTROLLER & TELEMETRY (IBT-2 BTS7960)
 // ============================================================================
 // Hardware Configuration:
-//   - Pin 3  (pwmPin):          PWM speed output driving IBT-2 RPWM (Pin 3)
+//   - Pin 13 (pwmPin):          PWM speed output driving IBT-2 RPWM (Pin 13)
 //                               (Centrifugal blower forward drive; LPWM unused / held LOW)
 //   - Pin 52 (enPin):           Driver Enable output driving IBT-2 R_EN and L_EN (Pin 52)
 //                               (HIGH = H-bridge active, LOW = H-bridge disabled; Pin 53 also driven as mirror)
@@ -14,14 +14,14 @@
 // Standalone Operation Guarantee:
 //   - When Pin 8 switch is ON (Pin 8 connected to GND / LOW):
 //       * Pin 52 (enPin) is driven HIGH (IBT-2 BTS7960 output stage ENABLED).
-//       * Pin 3 (pwmPin) is driven at currentPwmPercent (nominal 50.0% on boot).
+//       * Pin 13 (pwmPin) is driven at currentPwmPercent (nominal 50.0% on boot).
 //       * The centrifugal organ blower runs reliably and continuously EVEN IF:
 //           - No USB cable is connected (standalone physical organ performance)
 //           - The laptop microphone tuner is OFF or disabled
 //           - The OpenOrgel desktop application is not open or running
 //   - When Pin 8 switch is OFF (HIGH):
 //       * Pin 52 (enPin) is driven LOW (IBT-2 BTS7960 disabled to prevent power draw).
-//       * Pin 3 (pwmPin) is set to 0.
+//       * Pin 13 (pwmPin) is set to 0.
 //       * currentPwmPercent resets to 50.0% nominal ready for the next startup.
 //       * Measured motor current is clamped to 0.00 A.
 //
@@ -52,7 +52,7 @@
 //     so the blower impeller and windchest reservoir stabilize before the next step.
 // ============================================================================
 
-const int pwmPin = 3;           // PWM output to IBT-2 RPWM (Pin 3)
+const int pwmPin = 13;          // PWM output to IBT-2 RPWM (Pin 13)
 const int enPin = 52;           // Primary Driver Enable output to IBT-2 R_EN and L_EN (Pin 52)
 const int enPinAlt = 53;        // Redundant Driver Enable output (Pin 53)
 const int currentSensePin = A0; // Analog input for IBT-2 IS current sense (Pin A0)
@@ -73,7 +73,7 @@ unsigned long lastTelemetryTime = 0;       // Periodic telemetry stream timestam
 float smoothedCurrentAmps = 0.0;           // Low-pass filtered motor current in Amperes
 String lineBuffer = "";                    // Line accumulator for serial commands
 
-// Helper: converts 0.0-100.0% duty cycle to 8-bit timer value (0-255) and writes to Pin 3
+// Helper: converts 0.0-100.0% duty cycle to 8-bit timer value (0-255) and writes to Pin 13
 void applyBlowerPwm(float percent) {
   int pwmCounts = (int)((percent / 100.0) * 255.0 + 0.5);
   if (pwmCounts < 0) pwmCounts = 0;
@@ -193,7 +193,7 @@ void loop() {
     lastSwitchState = isSystemOn;
 
     if (isSystemOn) {
-      // Switch flipped ON: Enable IBT-2 driver (Pin 53 & Pin 52) and apply nominal PWM (Pin 3)
+      // Switch flipped ON: Enable IBT-2 driver (Pin 53 & Pin 52) and apply nominal PWM (Pin 13)
       setDriverEnable(true);
       applyBlowerPwm(currentPwmPercent);
     } else {
@@ -237,7 +237,7 @@ void loop() {
   // Ensure IBT-2 BTS7960 enable pins (Pin 53 & Pin 52) are active HIGH
   setDriverEnable(true);
 
-  // Apply current PWM duty cycle to Pin 3 (runs reliably standalone even if tuner/app is closed)
+  // Apply current PWM duty cycle to Pin 13 (runs reliably standalone even if tuner/app is closed)
   applyBlowerPwm(currentPwmPercent);
 
   // Measure motor current via BTS7960 IS on Pin A0

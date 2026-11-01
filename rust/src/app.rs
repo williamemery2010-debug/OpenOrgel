@@ -1387,7 +1387,7 @@ impl OrgelApp {
                     match self.tuner.status.hardware_switch_on {
                         Some(true) => badge(ui, "Pin 8 Switch: ON", GREEN),
                         Some(false) => badge(ui, "Pin 8 Switch: OFF", RED),
-                        None => badge(ui, "Pin 3 PWM / Pin 8", TEXT_MUTED),
+                        None => badge(ui, "Pin 13 PWM / Pin 8", TEXT_MUTED),
                     }
                 });
             });
@@ -1562,7 +1562,7 @@ impl OrgelApp {
 
             ui.add_space(4.0);
 
-            // Blower Motor PWM Output Bar (Nominal 50.0%, +/-0.5% step control on Pin 3)
+            // Blower Motor PWM Output Bar (Nominal 50.0%, +/-0.5% step control on Pin 13)
             inner_card(ui, |ui| {
                 let pwm = self.tuner.controller.current_pwm_percent;
                 let action_str = match self.tuner.status.last_action {
@@ -1609,7 +1609,7 @@ impl OrgelApp {
 
             ui.add_space(3.0);
             ui.horizontal(|ui| {
-                badge(ui, "IBT-2 BTS7960: PWM Pin 3, EN Pin 53, IS Pin A0", ACCENT);
+                badge(ui, "IBT-2 BTS7960: PWM Pin 13, EN Pin 52/53, IS Pin A0", ACCENT);
             });
             ui.add_space(2.0);
             ui.label(
@@ -1732,7 +1732,7 @@ impl eframe::App for OrgelApp {
         self.pump_serial();
         self.handle_keys(ctx);
 
-        // Poll laptop microphone pitch detector and regulate Arduino Pin 3 blower PWM ('F' / 'S')
+        // Poll laptop microphone pitch detector and regulate Arduino Pin 13 blower PWM ('F' / 'S')
         if let Some(cmd) = self.tuner.poll_and_regulate(self.engine.a4(), self.temperament) {
             self.link.send_line(&format!("{cmd}\n"));
         }
