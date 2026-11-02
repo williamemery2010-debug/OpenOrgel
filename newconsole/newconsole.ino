@@ -75,7 +75,10 @@ float currentPwmPercent = 50.0;            // Nominal starting pressure at 50.0%
 unsigned long lastAdjustmentTime = 0;      // Timestamp (ms) of the last pitch adjustment
 const unsigned long adjustmentDelay = 500; // 500 ms settling delay to prevent oscillation
 
-bool lastSwitchState = false;              // Tracks Pin 8 switch transitions
+bool debouncedSwitchState = false;         // Stable, filtered switch state
+int lastRawReading = HIGH;                 // Previous raw pin read for edge detection
+unsigned long lastDebounceTime = 0;        // Timestamp (ms) of the last raw pin change
+const unsigned long debounceDelayMs = 50;  // 50 ms stability window to reject EMI / contact bounce
 unsigned long lastTelemetryTime = 0;       // Periodic telemetry stream timestamp
 float smoothedCurrentAmps = 0.0;           // Low-pass filtered motor current in Amperes
 String lineBuffer = "";                    // Line accumulator for serial commands
@@ -186,11 +189,16 @@ void setup() {
   setDriverEnable(false);
   analogWrite(pwmPin, 0);
 
-  // Read initial physical switch state
-  bool isSystemOn = (digitalRead(switchPin) == LOW);
-  lastSwitchState = isSystemOn;
+  // Read initial physical switch state with multi-sample majority voting (reject startup transients)
+  int lowCount = 0;
+  for (int i = 0; i < 10; i++) {
+    if (digitalRead(switchPin) == LOW) lowCount++;
+    delay(2);
+  }
+  debouncedSwitchState = (lowCount >= 7);
+  lastRawReading = debouncedSwitchState ? LOW : HIGH;
 
-  if (isSystemOn) {
+  if (debouncedSwitchState) {
     // Switch is ON on boot: enable driver immediately for standalone operation
     setDriverEnable(true);
     applyBlowerPwm(currentPwmPercent);
@@ -198,33 +206,41 @@ void setup() {
 }
 
 void loop() {
-  // Read Pin 8 ON-ON toggle switch state (LOW means Pin 8 connects to GND -> System ON)
-  bool isSystemOn = (digitalRead(switchPin) == LOW);
+  // Digital Debounce Filter for Pin 8 Switch (enforces 50 ms stability against EMI & contact bounce)
+  int rawReading = digitalRead(switchPin);
+  if (rawReading != lastRawReading) {
+    lastDebounceTime = millis();
+    lastRawReading = rawReading;
+  }
 
-  // Handle physical switch state changes
-  if (isSystemOn != lastSwitchState) {
-    lastSwitchState = isSystemOn;
+  if ((millis() - lastDebounceTime) >= debounceDelayMs) {
+    bool isSystemOn = (rawReading == LOW);
+    if (isSystemOn != debouncedSwitchState) {
+      debouncedSwitchState = isSystemOn;
 
-    if (isSystemOn) {
-      // Switch flipped ON: Enable IBT-2 driver (Pin A1, Pin 12, Pin 52 & Pin 53) and apply nominal PWM (Pin 13)
-      digitalWrite(vccPin, HIGH);
-      setDriverEnable(true);
-      applyBlowerPwm(currentPwmPercent);
-    } else {
-      // Switch flipped OFF: Disable IBT-2 driver immediately
-      setDriverEnable(false);
-      analogWrite(pwmPin, 0);
-      currentPwmPercent = 50.0; // Reset to 50.0% nominal ready for next startup
-      smoothedCurrentAmps = 0.0;
-    }
+      if (debouncedSwitchState) {
+        // Switch flipped ON: Enable IBT-2 driver (Pin A1, Pin 12, Pin 52 & Pin 53) and apply nominal PWM (Pin 13)
+        digitalWrite(vccPin, HIGH);
+        setDriverEnable(true);
+        applyBlowerPwm(currentPwmPercent);
+      } else {
+        // Switch flipped OFF: Disable IBT-2 driver immediately
+        setDriverEnable(false);
+        analogWrite(pwmPin, 0);
+        currentPwmPercent = 50.0; // Reset to 50.0% nominal ready for next startup
+        smoothedCurrentAmps = 0.0;
+      }
 
-    // Immediately report switch transition event to OpenOrgel
-    Serial.print("BLOWER:");
-    Serial.println(isSystemOn ? 1 : 0);
-    if (isSystemOn) {
-      reportTelemetry();
+      // Immediately report switch transition event to OpenOrgel
+      Serial.print("BLOWER:");
+      Serial.println(debouncedSwitchState ? 1 : 0);
+      if (debouncedSwitchState) {
+        reportTelemetry();
+      }
     }
   }
+
+  bool isSystemOn = debouncedSwitchState;
 
   // When system is OFF: keep outputs disabled, drain serial buffer, and broadcast OFF heartbeat
   if (!isSystemOn) {
