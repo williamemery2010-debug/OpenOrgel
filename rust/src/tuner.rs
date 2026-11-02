@@ -17,7 +17,11 @@ use std::time::{Duration, Instant};
 use crate::temperament::Temperament;
 
 /// MIDI note number for E-flat 5 (`Eb5` / `D#5`), the primary reference tuning pipe
+/// MIDI note number for Chamber Pitch A4 (`A4 = 440 Hz`), the primary acoustic reference pipe
 /// specified for regulating the centrifugal organ blower's windchest pressure.
+pub const A4_MIDI_NOTE: u8 = 69;
+
+/// MIDI note number for E-flat 5 (`Eb5` / `D#5`), secondary reference pipe.
 /// In 12-TET at `A4 = 440 Hz`, `Eb5` (MIDI 75) has a nominal frequency of `622.25397 Hz`.
 pub const EB5_MIDI_NOTE: u8 = 75;
 
@@ -45,8 +49,10 @@ pub const CHROMATIC_NOTE_NAMES: [&str; 12] = [
 /// Operating mode for the chromatic pitch detector and blower regulator.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TunerMode {
-    /// Locks specifically onto the `Eb5` reference pipe (`MIDI 75`, with optional octave folding
-    /// so an 8', 4', or 16' `Eb` pipe at `Eb3`, `Eb4`, `Eb5`, or `Eb6` is also recognized as `Eb`).
+    /// Locks specifically onto the `A4` reference pipe (`MIDI 69`, 440.0 Hz at standard tuning,
+    /// with octave folding across 8', 4', or 16' ranks at A1, A2, A3, A4, A5, A6).
+    TargetA4,
+    /// Locks specifically onto the `Eb5` reference pipe (`MIDI 75`, with octave folding).
     TargetEb5,
     /// Full chromatic mode: automatically detects the nearest semitone (`C0..B7`) in the active
     /// Master Tuning (`A4`) and Historical Temperament, allowing any pipe on the windchest to
@@ -58,6 +64,7 @@ impl TunerMode {
     /// Human-readable label for the GUI selector.
     pub fn label(self) -> &'static str {
         match self {
+            TunerMode::TargetA4 => "Target Pipe: A4 440 Hz (Primary)",
             TunerMode::TargetEb5 => "Target Pipe: Eb5 (D#5)",
             TunerMode::ChromaticAuto => "Chromatic (Any Pipe Note)",
         }
@@ -113,9 +120,9 @@ impl Default for TunerStatus {
             signal_detected: false,
             rms_level: 0.0,
             detected_freq_hz: 0.0,
-            target_freq_hz: 622.25,
-            matched_midi_note: EB5_MIDI_NOTE,
-            matched_note_name: "Eb5 (D#5)".to_string(),
+            target_freq_hz: 440.0,
+            matched_midi_note: A4_MIDI_NOTE,
+            matched_note_name: "A4 (440 Hz)".to_string(),
             cents_error: 0.0,
             confidence: 0.0,
             current_pwm_percent: NOMINAL_PWM_PERCENT,
@@ -311,6 +318,8 @@ pub fn evaluate_chromatic_target(
     mode: TunerMode,
 ) -> (u8, f64, f64) {
     let candidates: &[u8] = match mode {
+        // All octaves of A (A1=33, A2=45, A3=57, A4=69, A5=81, A6=93) with A4 as primary
+        TunerMode::TargetA4 => &[33, 45, 57, A4_MIDI_NOTE, 81, 93],
         // All octaves of Eb (Eb2=39, Eb3=51, Eb4=63, Eb5=75, Eb6=87) with Eb5 as primary
         TunerMode::TargetEb5 => &[39, 51, 63, EB5_MIDI_NOTE, 87],
         // Full chromatic range rendered on the organ
@@ -322,8 +331,12 @@ pub fn evaluate_chromatic_target(
         ],
     };
 
-    let mut best_note = EB5_MIDI_NOTE;
-    let mut best_target_hz = temperament.midi_to_freq(a4, EB5_MIDI_NOTE);
+    let default_note = match mode {
+        TunerMode::TargetA4 => A4_MIDI_NOTE,
+        _ => EB5_MIDI_NOTE,
+    };
+    let mut best_note = default_note;
+    let mut best_target_hz = temperament.midi_to_freq(a4, default_note);
     let mut best_cents = 1200.0 * (detected_hz / best_target_hz).log2();
 
     for &note in candidates {
@@ -494,7 +507,7 @@ impl MicrophoneTuner {
                 smoothed_freq: 0.0,
             })),
             controller: BlowerController::new(),
-            mode: TunerMode::TargetEb5,
+            mode: TunerMode::TargetA4,
             auto_regulate_pwm: true,
             status: TunerStatus::default(),
         }
@@ -601,10 +614,14 @@ impl MicrophoneTuner {
     /// Returns `Some(serial_char)` (`'F'` or `'S'`) whenever a PWM step adjustment should be
     /// sent over Serial to the Arduino on Pin 13.
     pub fn poll_and_regulate(&mut self, a4: f64, temperament: Temperament) -> Option<char> {
-        // Keep the target frequency updated even when silent so the GUI always shows the active Eb5 target
-        let default_eb5_hz = temperament.midi_to_freq(a4, EB5_MIDI_NOTE);
+        let (default_note, default_target_hz) = match self.mode {
+            TunerMode::TargetA4 => (A4_MIDI_NOTE, temperament.midi_to_freq(a4, A4_MIDI_NOTE)),
+            _ => (EB5_MIDI_NOTE, temperament.midi_to_freq(a4, EB5_MIDI_NOTE)),
+        };
         if !self.is_listening() {
-            self.status.target_freq_hz = default_eb5_hz;
+            self.status.target_freq_hz = default_target_hz;
+            self.status.matched_midi_note = default_note;
+            self.status.matched_note_name = format_midi_note(default_note);
             self.status.current_pwm_percent = self.controller.current_pwm_percent;
             return None;
         }
@@ -630,9 +647,9 @@ impl MicrophoneTuner {
             self.status.signal_detected = false;
             self.status.detected_freq_hz = 0.0;
             self.status.confidence = 0.0;
-            self.status.target_freq_hz = default_eb5_hz;
-            self.status.matched_midi_note = EB5_MIDI_NOTE;
-            self.status.matched_note_name = format_midi_note(EB5_MIDI_NOTE);
+            self.status.target_freq_hz = default_target_hz;
+            self.status.matched_midi_note = default_note;
+            self.status.matched_note_name = format_midi_note(default_note);
             self.status.last_action = BlowerAdjustment::WaitingForSignal;
             self.status.current_pwm_percent = self.controller.current_pwm_percent;
             return None;
@@ -650,9 +667,10 @@ impl MicrophoneTuner {
         let (matched_note, target_hz, cents_error) =
             evaluate_chromatic_target(smoothed_freq, a4, temperament, self.mode);
 
-        // In TargetEb5 mode, only regulate the blower if the detected pitch is within ±250 cents
-        // (2.5 semitones) of an Eb pipe so random speech or other notes don't mistrigger the blower
+        // In TargetA4 or TargetEb5 mode, only regulate the blower if the detected pitch is within ±250 cents
+        // (2.5 semitones) of an A (or Eb) pipe so random room noise or other notes don't mistrigger the blower
         let valid_for_blower = match self.mode {
+            TunerMode::TargetA4 => cents_error.abs() <= 250.0,
             TunerMode::TargetEb5 => cents_error.abs() <= 250.0,
             TunerMode::ChromaticAuto => cents_error.abs() <= 60.0,
         };
@@ -790,13 +808,20 @@ mod tests {
 
     #[test]
     fn test_chromatic_and_temperament_target_calculation() {
-        // Verify Eb5 target adapts to both Equal Temperament and 1/4-Comma Meantone
+        // 1. Verify Primary Reference A4 (440.0 Hz)
+        let (a4_note, a4_target_hz, a4_cents) =
+            evaluate_chromatic_target(440.0, 440.0, Temperament::Equal, TunerMode::TargetA4);
+        assert_eq!(a4_note, A4_MIDI_NOTE);
+        assert!((a4_target_hz - 440.0).abs() < 1e-5);
+        assert!(a4_cents.abs() < 1e-4);
+
+        // 2. Verify Eb5 target adapts to both Equal Temperament and 1/4-Comma Meantone
         let eb5_equal = Temperament::Equal.midi_to_freq(440.0, EB5_MIDI_NOTE);
         let eb5_meantone = Temperament::Meantone14.midi_to_freq(440.0, EB5_MIDI_NOTE);
         assert!((eb5_equal - 622.25397).abs() < 0.01);
         assert!(eb5_meantone > eb5_equal + 5.0, "Meantone D#/Eb5 has +20.53 cent offset");
 
-        // Evaluate slightly flat Eb5 (618.0 Hz) in TargetEb5 mode
+        // 3. Evaluate slightly flat Eb5 (618.0 Hz) in TargetEb5 mode
         let (note, target_hz, cents) =
             evaluate_chromatic_target(618.0, 440.0, Temperament::Equal, TunerMode::TargetEb5);
         assert_eq!(note, EB5_MIDI_NOTE);

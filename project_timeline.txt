@@ -958,3 +958,31 @@ PHASE 39: PIN 8 SWITCH 50 MS DIGITAL DEBOUNCE FILTER & EMI TRANSIENT SUPPRESSION
     2. Verified test harness via `cargo test` (49 tests passing).
     3. Recompiled native release binary and deployed `openorgelsynth.exe` to Desktop target path.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 40: DUAL B10K POTENTIOMETERS (DYNAMICS ON A3, MOTOR FINE TUNE ON A4) & A440 REFERENCE PIPE PITCH LOCK (November 2, 2026 - Prealpha_v2.0.27)
+--------------------------------------------------------------------------------
+* November 2, 2026:
+  - WHAT:
+    1. Primary Acoustic Reference Pipe Shift to A4 (440.0 Hz) in rust/src/tuner.rs & rust/src/app.rs:
+       - Configured Chamber Pitch A4 (`MIDI 69`, 440.0 Hz at standard tuning) as the primary reference pipe mode (`TunerMode::TargetA4`) with octave folding candidates across all A octaves (`[33, 45, 57, 69, 81, 93]`).
+       - Retained `TunerMode::TargetEb5` (622.25 Hz) and `TunerMode::ChromaticAuto` for complete tuning flexibility.
+       - Updated GUI Tuner status readouts and default targets to A440.
+    2. Dual B10K Potentiometer Hardware & Firmware Integration in newconsole/newconsole.ino:
+       - Potentiometer 1 (Dynamics / Organ Swell on Pin A3): reads 0..1023 with exponential moving average smoothing (alpha = 0.20), maps to `0.10` to `1.50` dynamic multiplier, broadcasts `"DYN:<val>"` over Serial to control software synth volume/swell expression in real time, and dynamically scales blower motor wind delivery (0.75x to 1.25x).
+       - Potentiometer 2 (Manual Fine Tune Pitch Adjust on Pin A4): reads 0..1023 with center deadband (490..534 counts = 0.0% trim). Turning counter-clockwise trims blower PWM down by up to -10.0% (flattening pipe pitch); turning clockwise trims PWM up by up to +10.0% (sharpening pipe pitch). Operates exclusively on blower motor speed without affecting software synth pitch.
+    3. Serial Telemetry Protocol & GUI Dispatch in rust/src/serial.rs & rust/src/app.rs:
+       - Added `SerialEvent::Dynamics(f32)` and `"DYN:<val>"` command parsing to `rust/src/serial.rs`.
+       - Updated GUI header badge to `"IBT-2: PWM 13 | EN A1 | VCC A2 | IS A0 | Dyn A3 | Tune A4"`.
+       - Verified test harness via `cargo test` (all 49 tests passing).
+  - WHY:
+    1. The creator requested: "ref pitch is now A440, and im going to wire in 2 B10K pots, 1 for the dynamic slider, which should reflect in the motor and the synth, and for a manual fine tune pitch adjust, which should only adjust the motor. How do I wire this and recommend pins. Thanks"
+    2. Changing the acoustic reference pipe to A440 aligns with standard orchestral chamber pitch.
+    3. Dedicated analog potentiometers on the organ console allow tactile real-time swell expression (affecting both software audio volume and windchest blower pressure) and manual motor RPM fine-tuning for temperature-dependent pipe pitch calibration.
+  - HOW:
+    1. Updated `newconsole/newconsole.ino` (`dynPotPin = A3`, `tunePotPin = A4`, `readPotentiometers()`, `"DYN:"` telemetry).
+    2. Updated `rust/src/tuner.rs` (`A4_MIDI_NOTE = 69`, `TunerMode::TargetA4`).
+    3. Updated `rust/src/serial.rs` (`SerialEvent::Dynamics`, `"DYN:"` parser, unit test UT-48).
+    4. Updated `rust/src/app.rs` (`pump_serial` dynamics event dispatch, tuner combo box).
+    5. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
+================================================================================

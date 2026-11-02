@@ -9,6 +9,8 @@
 //   - Pin A2 (vccPin):          Dedicated 5V logic supply output for IBT-2 VCC (Pin A2 as digital, constant HIGH)
 //   - Pin A0 (currentSensePin): Analog input measuring IBT-2 IS current-sense output
 //                               (R_IS / L_IS connected to Pin A0)
+//   - Pin A3 (dynPotPin):       Analog input for B10K Pot 1 (Dynamic / Swell slider) -> affects motor & synth
+//   - Pin A4 (tunePotPin):      Analog input for B10K Pot 2 (Fine Tune pitch adjust) -> affects motor only
 //   - Pin 8  (switchPin):       Physical ON-ON toggle switch wired between Pin 8 & GND
 //                               (Uses internal pull-up resistor: LOW = ON, HIGH = OFF)
 //
@@ -61,6 +63,8 @@ const int enPinAlt = 12;        // Redundant Driver Enable output (Pin 12)
 const int enPinAlt2 = 52;       // Redundant Driver Enable output (Pin 52)
 const int enPinAlt3 = 53;       // Redundant Driver Enable output (Pin 53)
 const int currentSensePin = A0; // Analog input for IBT-2 IS current sense (Pin A0)
+const int dynPotPin = A3;       // B10K Pot 1 Wiper: Dynamic slider (affects synth & motor)
+const int tunePotPin = A4;      // B10K Pot 2 Wiper: Fine tune pitch adjust (affects motor only)
 const int switchPin = 8;        // ON-ON toggle switch (Pin 8 to GND, active LOW)
 
 // Helper: drives Pin A1, Pin 12, Pin 52, and Pin 53 HIGH (enabled) or LOW (disabled)
@@ -81,6 +85,10 @@ unsigned long lastDebounceTime = 0;        // Timestamp (ms) of the last raw pin
 const unsigned long debounceDelayMs = 50;  // 50 ms stability window to reject EMI / contact bounce
 unsigned long lastTelemetryTime = 0;       // Periodic telemetry stream timestamp
 float smoothedCurrentAmps = 0.0;           // Low-pass filtered motor current in Amperes
+float smoothedDyn = 1.0;                   // Dynamics multiplier (0.10 to 1.50)
+float lastReportedDyn = -1.0;              // Tracks serial broadcast threshold
+float fineTuneTrimPwm = 0.0;               // Fine tune motor trim (-10.0% to +10.0%)
+float effectiveMotorPwm = 50.0;            // Combined PWM written to motor
 String lineBuffer = "";                    // Line accumulator for serial commands
 
 // Helper: converts 0.0-100.0% duty cycle to 8-bit timer value (0-255) and writes to Pin 13
@@ -89,6 +97,36 @@ void applyBlowerPwm(float percent) {
   if (pwmCounts < 0) pwmCounts = 0;
   if (pwmCounts > 255) pwmCounts = 255;
   analogWrite(pwmPin, pwmCounts);
+}
+
+// Reads B10K Pot 1 (Dynamics on A3) and Pot 2 (Fine Tune on A4)
+void readPotentiometers() {
+  // 1. Read Pot 1 (Dynamic / Swell Slider on Pin A3): 0..1023
+  int rawDyn = analogRead(dynPotPin);
+  // Map 0..1023 to 0.10..1.50 multiplier
+  float targetDyn = 0.10 + ((float)rawDyn / 1023.0) * 1.40;
+  // Low-pass EMA filter (alpha = 0.20) to suppress analog wiper noise
+  smoothedDyn = 0.20 * targetDyn + 0.80 * smoothedDyn;
+
+  // 2. Read Pot 2 (Fine Tune Pitch on Pin A4): 0..1023 (Center ~512)
+  int rawTune = analogRead(tunePotPin);
+  // Center deadband (490..534) gives a solid neutral 0.0% trim at center knob position
+  if (rawTune < 490) {
+    // Trims flatter: 0.0% down to -10.0% PWM
+    fineTuneTrimPwm = ((float)rawTune - 490.0) / 490.0 * 10.0;
+  } else if (rawTune > 534) {
+    // Trims sharper: 0.0% up to +10.0% PWM
+    fineTuneTrimPwm = ((float)rawTune - 534.0) / (1023.0 - 534.0) * 10.0;
+  } else {
+    fineTuneTrimPwm = 0.0;
+  }
+
+  // 3. Compute combined effective blower motor PWM:
+  // Base pressure setpoint + manual fine tune trim, scaled by dynamic swell factor (0.75x to 1.25x)
+  float dynMotorFactor = 0.75 + 0.50 * ((float)rawDyn / 1023.0);
+  effectiveMotorPwm = (currentPwmPercent + fineTuneTrimPwm) * dynMotorFactor;
+  if (effectiveMotorPwm < 0.0) effectiveMotorPwm = 0.0;
+  if (effectiveMotorPwm > 100.0) effectiveMotorPwm = 100.0;
 }
 
 // Measures motor current via IBT-2 BTS7960 IS on Pin A0 with oversampling & EMA smoothing
@@ -110,12 +148,19 @@ float readMotorCurrentAmps() {
   return smoothedCurrentAmps;
 }
 
-// Transmits live PWM duty cycle and motor current in Amperes back to the OpenOrgel GUI
+// Transmits live PWM duty cycle, motor current in Amperes, and dynamics pot updates back to OpenOrgel GUI
 void reportTelemetry() {
   Serial.print("PWM:");
-  Serial.println(currentPwmPercent, 1);
+  Serial.println(effectiveMotorPwm, 1);
   Serial.print("CURRENT:");
   Serial.println(smoothedCurrentAmps, 2);
+
+  // Broadcast dynamics pot updates to OpenOrgel synth if changed by > 1.5%
+  if (abs(smoothedDyn - lastReportedDyn) >= 0.015) {
+    lastReportedDyn = smoothedDyn;
+    Serial.print("DYN:");
+    Serial.println(smoothedDyn, 2);
+  }
 }
 
 // Processes a single step command ('F' = Flat -> +0.5%, 'S' = Sharp -> -0.5%, 'R' = Reset 50%)
@@ -184,6 +229,8 @@ void setup() {
   pinMode(enPinAlt3, OUTPUT);
   pinMode(switchPin, INPUT_PULLUP); // ON-ON toggle switch between Pin 8 & GND
   pinMode(currentSensePin, INPUT);
+  pinMode(dynPotPin, INPUT);
+  pinMode(tunePotPin, INPUT);
 
   // Initialize outputs safely disabled
   setDriverEnable(false);
@@ -201,7 +248,8 @@ void setup() {
   if (debouncedSwitchState) {
     // Switch is ON on boot: enable driver immediately for standalone operation
     setDriverEnable(true);
-    applyBlowerPwm(currentPwmPercent);
+    readPotentiometers();
+    applyBlowerPwm(effectiveMotorPwm);
   }
 }
 
@@ -219,10 +267,11 @@ void loop() {
       debouncedSwitchState = isSystemOn;
 
       if (debouncedSwitchState) {
-        // Switch flipped ON: Enable IBT-2 driver (Pin A1, Pin 12, Pin 52 & Pin 53) and apply nominal PWM (Pin 13)
+        // Switch flipped ON: Enable IBT-2 driver (Pin A1, Pin 12, Pin 52 & Pin 53) and apply effective PWM (Pin 13)
         digitalWrite(vccPin, HIGH);
         setDriverEnable(true);
-        applyBlowerPwm(currentPwmPercent);
+        readPotentiometers();
+        applyBlowerPwm(effectiveMotorPwm);
       } else {
         // Switch flipped OFF: Disable IBT-2 driver immediately
         setDriverEnable(false);
@@ -268,8 +317,9 @@ void loop() {
   digitalWrite(vccPin, HIGH);
   setDriverEnable(true);
 
-  // Apply current PWM duty cycle to Pin 13 (runs reliably standalone even if tuner/app is closed)
-  applyBlowerPwm(currentPwmPercent);
+  // Apply effective PWM duty cycle to Pin 13 (runs reliably standalone even if tuner/app is closed)
+  readPotentiometers();
+  applyBlowerPwm(effectiveMotorPwm);
 
   // Measure motor current via BTS7960 IS on Pin A0
   readMotorCurrentAmps();

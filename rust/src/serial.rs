@@ -30,6 +30,8 @@ pub enum SerialEvent {
     Stop { ident: String, state: bool },
     /// Master volume potentiometer / swell pedal value (`0.0` to `1.0`).
     Volume(f32),
+    /// Organ dynamics / swell slider multiplier (`0.10` to `1.50`).
+    Dynamics(f32),
     /// Pin 8 ON-ON blower toggle switch state (`true` = ON / LOW, `false` = OFF / HIGH).
     BlowerSwitch(bool),
     /// Live Pin 13 blower MOSFET PWM duty cycle (`0.0%` to `100.0%`) reported by the Arduino.
@@ -101,6 +103,18 @@ fn parse_line(line: &str, tx: &Sender<SerialEvent>) {
     if ident == "CURRENT" || ident == "AMPS" || ident == "CUR" {
         if let Ok(amps) = val_str.parse::<f32>() {
             let _ = tx.send(SerialEvent::MotorCurrent(amps.max(0.0)));
+        }
+        return;
+    }
+    if ident == "DYN" || ident == "DYNAMICS" {
+        if let Ok(raw) = val_str.parse::<f32>() {
+            let dyn_val = if raw > 2.0 {
+                // If sent as 0..100%, map to 0.10..1.50
+                0.10 + (raw.clamp(0.0, 100.0) / 100.0) * 1.40
+            } else {
+                raw.clamp(0.10, 1.50)
+            };
+            let _ = tx.send(SerialEvent::Dynamics(dyn_val));
         }
         return;
     }
@@ -256,13 +270,20 @@ pub mod tests {
             other => panic!("Unexpected event for BLOWER:0: {other:?}"),
         }
 
-        // 5. Blower PWM
+        // 5. Blower PWM & Dynamics Potentiometer
         parse_line("PWM:52.5", &tx);
         match rx.try_recv().expect("Expected BlowerPwm event") {
             SerialEvent::BlowerPwm(pwm) => {
                 assert!((pwm - 52.5).abs() < 1e-4, "Expected 52.5%, got {pwm}");
             }
             other => panic!("Unexpected event for PWM:52.5: {other:?}"),
+        }
+        parse_line("DYN:1.20", &tx);
+        match rx.try_recv().expect("Expected Dynamics event") {
+            SerialEvent::Dynamics(d) => {
+                assert!((d - 1.20).abs() < 1e-4, "Expected 1.20, got {d}");
+            }
+            other => panic!("Unexpected event for DYN:1.20: {other:?}"),
         }
 
         // 6. Ignored / malformed lines produce no events

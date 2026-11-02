@@ -651,6 +651,10 @@ impl OrgelApp {
                     self.volume = v.clamp(0.0, 1.0);
                     self.engine.set_volume(self.volume);
                 }
+                SerialEvent::Dynamics(d) => {
+                    self.dynamics = d.clamp(0.10, 1.50);
+                    self.engine.set_dynamics(self.dynamics);
+                }
                 SerialEvent::Stop { ident, state } => {
                     let mut changed = false;
                     if ident == "ALL" {
@@ -1441,14 +1445,14 @@ impl OrgelApp {
                 });
 
                 ui.add_space(4.0);
-                // Tuning Mode selector: Target Eb5 vs Chromatic Auto
+                // Tuning Mode selector: Target A4 440 Hz (Primary) vs Target Eb5 vs Chromatic Auto
                 ui.horizontal(|ui| {
                     ui.label(bold("Mode:", 12.0).color(TEXT_FG));
                     egui::ComboBox::from_id_salt("tuner_mode_combo")
                         .selected_text(self.tuner.mode.label())
-                        .width(165.0)
+                        .width(185.0)
                         .show_ui(ui, |ui| {
-                            for m in [TunerMode::TargetEb5, TunerMode::ChromaticAuto] {
+                            for m in [TunerMode::TargetA4, TunerMode::TargetEb5, TunerMode::ChromaticAuto] {
                                 ui.selectable_value(&mut self.tuner.mode, m, m.label());
                             }
                         });
@@ -1468,7 +1472,7 @@ impl OrgelApp {
                     let note_txt = if st.signal_detected {
                         format!("Note: {}", st.matched_note_name)
                     } else {
-                        format!("Target: Eb5 ({:.2} Hz)", st.target_freq_hz)
+                        format!("Target: {} ({:.2} Hz)", st.matched_note_name, st.target_freq_hz)
                     };
                     ui.label(bold(note_txt, 13.0).color(if st.signal_detected { GREEN } else { TEXT_FG }));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
@@ -1609,7 +1613,7 @@ impl OrgelApp {
 
             ui.add_space(3.0);
             ui.horizontal(|ui| {
-                badge(ui, "IBT-2 BTS7960: PWM Pin 13, EN Pin A1, VCC Pin A2, IS Pin A0", ACCENT);
+                badge(ui, "IBT-2: PWM 13 | EN A1 | VCC A2 | IS A0 | Dyn A3 | Tune A4", ACCENT);
             });
             ui.add_space(2.0);
             ui.label(
