@@ -5,7 +5,7 @@
 //! NSDF) with 3-point parabolic sub-sample interpolation, maps the pitch against the active
 //! Master Tuning (`A4`) and Historical Temperament (`Equal`, `Werckmeister III`, `Meantone`, etc.),
 //! and regulates the centrifugal organ blower's MOSFET PWM duty cycle (Arduino Pin 13, with
-//! ON-ON switch on Pin 8) starting from 50.0% nominal power in 0.5% steps (or PID mode)
+//! ON-ON switch on Pin 8) starting from 75.0% nominal power in 0.5% steps (or PID mode)
 //! with a 500 ms anti-oscillation settling delay.
 
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -26,7 +26,7 @@ pub const A4_MIDI_NOTE: u8 = 69;
 pub const EB5_MIDI_NOTE: u8 = 75;
 
 /// Nominal starting PWM duty cycle (%) for the centrifugal blower motor controller on Pin 13.
-pub const NOMINAL_PWM_PERCENT: f32 = 50.0;
+pub const NOMINAL_PWM_PERCENT: f32 = 75.0;
 
 /// Single-step PWM adjustment increment (%) applied when the pipe is Flat (`+0.5%`) or Sharp (`-0.5%`).
 pub const PWM_STEP_PERCENT: f32 = 0.5;
@@ -104,7 +104,7 @@ pub struct TunerStatus {
     pub cents_error: f64,
     /// Normalized autocorrelation clarity/confidence (`0.0` to `1.0`) from the NSDF peak.
     pub confidence: f32,
-    /// Current blower motor PWM duty cycle (`0.0%` to `100.0%`, starting at `50.0%` nominal).
+    /// Current blower motor PWM duty cycle (`0.0%` to `100.0%`, starting at `75.0%` nominal).
     pub current_pwm_percent: f32,
     /// Live centrifugal blower motor current in Amperes reported by IBT-2 BTS7960 IS pin on Pin A0.
     pub motor_current_amps: f32,
@@ -355,7 +355,7 @@ pub fn evaluate_chromatic_target(
 /// Closed-loop Blower Motor PWM Controller (supporting both the exact `±0.5%` step algorithm
 /// and proportional-integral-derivative PID smoothing with a `500 ms` anti-oscillation delay).
 pub struct BlowerController {
-    /// Current PWM duty cycle (`0.0%` to `100.0%`), initialized at `50.0%` nominal pressure.
+    /// Current PWM duty cycle (`0.0%` to `100.0%`), initialized at `75.0%` nominal pressure.
     pub current_pwm_percent: f32,
     /// Minimum time delay between consecutive PWM adjustments (default `500 ms`).
     pub adjustment_delay: Duration,
@@ -376,7 +376,7 @@ impl Default for BlowerController {
 }
 
 impl BlowerController {
-    /// Creates a new `BlowerController` starting at `50.0%` nominal PWM and `500 ms` delay.
+    /// Creates a new `BlowerController` starting at `75.0%` nominal PWM and `500 ms` delay.
     pub fn new() -> Self {
         BlowerController {
             current_pwm_percent: NOMINAL_PWM_PERCENT,
@@ -388,7 +388,7 @@ impl BlowerController {
         }
     }
 
-    /// Resets the blower PWM to `50.0%` nominal pressure and clears PID state.
+    /// Resets the blower PWM to `75.0%` nominal pressure and clears PID state.
     pub fn reset_to_nominal(&mut self) {
         self.current_pwm_percent = NOMINAL_PWM_PERCENT;
         self.integral_error = 0.0;
@@ -771,39 +771,39 @@ mod tests {
     #[test]
     fn test_blower_pwm_controller_flat_sharp_step_and_delay() {
         let mut ctrl = BlowerController::new();
-        assert!((ctrl.current_pwm_percent - 50.0).abs() < 1e-5, "Must start at 50% nominal PWM");
+        assert!((ctrl.current_pwm_percent - 75.0).abs() < 1e-5, "Must start at 75% nominal PWM");
 
         let t0 = Instant::now();
 
-        // 1. Flat Eb5 (-18 cents): must increase PWM by +0.5% to 50.5% and emit 'F'
+        // 1. Flat Eb5 (-18 cents): must increase PWM by +0.5% to 75.5% and emit 'F'
         let (act1, cmd1) = ctrl.update_from_cents_error(-18.0, t0);
         assert_eq!(act1, BlowerAdjustment::FlatIncreasePwm);
         assert_eq!(cmd1, Some('F'));
-        assert!((ctrl.current_pwm_percent - 50.5).abs() < 1e-5);
+        assert!((ctrl.current_pwm_percent - 75.5).abs() < 1e-5);
 
         // 2. Poll again 200 ms later (< 500 ms delay): must NOT adjust PWM yet (anti-oscillation delay)
         let (act2, cmd2) = ctrl.update_from_cents_error(-18.0, t0 + Duration::from_millis(200));
         assert_eq!(act2, BlowerAdjustment::FlatIncreasePwm);
         assert_eq!(cmd2, None);
-        assert!((ctrl.current_pwm_percent - 50.5).abs() < 1e-5);
+        assert!((ctrl.current_pwm_percent - 75.5).abs() < 1e-5);
 
-        // 3. Poll at t0 + 550 ms (>= 500 ms delay): must increase PWM by another +0.5% to 51.0%
+        // 3. Poll at t0 + 550 ms (>= 500 ms delay): must increase PWM by another +0.5% to 76.0%
         let (act3, cmd3) = ctrl.update_from_cents_error(-12.0, t0 + Duration::from_millis(550));
         assert_eq!(act3, BlowerAdjustment::FlatIncreasePwm);
         assert_eq!(cmd3, Some('F'));
-        assert!((ctrl.current_pwm_percent - 51.0).abs() < 1e-5);
+        assert!((ctrl.current_pwm_percent - 76.0).abs() < 1e-5);
 
-        // 4. Pipe becomes Sharp (+14 cents) at t0 + 1100 ms: must decrease PWM by -0.5% to 50.5% and emit 'S'
+        // 4. Pipe becomes Sharp (+14 cents) at t0 + 1100 ms: must decrease PWM by -0.5% to 75.5% and emit 'S'
         let (act4, cmd4) = ctrl.update_from_cents_error(14.0, t0 + Duration::from_millis(1100));
         assert_eq!(act4, BlowerAdjustment::SharpDecreasePwm);
         assert_eq!(cmd4, Some('S'));
-        assert!((ctrl.current_pwm_percent - 50.5).abs() < 1e-5);
+        assert!((ctrl.current_pwm_percent - 75.5).abs() < 1e-5);
 
         // 5. Pipe is In Tune (+1.2 cents within ±3.5 cent deadband): must hold PWM steady
         let (act5, cmd5) = ctrl.update_from_cents_error(1.2, t0 + Duration::from_millis(1700));
         assert_eq!(act5, BlowerAdjustment::InTuneHold);
         assert_eq!(cmd5, None);
-        assert!((ctrl.current_pwm_percent - 50.5).abs() < 1e-5);
+        assert!((ctrl.current_pwm_percent - 75.5).abs() < 1e-5);
     }
 
     #[test]

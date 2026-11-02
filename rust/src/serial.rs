@@ -11,7 +11,7 @@
 //!   Outbound from OpenOrgel -> Arduino:
 //!     - `"F\n"`               pipe pitch is Flat  -> increase blower PWM by `+0.5%` on Pin 13
 //!     - `"S\n"`               pipe pitch is Sharp -> decrease blower PWM by `-0.5%` on Pin 13
-//!     - `"R\n"`               reset blower PWM to `50.0%` nominal pressure
+//!     - `"R\n"`               reset blower PWM to `75.0%` nominal pressure
 //!     - `"PWM:<val>\n"`       explicit PWM duty cycle percentage (`0.0..100.0`)
 //!     - `"A4_1\n"` / `"A4_0\n"` servo flag for the A4 pipe
 

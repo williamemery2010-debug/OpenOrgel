@@ -986,3 +986,25 @@ PHASE 40: DUAL B10K POTENTIOMETERS (DYNAMICS ON A3, MOTOR FINE TUNE ON A4) & A44
     4. Updated `rust/src/app.rs` (`pump_serial` dynamics event dispatch, tuner combo box).
     5. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 41: BASELINE BLOWER MOTOR PWM ELEVATION TO 75.0% NOMINAL DUTY CYCLE (November 2, 2026 - Prealpha_v2.0.28)
+--------------------------------------------------------------------------------
+* November 2, 2026:
+  - WHAT:
+    1. Baseline Blower Motor Duty Cycle Elevation (newconsole/newconsole.ino & rust/src/tuner.rs):
+       - Increased the nominal starting blower motor PWM duty cycle from `50.0%` to `75.0%` (`NOMINAL_PWM_PERCENT = 75.0;`, `currentPwmPercent = 75.0;`, `effectiveMotorPwm = 75.0;`).
+       - Updated reset commands ('R' or 'r'), shutdown defaults, and startup initialization to establish baseline wind delivery at 75.0% power.
+    2. GUI Controls & Unit Test Alignment (rust/src/app.rs & unit_tests_report.md):
+       - Updated GUI nominal reset button to `"75% Nominal"` in `rust/src/app.rs`.
+       - Updated unit test `test_blower_pwm_controller_flat_sharp_step_and_delay` (UT-46) to validate state transitions starting from 75.0% (`75.0% -> 75.5% -> 75.5% -> 76.0% -> 75.5%`). All 49 unit tests pass.
+  - WHY:
+    1. The creator requested: "lets change baseline pwm to 75%"
+    2. Higher initial static wind pressure is required by the organ windchest reservoir and physical pipework to achieve prompt flue speech articulation and stable fundamental pitch.
+  - HOW:
+    1. Updated `newconsole/newconsole.ino` (`currentPwmPercent = 75.0;`).
+    2. Updated `rust/src/tuner.rs` (`NOMINAL_PWM_PERCENT = 75.0;`).
+    3. Updated `rust/src/app.rs` (`"75% Nominal"`).
+    4. Updated UT-46 in `unit_tests_report.md`.
+    5. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
+================================================================================

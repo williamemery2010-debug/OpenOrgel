@@ -18,7 +18,7 @@
 //   - When Pin 8 switch is ON (Pin 8 connected to GND / LOW):
 //       * Pin A2 (vccPin) provides steady 5V logic power to IBT-2 buffer chip.
 //       * Pin A1 (enPin) is driven HIGH (IBT-2 BTS7960 output stage ENABLED).
-//       * Pin 13 (pwmPin) is driven at currentPwmPercent (nominal 50.0% on boot).
+//       * Pin 13 (pwmPin) is driven at currentPwmPercent (nominal 75.0% on boot).
 //       * The centrifugal organ blower runs reliably and continuously EVEN IF:
 //           - No USB cable is connected (standalone physical organ performance)
 //           - The laptop microphone tuner is OFF or disabled
@@ -26,7 +26,7 @@
 //   - When Pin 8 switch is OFF (HIGH):
 //       * Pin A1 (enPin) is driven LOW (IBT-2 BTS7960 disabled to prevent power draw).
 //       * Pin 13 (pwmPin) is set to 0.
-//       * currentPwmPercent resets to 50.0% nominal ready for the next startup.
+//       * currentPwmPercent resets to 75.0% nominal ready for the next startup.
 //       * Measured motor current is clamped to 0.00 A.
 //
 // BTS7960 Current Measurement Physics:
@@ -49,7 +49,7 @@
 //   - Control commands received from OpenOrgel:
 //       * 'F' or 'f'               -> Pipe is Flat:  increase blower PWM by +0.5%
 //       * 'S' or 's'               -> Pipe is Sharp: decrease blower PWM by -0.5%
-//       * 'R' or 'r'               -> Reset blower PWM to nominal 50.0%
+//       * 'R' or 'r'               -> Reset blower PWM to nominal 75.0%
 //       * "PWM:<0..100>\n"         -> Direct PID / manual PWM duty cycle target (%)
 //       * "A4_1" / "A4_0"          -> Safely ignored (no-op)
 //   - Enforces a 500 ms anti-oscillation settling delay between step adjustments
@@ -75,7 +75,7 @@ void setDriverEnable(bool enable) {
   digitalWrite(enPinAlt3, enable ? HIGH : LOW);
 }
 
-float currentPwmPercent = 50.0;            // Nominal starting pressure at 50.0% power
+float currentPwmPercent = 75.0;            // Nominal starting pressure at 75.0% power
 unsigned long lastAdjustmentTime = 0;      // Timestamp (ms) of the last pitch adjustment
 const unsigned long adjustmentDelay = 500; // 500 ms settling delay to prevent oscillation
 
@@ -88,7 +88,7 @@ float smoothedCurrentAmps = 0.0;           // Low-pass filtered motor current in
 float smoothedDyn = 1.0;                   // Dynamics multiplier (0.10 to 1.50)
 float lastReportedDyn = -1.0;              // Tracks serial broadcast threshold
 float fineTuneTrimPwm = 0.0;               // Fine tune motor trim (-10.0% to +10.0%)
-float effectiveMotorPwm = 50.0;            // Combined PWM written to motor
+float effectiveMotorPwm = 75.0;            // Combined PWM written to motor
 String lineBuffer = "";                    // Line accumulator for serial commands
 
 // Helper: converts 0.0-100.0% duty cycle to 8-bit timer value (0-255) and writes to Pin 13
@@ -163,12 +163,12 @@ void reportTelemetry() {
   }
 }
 
-// Processes a single step command ('F' = Flat -> +0.5%, 'S' = Sharp -> -0.5%, 'R' = Reset 50%)
+// Processes a single step command ('F' = Flat -> +0.5%, 'S' = Sharp -> -0.5%, 'R' = Reset 75%)
 void processStepCommand(char command) {
   unsigned long now = millis();
 
   if (command == 'R' || command == 'r') {
-    currentPwmPercent = 50.0;
+    currentPwmPercent = 75.0;
     lastAdjustmentTime = now;
     reportTelemetry();
     return;
@@ -276,7 +276,7 @@ void loop() {
         // Switch flipped OFF: Disable IBT-2 driver immediately
         setDriverEnable(false);
         analogWrite(pwmPin, 0);
-        currentPwmPercent = 50.0; // Reset to 50.0% nominal ready for next startup
+        currentPwmPercent = 75.0; // Reset to 75.0% nominal ready for next startup
         smoothedCurrentAmps = 0.0;
       }
 

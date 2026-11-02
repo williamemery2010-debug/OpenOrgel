@@ -1,9 +1,9 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-11-02 18:47:07
-Total Commits  : 111
-Total Releases : 46
+Updated At     : 2026-11-02 21:51:00
+Total Commits  : 112
+Total Releases : 47
 ================================================================================
 
 🚀 RELEASES / TAGS
@@ -12,6 +12,11 @@ Version : Prealpha_v2.0.26
 Date    : 2026-11-02
 Commit  : 192fe15
 Details : Prealpha_v2.0.26: Implement 50ms digital debounce and EMI suppression for Pin 8 switch
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.27
+Date    : 2026-11-02
+Commit  : 40d916b
+Details : Prealpha_v2.0.27: Dual B10K potentiometers (Dyn A3, Fine Tune A4) & A440 primary reference pipe
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.23
 Date    : 2026-11-01
@@ -248,7 +253,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-a10d0ac  | 2026-11-02 | williamemery2010-deb | Prealpha_v2.0.27: Dual B10K potentiometers (Dyn A3, Fine Tune A4) & A440 primary reference pipe
+96ad388  | 2026-11-02 | williamemery2010-deb | Prealpha_v2.0.28: Elevate baseline blower motor PWM to 75.0% nominal power
+40d916b  | 2026-11-02 | williamemery2010-deb | Prealpha_v2.0.27: Dual B10K potentiometers (Dyn A3, Fine Tune A4) & A440 primary reference pipe
 192fe15  | 2026-11-02 | williamemery2010-deb | Prealpha_v2.0.26: Implement 50ms digital debounce and EMI suppression for Pin 8 switch
 174a582  | 2026-11-01 | williamemery2010-deb | Prealpha_v2.0.25: Configure Pin A1 R_EN and Pin A2 VCC 5V digital logic on analog header
 8fd1cd9  | 2026-11-01 | williamemery2010-deb | Prealpha_v2.0.25: Reassign R_EN to Pin 11 and VCC to Pin 10 to prevent short on Pin 12

@@ -680,7 +680,7 @@ impl OrgelApp {
                     self.tuner.status.hardware_switch_on = Some(on);
                     if !on {
                         self.tuner.controller.reset_to_nominal();
-                        self.tuner.status.current_pwm_percent = 50.0;
+                        self.tuner.status.current_pwm_percent = 75.0;
                         self.tuner.status.motor_current_amps = 0.0;
                     }
                 }
@@ -1566,7 +1566,7 @@ impl OrgelApp {
 
             ui.add_space(4.0);
 
-            // Blower Motor PWM Output Bar (Nominal 50.0%, +/-0.5% step control on Pin 13)
+            // Blower Motor PWM Output Bar (Nominal 75.0%, +/-0.5% step control on Pin 13)
             inner_card(ui, |ui| {
                 let pwm = self.tuner.controller.current_pwm_percent;
                 let action_str = match self.tuner.status.last_action {
@@ -1597,9 +1597,9 @@ impl OrgelApp {
                         self.tuner.status.current_pwm_percent = self.tuner.controller.current_pwm_percent;
                         self.link.send_line("S\n");
                     }
-                    if pill_button(ui, "50% Nominal", CHIP, ACCENT_HOVER, Vec2::new(bw, 24.0), true).clicked() {
+                    if pill_button(ui, "75% Nominal", CHIP, ACCENT_HOVER, Vec2::new(bw, 24.0), true).clicked() {
                         self.tuner.controller.reset_to_nominal();
-                        self.tuner.status.current_pwm_percent = 50.0;
+                        self.tuner.status.current_pwm_percent = 75.0;
                         self.link.send_line("R\n");
                     }
                     if pill_button(ui, "+0.5% ('F')", CHIP, GREEN_HOVER, Vec2::new(bw, 24.0), true).clicked() {
