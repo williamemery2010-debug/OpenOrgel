@@ -1370,3 +1370,31 @@ PHASE 53: FULL-SESSION OSCILLOSCOPE TELEMETRY LOGGING & RFC 4180 CSV EXPORT (Nov
     4. Added and verified UT-55 in `rust/src/tuner.rs` and documented in `unit_tests_report.md`.
     5. Recompiled standalone release binary and deployed `openorgelsynth.exe` to Desktop target path.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 54: GITHUB ACTIONS CI MSVC REPAIR & RECURSIVE POST-COMMIT HOOK REMEDIATION (November 4, 2026 - Prealpha_v2.0.41)
+--------------------------------------------------------------------------------
+* November 4, 2026:
+  - WHAT:
+    1. GitHub Actions CI Target Alignment (.github/workflows/build_and_release.yml):
+       - Diagnosed persistent workflow run failures in GitHub Actions ("Build & Publish Release"):
+         Default runner images (`windows-latest`) preinstall Microsoft Visual C++ (MSVC) toolchains, but do not contain MinGW LLVM (`x86_64-w64-mingw32-clang++`).
+         Because `rust/.cargo/config.toml` sets `target = "x86_64-pc-windows-gnullvm"` for the creator's local MinGW setup, GitHub Actions failed with `error[E0463]: can't find crate for 'core'`.
+       - Updated `.github/workflows/build_and_release.yml` to explicitly configure `dtolnay/rust-toolchain@stable` with `targets: x86_64-pc-windows-msvc` and invoke `cargo build --release --target x86_64-pc-windows-msvc`.
+       - Updated `installer/package_release.py` candidate search paths to automatically recognize binaries from both `x86_64-pc-windows-gnullvm` and `x86_64-pc-windows-msvc` target output directories.
+       - Corrected release asset paths in `action-gh-release@v2`.
+    2. Remediation of Local Recursive Git Post-Commit Amend Hook (.git/hooks/post-commit):
+       - Identified cause of local git commit failures in VS Code and command line:
+         `.git/hooks/post-commit` contained a legacy script executing `git commit --amend --no-edit --no-verify` to automatically update `commits_and_releases.txt` upon every commit.
+         In graphical editors (VS Code Source Control extension) and rapid workflows, this recursive amend triggered `.git/index.lock` collisions, caused duplicate commits in reflog, and resulted in "Git commit failed" popups.
+       - Neutralized recursive amending in `.git/hooks/post-commit` and `.git/hooks/post-merge`, delegating history tracking cleanly to explicit script runs (`update_history.py`) and GitHub Actions.
+  - WHY:
+    1. The creator reported: "all the git commits keep failing by the way".
+    2. Dual Compound Causes:
+       - Remote: Every push triggered GitHub Actions CI, which failed on `windows-latest` due to the missing gnullvm toolchain, flagging every tag and commit with a red failure cross and sending failure emails.
+       - Local: The recursive `post-commit` amend hook caused index lock collisions in VS Code.
+  - HOW:
+    1. Updated `.github/workflows/build_and_release.yml` and `installer/package_release.py`.
+    2. Sanitized `.git/hooks/post-commit` and `.git/hooks/post-merge`.
+    3. Recompiled standalone binary and synchronized to Desktop target path.
+================================================================================

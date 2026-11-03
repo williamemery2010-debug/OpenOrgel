@@ -1,7 +1,7 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-11-04 09:24:05
+Updated At     : 2026-11-04 10:08:59
 Total Commits  : 125
 Total Releases : 60
 ================================================================================
@@ -318,7 +318,7 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-8b67b6c  | 2026-11-04 | williamemery2010-deb | docs: update commits and releases history text logs
+a16bae1  | 2026-11-04 | williamemery2010-deb | docs: update commits and releases history text logs
 0041c46  | 2026-11-04 | williamemery2010-deb | feat(ui): add session-long oscilloscope telemetry logging and CSV export
 1a67111  | 2026-11-04 | williamemery2010-deb | feat(ui): add real-time motor amperage oscilloscope graph and UT-54
 5c6fce8  | 2026-11-03 | williamemery2010-deb | fix(tuner): disable auto_regulate_pwm by default to prevent runaway motor acceleration

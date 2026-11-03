@@ -20,11 +20,13 @@ jobs:
 
       - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
 
       - name: Build standalone release executable
         run: |
           cd rust
-          cargo build --release
+          cargo build --release --target x86_64-pc-windows-msvc
           cd ..
 
       - name: Package installer and release assets
@@ -36,7 +38,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            rust/target/release/openorgelsynth.exe
+            rust/target/x86_64-pc-windows-msvc/release/openorgelsynth.exe
             dist/*.zip
           draft: false
           prerelease: true

@@ -35,6 +35,7 @@ def build_package():
     # 1. Locate release binary
     candidate_bins = [
         os.path.join(repo_root, "rust", "target", "x86_64-pc-windows-gnullvm", "release", "openorgelsynth.exe"),
+        os.path.join(repo_root, "rust", "target", "x86_64-pc-windows-msvc", "release", "openorgelsynth.exe"),
         os.path.join(repo_root, "rust", "target", "release", "openorgelsynth.exe"),
         os.path.join(r"C:\Users", os.getenv("USERNAME", "EME0012"), "OneDrive - St Helena Secondary College", "Desktop", "openorgelsynth.exe")
     ]
