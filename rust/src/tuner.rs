@@ -523,7 +523,7 @@ impl MicrophoneTuner {
             })),
             controller: BlowerController::new(),
             mode: TunerMode::TargetA4,
-            auto_regulate_pwm: true,
+            auto_regulate_pwm: false,
             status: TunerStatus::default(),
         }
     }

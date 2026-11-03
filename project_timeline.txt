@@ -1267,3 +1267,29 @@ PHASE 50: IBT-2 CURRENT SENSE BENCH RE-CALIBRATION & POWER SUPPLY SATURATION ALI
     2. Verified test harness via `cargo test` (all 53 tests passing).
     3. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 51: TUNER MICROPHONE AUTO-REGULATION RUNAWAY ELIMINATION & MOTOR CAPACITOR DYNAMICS (November 3, 2026 - Prealpha_v2.0.38)
+--------------------------------------------------------------------------------
+* November 3, 2026:
+  - WHAT:
+    1. Tuner Microphone Auto-Regulation Disablement by Default (rust/src/tuner.rs):
+       - Changed default state of `auto_regulate_pwm` from `true` to `false` in `MicrophoneTuner::new()`.
+       - Inhibited automatic pitch-tracking feedback runaway where ambient microphone audio or low-frequency motor hum ($f \ll 440\text{ Hz}$) is falsely identified by the Normalized Square Difference Function (NSDF) pitch detector as a "Flat" pipe condition, repeatedly firing `'F'` commands (+0.5% duty cycle every 500 ms) and uncontrollably driving the motor to 100% PWM.
+       - Operator must now explicitly activate auto-regulation via the GUI checkbox after confirming acoustic organ pipe pitch capture.
+    2. Electrical Analysis & Remediation of Motor-Terminal Capacitive LC Tank Oscillation:
+       - Investigated reported spontaneous speed ramp and current trips associated with added capacitor and resistor.
+       - Identified severe circuit hazard: connecting a large electrolytic capacitor ($4.7\ \mu\text{F}$) directly across H-bridge PWM motor output terminals (M+/M-).
+       - Because PWM delivers instantaneous step transitions ($dV/dt$), displacement current $i(t) = C \cdot \frac{dV}{dt}$ presents an alternating current dead short on every switching pulse edge, generating 30–50A transient current spikes.
+       - Armature winding inductance $L$ and capacitor $C$ form an underdamped LC resonant circuit ($f_0 = \frac{1}{2\pi\sqrt{LC}}$), causing high-frequency voltage/current ringing, corrupting BTS7960 current-sense shunt measurements on Pin A0, and driving premature electronic stall trips.
+       - Mandated immediate physical removal of the $4.7\ \mu\text{F}$ capacitor from motor terminals (only small $10\text{--}100\text{ nF}$ ceramic RF suppression caps may be placed across brushes; bulk electrolytics belong exclusively across the DC input power bus VCC/GND).
+  - WHY:
+    1. The creator reported: "oddly it starts to speed itself up before it trips it doesnt stay at one speed for some reason i think theres oscillation because of the extra cap I added and that resistor".
+    2. Dual Compound Failure Mechanism:
+       - Software Runaway: While the motor was running, the laptop microphone captured ambient motor whir and room reverberation. Because ambient noise fundamental frequency was far below the 440 Hz target, the software assumed severe flat pitch error and monotonically accelerated the blower (`'F'` loop).
+       - Hardware LC Pulse Ringing: A $4.7\ \mu\text{F}$ capacitor placed on the output of an IBT-2 MOSFET bridge subjected the bridge to high capacitive surge currents on every 490 Hz / 16 kHz switching transition, destabilizing the current sensing circuit and heating switching elements.
+  - HOW:
+    1. Updated `rust/src/tuner.rs` (`auto_regulate_pwm: false` in `MicrophoneTuner::new()`).
+    2. Verified all 53 unit tests in `rust/` test harness (`cargo test`).
+    3. Recompiled standalone release binary `openorgelsynth.exe` and copied to Desktop target path.
+================================================================================

@@ -1,9 +1,9 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-11-03 22:10:35
-Total Commits  : 121
-Total Releases : 56
+Updated At     : 2026-11-03 22:26:19
+Total Commits  : 122
+Total Releases : 58
 ================================================================================
 
 🚀 RELEASES / TAGS
@@ -47,6 +47,16 @@ Version : Prealpha_v2.0.36
 Date    : 2026-11-03
 Commit  : 1eaec7e
 Details : Release Prealpha_v2.0.36: Electronic stall fuse override for testing
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.37
+Date    : 2026-11-03
+Commit  : cbd8b28
+Details : Release Prealpha_v2.0.37: Recalibrate IBT-2 current sense to match 12A power supply saturation
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.38
+Date    : 2026-11-03
+Commit  : cfb73cd
+Details : Release Prealpha_v2.0.38: Tuner microphone auto-regulation default disablement and motor LC capacitor dynamics
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.26
 Date    : 2026-11-02
@@ -298,7 +308,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-94d201f  | 2026-11-03 | williamemery2010-deb | fix(hardware): recalibrate IBT-2 current sense to match 12A power supply saturation
+653afd8  | 2026-11-03 | williamemery2010-deb | fix(tuner): disable auto_regulate_pwm by default to prevent runaway motor acceleration
+cbd8b28  | 2026-11-03 | williamemery2010-deb | fix(hardware): recalibrate IBT-2 current sense to match 12A power supply saturation
 1eaec7e  | 2026-11-03 | williamemery2010-deb | feat(hardware): implement electronic stall fuse override for testing
 3c4ff06  | 2026-11-03 | williamemery2010-deb | feat(hardware): deactivate analog pots and implement 100% digital serial PWM control
 c05b61d  | 2026-11-03 | williamemery2010-deb | feat(hardware): implement 8.5A fast electronic stall fuse and overcurrent protection
