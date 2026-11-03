@@ -1647,14 +1647,13 @@ impl OrgelApp {
 
             ui.add_space(4.0);
 
-            // Single-Potentiometer Anti-Jitter Master Coarse Tuner (Pin A4: 0-100%)
+            // Digital Serial PWM Calibrator & Preset Buttons (Hardware Pots Disabled)
             inner_card(ui, |ui| {
-                let coarse = self.tuner.status.coarse_pwm_percent;
                 let net_pwm = self.tuner.status.current_pwm_percent;
                 ui.horizontal(|ui| {
-                    ui.label(bold(format!("Master Coarse Dial (Pin A4): {:.1}%", coarse), 12.0).color(ACCENT));
+                    ui.label(bold(format!("Digital PWM Setpoint: {:.1}%", net_pwm), 12.0).color(GREEN));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.label(bold(format!("Net Motor PWM: {:.1}%", net_pwm), 12.0).color(GREEN));
+                        ui.label(RichText::new("POTS DISABLED (NOISE-FREE)").size(10.0).color(ACCENT));
                     });
                 });
                 ui.add_space(3.0);
@@ -1663,23 +1662,48 @@ impl OrgelApp {
                 let mut m_fill = m_rect;
                 m_fill.set_width(m_rect.width() * (net_pwm / 100.0).clamp(0.0, 1.0));
                 ui.painter().rect_filled(m_fill, CornerRadius::same(4), GREEN);
-                ui.add_space(2.0);
+
+                ui.add_space(4.0);
+                // Quick preset power buttons: 0%, 15%, 25%, 35%, 50%, 75%, 100%
+                let presets = [
+                    ("0% Stop", 0.0),
+                    ("15%", 15.0),
+                    ("25%", 25.0),
+                    ("35%", 35.0),
+                    ("50%", 50.0),
+                    ("75%", 75.0),
+                    ("100%", 100.0),
+                ];
+                let pw = (ui.available_width() - 24.0) / 7.0;
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new("0% Off").size(9.0).color(TEXT_MUTED));
-                    ui.label(RichText::new("• 16x Oversampling + Heavy EMA (Anti-Jitter)").size(9.0).color(TEXT_MUTED));
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.label(RichText::new("100% Full Power").size(9.0).color(TEXT_MUTED));
-                    });
+                    for (lbl, val) in presets {
+                        let is_active = (net_pwm - val).abs() < 0.2;
+                        let bg = if is_active { ACCENT } else { CHIP };
+                        if pill_button(ui, lbl, bg, ACCENT_HOVER, Vec2::new(pw, 22.0), true).clicked() {
+                            self.tuner.controller.current_pwm_percent = val;
+                            self.tuner.status.current_pwm_percent = val;
+                            self.link.send_line(&format!("PWM:{:.1}\n", val));
+                        }
+                    }
                 });
+
+                ui.add_space(4.0);
+                // Interactive fine slider for any arbitrary PWM duty cycle
+                let mut slider_pwm = net_pwm;
+                if ui.add(egui::Slider::new(&mut slider_pwm, 0.0..=100.0).text("Live PWM Duty Cycle").suffix("%")).changed() {
+                    self.tuner.controller.current_pwm_percent = slider_pwm;
+                    self.tuner.status.current_pwm_percent = slider_pwm;
+                    self.link.send_line(&format!("PWM:{:.1}\n", slider_pwm));
+                }
             });
 
             ui.add_space(3.0);
             ui.horizontal(|ui| {
-                badge(ui, "IBT-2: PWM 13 | EN A1 | VCC A2 | IS A0 | Coarse A4 (0-100% Anti-Jitter)", ACCENT);
+                badge(ui, "IBT-2: PWM 13 | EN A1 | VCC A2 | IS A0 | Digital Serial Control (Pots Disabled)", ACCENT);
             });
             ui.add_space(2.0);
             ui.label(
-                RichText::new("✓ Standalone Ready: Centrifugal blower operates at nominal pressure without laptop / when tuner is OFF. Pitch auto-locks when Mic is active.")
+                RichText::new("✓ Digital Calibration: All analog pots disabled on Pins A3 & A4 to prevent wiper jitter. Set speed via buttons, slider, or Serial monitor ('PWM:<val>', 'F' +0.5%, 'S' -0.5%).")
                     .size(10.0)
                     .color(TEXT_MUTED),
             );

@@ -1,9 +1,9 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-11-03 18:27:17
-Total Commits  : 118
-Total Releases : 53
+Updated At     : 2026-11-03 21:38:13
+Total Commits  : 119
+Total Releases : 54
 ================================================================================
 
 🚀 RELEASES / TAGS
@@ -32,6 +32,11 @@ Version : Prealpha_v2.0.33
 Date    : 2026-11-03
 Commit  : 00e2fd9
 Details : Prealpha_v2.0.33: Map surviving potentiometer on Pin A4 to Master Coarse dial (0-100%) with 16x anti-jitter filtering
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.34
+Date    : 2026-11-03
+Commit  : c05b61d
+Details : Release Prealpha_v2.0.34: 8.5A fast electronic stall fuse and overcurrent protection
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.26
 Date    : 2026-11-02
@@ -283,7 +288,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-5cde7e4  | 2026-11-03 | williamemery2010-deb | feat(hardware): implement 8.5A fast electronic stall fuse and overcurrent protection
+13365db  | 2026-11-03 | williamemery2010-deb | feat(hardware): deactivate analog pots and implement 100% digital serial PWM control
+c05b61d  | 2026-11-03 | williamemery2010-deb | feat(hardware): implement 8.5A fast electronic stall fuse and overcurrent protection
 00e2fd9  | 2026-11-03 | williamemery2010-deb | Prealpha_v2.0.33: Map surviving potentiometer on Pin A4 to Master Coarse dial (0-100%) with 16x anti-jitter filtering
 dc13dc6  | 2026-11-03 | williamemery2010-deb | Prealpha_v2.0.32: Single-potentiometer anti-jitter fine vernier architecture on Pin A4
 ba71ebf  | 2026-11-03 | williamemery2010-deb | Prealpha_v2.0.31: Microscope dual-dial PWM tuning (Coarse on A3, Fine Vernier on A4)

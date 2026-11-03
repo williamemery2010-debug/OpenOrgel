@@ -1186,3 +1186,32 @@ PHASE 47: 8.5A FAST ELECTRONIC STALL FUSE & ROTOR OVERCURRENT PROTECTION (Novemb
     5. Verified test harness via `cargo test` (all 52 tests passing).
     6. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 48: 100% DIGITAL SERIAL PWM ARCHITECTURE & COMPLETE ANALOG POTENTIOMETER DEACTIVATION (November 3, 2026 - Prealpha_v2.0.35)
+--------------------------------------------------------------------------------
+* November 3, 2026:
+  - WHAT:
+    1. Complete Deactivation of Analog Potentiometers (newconsole/newconsole.ino):
+       - Clamped both Pin A3 (`deadPotPin`) and Pin A4 (`coarsePotPin`) with internal pull-ups (`INPUT_PULLUP`), terminating all analog ADC multiplexer polling.
+       - Replaced analog pot tracking with a 100% deterministic, noise-free Digital Serial PWM setpoint architecture.
+       - Motor PWM initialises safely at 0.0% on boot (`commandedPwm = 0.0`), preventing violent inrush spikes or immediate overcurrent trips upon toggling Pin 8 switch ON.
+       - Real-time digital speed control over serial:
+         * `"PWM:<0.0..100.0>\n"`: Sets exact duty cycle percentage (e.g. `PWM:15.0`, `PWM:25.0`, `PWM:50.0`).
+         * `'F'` / `'f'`: Increments PWM by +0.5% with rapid 50 ms settling.
+         * `'S'` / `'s'`: Decrements PWM by -0.5% with rapid 50 ms settling.
+         * `'R'` / `'r'`: Resets PWM to nominal 75.0%.
+    2. Desktop GUI Digital Serial Calibrator (rust/src/app.rs):
+       - Added Digital PWM Calibrator card with quick preset power buttons (`0% Stop`, `15%`, `25%`, `35%`, `50%`, `75%`, `100%`) sending instantaneous `PWM:<val>` commands.
+       - Added interactive fine slider allowing the organist to dial in any precise decimal duty cycle in real time.
+       - Updated header badge: `"IBT-2: PWM 13 | EN A1 | VCC A2 | IS A0 | Digital Serial Control (Pots Disabled)"`.
+  - WHY:
+    1. The creator reported: "its just immediately tripping now, the pot is having a fit. disable pot, tell em how to adjust PWM thru serial".
+    2. Mechanical wear, carbon track oxidation, or wiper bounce on analog potentiometer A4 produced erratic, wild ADC fluctuations. Spurious jumps to 100% PWM commanded instant full-voltage step-functions to a motor recovering from a 21A stall event, triggering the 8.5A electronic stall fuse.
+    3. Transitioning to 100% digital serial control eliminates all analog electrical noise, wiper contact chatter, and ADC cross-talk, while granting the organist precise digital authority to step up speed gradually (`PWM:10` -> `PWM:15` -> `PWM:20`...) and observe current draw.
+  - HOW:
+    1. Updated `newconsole/newconsole.ino` (`coarsePotPin` to `INPUT_PULLUP`, `readPotentiometers` no-op, `commandedPwm` 0.0% boot safe, direct serial parsing).
+    2. Updated `rust/src/app.rs` (Digital Calibrator card, quick buttons 0%..100%, fine live slider).
+    3. Verified test harness via `cargo test` (all 52 tests passing).
+    4. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
+================================================================================

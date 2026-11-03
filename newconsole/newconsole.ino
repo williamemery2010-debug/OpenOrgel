@@ -80,15 +80,12 @@ void setDriverEnable(bool enable) {
   digitalWrite(enPinAlt3, enable ? HIGH : LOW);
 }
 
-float smoothedCoarseAdc = 767.25;          // Initial reading ~75.0% coarse PWM
-float latchedCoarseAdc = 767.25;           // Hysteresis latch to kill 1-2 count ADC thermal flutter
-float coarsePwm = 75.0;                    // Coarse potentiometer reading (0.0% to 100.0%)
-float softwarePitchTrim = 0.0;             // Nudge from OpenOrgel tuner commands ('F' / 'S', +/-0.5%)
-float effectiveMotorPwm = 75.0;            // Net combined PWM applied to Pin 13
-float lastReportedCoarse = -999.0;         // Telemetry change detection
+float commandedPwm = 0.0;                  // Direct Serial PWM Setpoint (0.0% to 100.0%, starts at 0.0% for safe boot)
+float effectiveMotorPwm = 0.0;             // Net PWM applied to Pin 13
+float lastReportedPwm = -999.0;            // Telemetry change detection
 
 unsigned long lastAdjustmentTime = 0;      // Timestamp (ms) of the last pitch adjustment
-const unsigned long adjustmentDelay = 500; // 500 ms settling delay to prevent oscillation
+const unsigned long adjustmentDelay = 50;  // 50 ms settling delay for rapid responsive serial nudging
 
 bool debouncedSwitchState = false;         // Stable, filtered switch state
 int lastRawReading = HIGH;                 // Previous raw pin read for edge detection
@@ -110,36 +107,9 @@ void applyBlowerPwm(float percent) {
   analogWrite(pwmPin, pwmCounts);
 }
 
-// Reads surviving potentiometer on Pin A4 as Master Coarse with 16x oversampling, heavy EMA, and hysteresis
+// Potentiometers completely disabled - both Pin A3 and Pin A4 pulled HIGH internally
 void readPotentiometers() {
-  // 1. 16x Multi-sample oversampling to eliminate analog wiper bounce and high-frequency noise
-  long adcSum = 0;
-  const int numSamples = 16;
-  for (int i = 0; i < numSamples; i++) {
-    adcSum += analogRead(coarsePotPin);
-    delayMicroseconds(50);
-  }
-  float avgCoarse = (float)adcSum / (float)numSamples;
-
-  // 2. Heavy Exponential Moving Average low-pass filter (alpha = 0.08)
-  const float alpha = 0.08;
-  smoothedCoarseAdc = alpha * avgCoarse + (1.0 - alpha) * smoothedCoarseAdc;
-
-  // 3. Noise Gate / Hysteresis: require >= 3.0 ADC counts of movement before updating coarse PWM
-  if (abs(smoothedCoarseAdc - latchedCoarseAdc) >= 3.0) {
-    latchedCoarseAdc = smoothedCoarseAdc;
-  }
-
-  // 4. Map directly across full 0.0% to 100.0% coarse PWM power band
-  coarsePwm = (latchedCoarseAdc / 1023.0) * 100.0;
-  if (coarsePwm < 0.0) coarsePwm = 0.0;
-  if (coarsePwm > 100.0) coarsePwm = 100.0;
-
-  // 5. Net Effective Blower Motor PWM:
-  // Master Coarse (0.0% to 100.0%) + Software Tuner Nudge
-  effectiveMotorPwm = coarsePwm + softwarePitchTrim;
-  if (effectiveMotorPwm < 0.0) effectiveMotorPwm = 0.0;
-  if (effectiveMotorPwm > 100.0) effectiveMotorPwm = 100.0;
+  // No-op: all analog pots disabled to eliminate hardware jitter, faulty wiper flutter, and ADC noise
 }
 
 // Measures motor current via IBT-2 BTS7960 IS on Pin A0 with oversampling & EMA smoothing
@@ -161,45 +131,50 @@ float readMotorCurrentAmps() {
   return smoothedCurrentAmps;
 }
 
-// Transmits live PWM duty cycle, motor current in Amperes, and coarse dial readouts back to OpenOrgel GUI
+// Transmits live PWM duty cycle and motor current in Amperes back to OpenOrgel GUI
 void reportTelemetry() {
   Serial.print("PWM:");
   Serial.println(effectiveMotorPwm, 1);
   Serial.print("CURRENT:");
   Serial.println(smoothedCurrentAmps, 2);
-
-  if (abs(coarsePwm - lastReportedCoarse) >= 0.2) {
-    lastReportedCoarse = coarsePwm;
-    Serial.print("COARSE:");
-    Serial.println(coarsePwm, 1);
-  }
+  Serial.print("COARSE:");
+  Serial.println(effectiveMotorPwm, 1);
 }
 
-// Processes a single step command ('F' = Flat -> +0.5%, 'S' = Sharp -> -0.5%, 'R' = Reset 0.0% software trim)
+// Processes a single step command ('F' = Flat -> +0.5%, 'S' = Sharp -> -0.5%, 'R' = Reset 75.0% nominal)
 void processStepCommand(char command) {
   unsigned long now = millis();
 
   if (command == 'R' || command == 'r') {
-    softwarePitchTrim = 0.0;
+    commandedPwm = 75.0;
+    effectiveMotorPwm = commandedPwm;
     lastAdjustmentTime = now;
-    readPotentiometers();
+    if (debouncedSwitchState && !isCurrentTripped) {
+      applyBlowerPwm(effectiveMotorPwm);
+    }
     reportTelemetry();
     return;
   }
 
-  // Only allow +0.5% / -0.5% adjustments if the 500 ms anti-oscillation delay has elapsed
+  // Allow +0.5% / -0.5% adjustments if settling delay has elapsed
   if (now - lastAdjustmentTime >= adjustmentDelay) {
     if (command == 'F' || command == 'f') {
-      // Pitch is flat -> increase blower pressure by +0.5%
-      softwarePitchTrim += 0.5;
+      commandedPwm += 0.5;
+      if (commandedPwm > 100.0) commandedPwm = 100.0;
+      effectiveMotorPwm = commandedPwm;
       lastAdjustmentTime = now;
-      readPotentiometers();
+      if (debouncedSwitchState && !isCurrentTripped) {
+        applyBlowerPwm(effectiveMotorPwm);
+      }
       reportTelemetry();
     } else if (command == 'S' || command == 's') {
-      // Pitch is sharp -> decrease blower pressure by -0.5%
-      softwarePitchTrim -= 0.5;
+      commandedPwm -= 0.5;
+      if (commandedPwm < 0.0) commandedPwm = 0.0;
+      effectiveMotorPwm = commandedPwm;
       lastAdjustmentTime = now;
-      readPotentiometers();
+      if (debouncedSwitchState && !isCurrentTripped) {
+        applyBlowerPwm(effectiveMotorPwm);
+      }
       reportTelemetry();
     }
   }
@@ -216,14 +191,17 @@ void processLineCommand(String cmd) {
     return;
   }
 
-  // Direct PWM setpoint command from OpenOrgel PID / Reset controls ("PWM:50.0")
+  // Direct PWM setpoint command from OpenOrgel GUI / Terminal ("PWM:25.0", "PWM:50", "PWM:0")
   if (cmd.startsWith("PWM:")) {
     float target = cmd.substring(4).toFloat();
     if (target < 0.0) target = 0.0;
     if (target > 100.0) target = 100.0;
-    softwarePitchTrim = target - coarsePwm;
+    commandedPwm = target;
+    effectiveMotorPwm = commandedPwm;
     lastAdjustmentTime = millis();
-    readPotentiometers();
+    if (debouncedSwitchState && !isCurrentTripped) {
+      applyBlowerPwm(effectiveMotorPwm);
+    }
     reportTelemetry();
     return;
   }
@@ -247,8 +225,8 @@ void setup() {
   pinMode(enPinAlt3, OUTPUT);
   pinMode(switchPin, INPUT_PULLUP);  // ON-ON toggle switch between Pin 8 & GND
   pinMode(currentSensePin, INPUT);
-  pinMode(deadPotPin, INPUT_PULLUP);  // Pull up dead Pin A3 to kill floating ADC cross-talk!
-  pinMode(coarsePotPin, INPUT);       // Surviving Master Coarse Pot (Pin A4)
+  pinMode(deadPotPin, INPUT_PULLUP);    // Pull up dead Pin A3 to kill floating ADC cross-talk!
+  pinMode(coarsePotPin, INPUT_PULLUP);  // Pull up Pin A4 as well (all analog pots disabled, 100% digital serial PWM)
 
   // Initialize outputs safely disabled
   setDriverEnable(false);
@@ -262,9 +240,6 @@ void setup() {
   }
   debouncedSwitchState = (lowCount >= 7);
   lastRawReading = debouncedSwitchState ? LOW : HIGH;
-
-  // Read initial coarse pot position
-  readPotentiometers();
 
   if (debouncedSwitchState) {
     // Switch is ON on boot: enable driver immediately for standalone operation
@@ -291,13 +266,11 @@ void loop() {
         digitalWrite(vccPin, HIGH);
         digitalWrite(pullup5vPin, HIGH);
         setDriverEnable(true);
-        readPotentiometers();
         applyBlowerPwm(effectiveMotorPwm);
       } else {
         // Switch flipped OFF: Disable IBT-2 driver immediately
         setDriverEnable(false);
         analogWrite(pwmPin, 0);
-        softwarePitchTrim = 0.0; // Reset software nudge ready for next startup
         smoothedCurrentAmps = 0.0;
         isCurrentTripped = false; // Reset electronic fuse trip condition when user flips switch OFF
         overcurrentStartTime = 0;
@@ -311,9 +284,6 @@ void loop() {
       }
     }
   }
-
-  // Continuously read microscope coarse (A3) and fine (A4) dials
-  readPotentiometers();
 
   bool isSystemOn = debouncedSwitchState;
 
@@ -339,7 +309,7 @@ void loop() {
       Serial.print("PWM:");
       Serial.println(effectiveMotorPwm, 1);
       Serial.print("COARSE:");
-      Serial.println(coarsePwm, 1);
+      Serial.println(effectiveMotorPwm, 1);
     }
     return;
   }
