@@ -7,7 +7,7 @@
 use crossbeam_channel::{unbounded, Receiver, Sender};
 use eframe::egui::{
     self, Align, Align2, Color32, CornerRadius, FontData, FontDefinitions, FontFamily, FontId,
-    Layout, Margin, Pos2, RichText, Sense, Shape, Stroke, StrokeKind, Vec2,
+    Layout, Margin, Pos2, Rect, RichText, Sense, Shape, Stroke, StrokeKind, Vec2,
 };
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -280,6 +280,7 @@ pub struct OrgelApp {
     pub tuner: MicrophoneTuner,
     pub mic_devices: Vec<String>,
     pub mic_selected: String,
+    pub last_current_sample_time: Instant,
 }
 
 impl OrgelApp {
@@ -355,6 +356,7 @@ impl OrgelApp {
             tuner: MicrophoneTuner::new(),
             mic_devices: MicrophoneTuner::list_input_devices(),
             mic_selected: "Default Microphone".to_string(),
+            last_current_sample_time: Instant::now(),
         };
         app.apply_stops();
         app.refresh_midi_devices();
@@ -683,6 +685,7 @@ impl OrgelApp {
                         self.tuner.status.current_pwm_percent = 75.0;
                         self.tuner.status.motor_current_amps = 0.0;
                         self.tuner.status.overcurrent_tripped = false;
+                        self.tuner.status.current_history.push(0.0);
                     }
                 }
                 SerialEvent::BlowerPwm(pwm) => {
@@ -691,11 +694,13 @@ impl OrgelApp {
                 }
                 SerialEvent::MotorCurrent(amps) => {
                     self.tuner.status.motor_current_amps = amps;
+                    self.tuner.status.current_history.observe_peak(amps);
                 }
                 SerialEvent::OvercurrentTrip(tripped) => {
                     self.tuner.status.overcurrent_tripped = tripped;
                     if tripped {
                         self.tuner.status.motor_current_amps = 0.0;
+                        self.tuner.status.current_history.push(0.0);
                         self.toast("EMERGENCY OVERCURRENT TRIP: Motor stalled or exceeded 8.5A! Power cut to protect hardware.", RED);
                     }
                 }
@@ -1616,6 +1621,193 @@ impl OrgelApp {
                     });
                 });
 
+                ui.add_space(6.0);
+
+                // --- REAL-TIME AMPERAGE OSCILLOSCOPE GRAPH ---
+                let peak_amps = self.tuner.status.current_history.peak();
+                let avg_amps = self.tuner.status.current_history.average();
+                let is_paused = self.tuner.status.current_history.paused;
+
+                ui.horizontal(|ui| {
+                    ui.label(bold("📈 Live Amperage Oscilloscope (15s Window)", 11.0).color(TEXT_FG));
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if pill_button(ui, "Clear", CHIP, RED_HOVER, Vec2::new(42.0, 18.0), true).clicked() {
+                            self.tuner.status.current_history.clear();
+                        }
+                        let pause_label = if is_paused { "▶ Resume" } else { "⏸ Pause" };
+                        let pause_bg = if is_paused { AMBER } else { CHIP };
+                        if pill_button(ui, pause_label, pause_bg, AMBER_HOVER, Vec2::new(60.0, 18.0), true).clicked() {
+                            self.tuner.status.current_history.paused = !self.tuner.status.current_history.paused;
+                        }
+                        if pill_button(ui, "↺ Peak", CHIP, ACCENT_HOVER, Vec2::new(48.0, 18.0), true).clicked() {
+                            self.tuner.status.current_history.reset_peak();
+                        }
+                        let peak_col = if peak_amps >= 8.5 {
+                            RED
+                        } else if peak_amps >= 6.0 {
+                            AMBER
+                        } else {
+                            TEXT_MUTED
+                        };
+                        ui.label(RichText::new(format!("Peak: {:.2}A", peak_amps)).size(10.5).color(peak_col));
+                        ui.label(RichText::new(format!("Avg: {:.2}A", avg_amps)).size(10.5).color(TEXT_MUTED));
+                    });
+                });
+
+                ui.add_space(3.0);
+
+                // Dedicated Oscilloscope Canvas
+                let graph_h = 100.0;
+                let (graph_rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), graph_h), Sense::hover());
+                let painter = ui.painter();
+
+                // Dark CRT / Oscilloscope Slate Background
+                painter.rect_filled(graph_rect, CornerRadius::same(6), Color32::from_rgb(0x0C, 0x10, 0x17));
+                painter.rect_stroke(graph_rect, CornerRadius::same(6), Stroke::new(1.0, BORDER), StrokeKind::Inside);
+
+                let pad_top = 8.0;
+                let pad_bot = 16.0;
+                let pad_left = 6.0;
+                let pad_right = 6.0;
+                let base_y = graph_rect.max.y - pad_bot;
+                let top_y = graph_rect.min.y + pad_top;
+                let usable_h = base_y - top_y;
+                let usable_w = graph_rect.width() - pad_left - pad_right;
+
+                // Horizontal Reference Gridlines:
+                // 12.0A: Power Supply Saturation Limit
+                let y_12a = top_y;
+                painter.line_segment(
+                    [Pos2::new(graph_rect.min.x + pad_left, y_12a), Pos2::new(graph_rect.max.x - pad_right, y_12a)],
+                    Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 25)),
+                );
+                painter.text(
+                    Pos2::new(graph_rect.min.x + pad_left + 4.0, y_12a + 1.0),
+                    Align2::LEFT_TOP,
+                    "12.0A (PSU Limit)",
+                    FontId::new(8.5, FontFamily::Proportional),
+                    Color32::from_rgb(0x64, 0x74, 0x8B),
+                );
+
+                // 8.5A: Electronic Stall Trip Cutoff
+                let y_8_5a = base_y - (8.5 / 12.0) * usable_h;
+                painter.line_segment(
+                    [Pos2::new(graph_rect.min.x + pad_left, y_8_5a), Pos2::new(graph_rect.max.x - pad_right, y_8_5a)],
+                    Stroke::new(1.0, RED.gamma_multiply(0.75)),
+                );
+                painter.text(
+                    Pos2::new(graph_rect.min.x + pad_left + 4.0, y_8_5a - 10.0),
+                    Align2::LEFT_TOP,
+                    "8.5A [TRIP CUTOFF]",
+                    FontId::new(8.5, bold_family()),
+                    RED.gamma_multiply(0.9),
+                );
+
+                // 6.0A: Elevated Load Line
+                let y_6a = base_y - (6.0 / 12.0) * usable_h;
+                painter.line_segment(
+                    [Pos2::new(graph_rect.min.x + pad_left, y_6a), Pos2::new(graph_rect.max.x - pad_right, y_6a)],
+                    Stroke::new(1.0, AMBER.gamma_multiply(0.35)),
+                );
+                painter.text(
+                    Pos2::new(graph_rect.min.x + pad_left + 4.0, y_6a - 9.0),
+                    Align2::LEFT_TOP,
+                    "6.0A",
+                    FontId::new(8.5, FontFamily::Proportional),
+                    Color32::from_rgb(0x64, 0x74, 0x8B),
+                );
+
+                // 0.0A: Baseline
+                painter.line_segment(
+                    [Pos2::new(graph_rect.min.x + pad_left, base_y), Pos2::new(graph_rect.max.x - pad_right, base_y)],
+                    Stroke::new(1.0, BORDER),
+                );
+                painter.text(
+                    Pos2::new(graph_rect.min.x + pad_left + 4.0, base_y - 9.0),
+                    Align2::LEFT_TOP,
+                    "0.0A",
+                    FontId::new(8.5, FontFamily::Proportional),
+                    Color32::from_rgb(0x64, 0x74, 0x8B),
+                );
+
+                // Vertical Time Divisions & X-Axis Legend (-15s, -10s, -5s, Now)
+                let time_divs = [
+                    (0.00, "-15s", Align2::LEFT_TOP),
+                    (0.333, "-10s", Align2::CENTER_TOP),
+                    (0.667, "-5s", Align2::CENTER_TOP),
+                    (1.00, "Now", Align2::RIGHT_TOP),
+                ];
+                for (ratio, label, align) in time_divs {
+                    let gx = graph_rect.min.x + pad_left + ratio * usable_w;
+                    painter.line_segment(
+                        [Pos2::new(gx, top_y), Pos2::new(gx, base_y)],
+                        Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 18)),
+                    );
+                    painter.text(
+                        Pos2::new(gx, base_y + 2.0),
+                        align,
+                        label,
+                        FontId::new(8.5, FontFamily::Proportional),
+                        TEXT_MUTED,
+                    );
+                }
+
+                // Render Rolling Current Waveform
+                let num_samples = self.tuner.status.current_history.len();
+                if num_samples >= 2 {
+                    let mut points: Vec<(Pos2, f32)> = Vec::with_capacity(num_samples);
+                    for (i, &amp) in self.tuner.status.current_history.iter().enumerate() {
+                        let frac = i as f32 / (num_samples - 1) as f32;
+                        let px = graph_rect.min.x + pad_left + frac * usable_w;
+                        let norm = (amp / 12.0).clamp(0.0, 1.0);
+                        let py = base_y - norm * usable_h;
+                        points.push((Pos2::new(px, py), amp));
+                    }
+
+                    // Draw shaded area and colored line segments between points
+                    for w in points.windows(2) {
+                        let (p0, a0) = w[0];
+                        let (p1, a1) = w[1];
+                        let max_seg_amp = a0.max(a1);
+                        let seg_col = if max_seg_amp >= 8.5 {
+                            RED
+                        } else if max_seg_amp >= 6.0 {
+                            AMBER
+                        } else if max_seg_amp > 0.1 {
+                            GREEN
+                        } else {
+                            TEXT_MUTED
+                        };
+
+                        // Gradient fill under segment
+                        if max_seg_amp > 0.05 {
+                            let fill_rect = Rect::from_min_max(
+                                Pos2::new(p0.x, p0.y.min(p1.y)),
+                                Pos2::new(p1.x, base_y),
+                            );
+                            painter.rect_filled(fill_rect, CornerRadius::same(0), seg_col.gamma_multiply(0.12));
+                        }
+
+                        // Connecting stroke
+                        painter.line_segment([p0, p1], Stroke::new(2.0, seg_col));
+                    }
+
+                    // Glowing sweep dot at newest sample (Now)
+                    if let Some(&(latest_pt, latest_amp)) = points.last() {
+                        let dot_col = if latest_amp >= 8.5 {
+                            RED
+                        } else if latest_amp >= 6.0 {
+                            AMBER
+                        } else if latest_amp > 0.1 {
+                            GREEN
+                        } else {
+                            TEXT_MUTED
+                        };
+                        painter.circle_filled(latest_pt, 4.5, dot_col.gamma_multiply(0.35));
+                        painter.circle_filled(latest_pt, 2.5, dot_col);
+                    }
+                }
+
                 if is_tripped && !is_override {
                     ui.add_space(6.0);
                     ui.label(
@@ -1856,6 +2048,12 @@ impl eframe::App for OrgelApp {
         self.pump_messages(ctx);
         self.pump_serial();
         self.handle_keys(ctx);
+
+        // Sample motor current at fixed 10 Hz (100 ms) rate for continuous oscilloscope graphing
+        if self.last_current_sample_time.elapsed() >= Duration::from_millis(100) {
+            self.last_current_sample_time = Instant::now();
+            self.tuner.status.current_history.push(self.tuner.status.motor_current_amps);
+        }
 
         // Poll laptop microphone pitch detector and regulate Arduino Pin 13 blower PWM ('F' / 'S')
         if let Some(cmd) = self.tuner.poll_and_regulate(self.engine.a4(), self.temperament) {

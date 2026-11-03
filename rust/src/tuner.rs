@@ -11,6 +11,7 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Device, SampleFormat, SizedSample, StreamConfig};
 use parking_lot::Mutex;
+use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -84,6 +85,116 @@ pub enum BlowerAdjustment {
     SharpDecreasePwm,
 }
 
+/// Real-time rolling history buffer of centrifugal blower motor current (Amperes)
+/// sampled over a sliding window (e.g., 15 seconds at 10 Hz = 150 samples).
+#[derive(Clone, Debug)]
+pub struct MotorCurrentHistory {
+    samples: VecDeque<f32>,
+    max_capacity: usize,
+    peak_amps: f32,
+    pub paused: bool,
+}
+
+impl MotorCurrentHistory {
+    pub const DEFAULT_CAPACITY: usize = 150; // 15.0s at 100ms sample rate
+
+    pub fn new(capacity: usize) -> Self {
+        let cap = capacity.max(1);
+        let mut samples = VecDeque::with_capacity(cap);
+        for _ in 0..cap {
+            samples.push_back(0.0);
+        }
+        Self {
+            samples,
+            max_capacity: cap,
+            peak_amps: 0.0,
+            paused: false,
+        }
+    }
+
+    /// Appends a new current reading in Amperes.
+    pub fn push(&mut self, amps: f32) {
+        let val = amps.max(0.0);
+        if val > self.peak_amps {
+            self.peak_amps = val;
+        }
+        if self.paused {
+            return;
+        }
+        if self.samples.len() >= self.max_capacity {
+            self.samples.pop_front();
+        }
+        self.samples.push_back(val);
+    }
+
+    /// Observes a transient peak without advancing the time window.
+    pub fn observe_peak(&mut self, amps: f32) {
+        let val = amps.max(0.0);
+        if val > self.peak_amps {
+            self.peak_amps = val;
+        }
+    }
+
+    /// Returns the highest current peak recorded (Amperes).
+    pub fn peak(&self) -> f32 {
+        self.peak_amps
+    }
+
+    /// Returns the most recent current reading (Amperes).
+    pub fn latest(&self) -> f32 {
+        self.samples.back().copied().unwrap_or(0.0)
+    }
+
+    /// Returns the average current over the current history buffer.
+    pub fn average(&self) -> f32 {
+        if self.samples.is_empty() {
+            return 0.0;
+        }
+        let sum: f32 = self.samples.iter().copied().sum();
+        sum / self.samples.len() as f32
+    }
+
+    /// Resets the recorded peak to the highest value currently in the buffer.
+    pub fn reset_peak(&mut self) {
+        self.peak_amps = self.samples.iter().copied().fold(0.0f32, f32::max);
+    }
+
+    /// Clears the history buffer back to zero baseline and resets peak.
+    pub fn clear(&mut self) {
+        self.samples.clear();
+        for _ in 0..self.max_capacity {
+            self.samples.push_back(0.0);
+        }
+        self.peak_amps = 0.0;
+    }
+
+    /// Returns an iterator of current samples from oldest to newest.
+    pub fn iter(&self) -> impl Iterator<Item = &f32> {
+        self.samples.iter()
+    }
+
+    /// Returns the number of samples in the buffer.
+    pub fn len(&self) -> usize {
+        self.samples.len()
+    }
+
+    /// Returns whether the buffer is empty.
+    pub fn is_empty(&self) -> bool {
+        self.samples.is_empty()
+    }
+
+    /// Returns the capacity of the buffer.
+    pub fn capacity(&self) -> usize {
+        self.max_capacity
+    }
+}
+
+impl Default for MotorCurrentHistory {
+    fn default() -> Self {
+        Self::new(Self::DEFAULT_CAPACITY)
+    }
+}
+
 /// Snapshot of the real-time pitch detector and blower controller state for GUI rendering.
 #[derive(Clone, Debug)]
 pub struct TunerStatus {
@@ -108,6 +219,8 @@ pub struct TunerStatus {
     pub current_pwm_percent: f32,
     /// Live centrifugal blower motor current in Amperes reported by IBT-2 BTS7960 IS pin on Pin A0.
     pub motor_current_amps: f32,
+    /// Real-time rolling history buffer of motor current readings for visual oscilloscope graphing.
+    pub current_history: MotorCurrentHistory,
     /// Microscope Coarse Tuning Dial PWM (`0.0%` to `100.0%`, reported on Pin A3).
     pub coarse_pwm_percent: f32,
     /// Microscope Fine Vernier Trim PWM (`-10.0%` to `+10.0%`, reported on Pin A4).
@@ -137,6 +250,7 @@ impl Default for TunerStatus {
             confidence: 0.0,
             current_pwm_percent: NOMINAL_PWM_PERCENT,
             motor_current_amps: 0.0,
+            current_history: MotorCurrentHistory::default(),
             coarse_pwm_percent: 75.0,
             fine_trim_pwm_percent: 0.0,
             manifold_servo_angle: 0.0,
@@ -842,5 +956,49 @@ mod tests {
         assert_eq!(note, EB5_MIDI_NOTE);
         assert!((target_hz - eb5_equal).abs() < 1e-5);
         assert!(cents < -10.0 && cents > -15.0);
+    }
+
+    #[test]
+    fn test_motor_current_history_buffer_and_peak_tracking() {
+        let mut hist = MotorCurrentHistory::new(5);
+        assert_eq!(hist.len(), 5);
+        assert_eq!(hist.peak(), 0.0);
+        assert_eq!(hist.average(), 0.0);
+
+        // Push some values
+        hist.push(1.5);
+        hist.push(3.0);
+        assert_eq!(hist.peak(), 3.0);
+        assert_eq!(hist.latest(), 3.0);
+
+        // Transient spike
+        hist.observe_peak(10.5);
+        assert_eq!(hist.peak(), 10.5);
+
+        // Overfill capacity (5 items max)
+        hist.push(2.0);
+        hist.push(2.5);
+        hist.push(3.5);
+        assert_eq!(hist.len(), 5);
+        // Latest samples in buffer: 1.5, 3.0, 2.0, 2.5, 3.5
+        let samples: Vec<f32> = hist.iter().copied().collect();
+        assert_eq!(samples, vec![1.5, 3.0, 2.0, 2.5, 3.5]);
+        assert!((hist.average() - 2.5).abs() < 1e-5);
+
+        // Reset peak: highest in buffer is 3.5, so peak becomes 3.5 instead of 10.5
+        hist.reset_peak();
+        assert_eq!(hist.peak(), 3.5);
+
+        // Test paused
+        hist.paused = true;
+        hist.push(5.0);
+        assert_eq!(hist.latest(), 3.5); // was not added due to pause
+
+        // Test clear
+        hist.paused = false;
+        hist.clear();
+        assert_eq!(hist.len(), 5);
+        assert_eq!(hist.peak(), 0.0);
+        assert_eq!(hist.average(), 0.0);
     }
 }

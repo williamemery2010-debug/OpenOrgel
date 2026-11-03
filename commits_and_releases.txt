@@ -1,12 +1,17 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-11-03 22:26:19
-Total Commits  : 122
-Total Releases : 58
+Updated At     : 2026-11-04 09:08:46
+Total Commits  : 123
+Total Releases : 59
 ================================================================================
 
 🚀 RELEASES / TAGS
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.39
+Date    : 2026-11-04
+Commit  : b8ced78
+Details : Release Prealpha_v2.0.39: Real-time motor amperage oscilloscope graph and transient dynamics
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.29
 Date    : 2026-11-03
@@ -55,7 +60,7 @@ Details : Release Prealpha_v2.0.37: Recalibrate IBT-2 current sense to match 12A
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.38
 Date    : 2026-11-03
-Commit  : cfb73cd
+Commit  : 5c6fce8
 Details : Release Prealpha_v2.0.38: Tuner microphone auto-regulation default disablement and motor LC capacitor dynamics
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.26
@@ -308,7 +313,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-653afd8  | 2026-11-03 | williamemery2010-deb | fix(tuner): disable auto_regulate_pwm by default to prevent runaway motor acceleration
+6116181  | 2026-11-04 | williamemery2010-deb | feat(ui): add real-time motor amperage oscilloscope graph and UT-54
+5c6fce8  | 2026-11-03 | williamemery2010-deb | fix(tuner): disable auto_regulate_pwm by default to prevent runaway motor acceleration
 cbd8b28  | 2026-11-03 | williamemery2010-deb | fix(hardware): recalibrate IBT-2 current sense to match 12A power supply saturation
 1eaec7e  | 2026-11-03 | williamemery2010-deb | feat(hardware): implement electronic stall fuse override for testing
 3c4ff06  | 2026-11-03 | williamemery2010-deb | feat(hardware): deactivate analog pots and implement 100% digital serial PWM control

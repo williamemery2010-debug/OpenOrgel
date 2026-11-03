@@ -1293,3 +1293,46 @@ PHASE 51: TUNER MICROPHONE AUTO-REGULATION RUNAWAY ELIMINATION & MOTOR CAPACITOR
     2. Verified all 53 unit tests in `rust/` test harness (`cargo test`).
     3. Recompiled standalone release binary `openorgelsynth.exe` and copied to Desktop target path.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 52: REAL-TIME MOTOR AMPERAGE OSCILLOSCOPE GRAPH & TRANSIENT DYNAMICS (November 4, 2026 - Prealpha_v2.0.39)
+--------------------------------------------------------------------------------
+* November 4, 2026:
+  - WHAT:
+    1. Real-Time Motor Amperage Oscilloscope Display (rust/src/app.rs):
+       - Engineered a dedicated 15-second digital storage oscilloscope (DSO) strip-chart waveform display embedded directly inside the Centrifugal Blower Motor Current Meter card.
+       - Continuously samples motor amperage at a steady 10 Hz rate ($100\text{ ms}$ sample interval across a 150-sample FIFO window).
+       - Visual oscilloscope canvas features:
+         * Deep CRT slate background (`#0C1017`) with rounded framing.
+         * Horizontal calibration guidelines:
+           - $12.0\text{ A}$ Power Supply Saturation Limit line (`12.0A (PSU Limit)`).
+           - $8.5\text{ A}$ Electronic circuit breaker / stall cutoff line in bold red (`8.5A [TRIP CUTOFF]`).
+           - $6.0\text{ A}$ Elevated load threshold guideline (`6.0A`).
+           - $0.0\text{ A}$ Idle / off baseline (`0.0A`).
+         * Vertical time division markers (`-15s`, `-10s`, `-5s`, `Now`).
+         * Dynamic multi-segment color-graded waveform with gradient area fill under the curve:
+           - Green (`#10B981`) during nominal operating draw ($<6.0\text{ A}$).
+           - Amber (`#F59E0B`) during elevated load conditions ($6.0\text{ A} \le I \le 8.5\text{ A}$).
+           - Red (`#EF4444`) during high load or stall trip events ($>8.5\text{ A}$).
+         * Glowing current sweep dot tracking the latest sample at `Now`.
+    2. Telemetry Controls, Peak Hold & Pause Architecture (rust/src/app.rs):
+       - Added live `Peak: X.XX A` readout badge with automated peak hold.
+       - Added live `Avg: X.XX A` sliding-window average current readout.
+       - Added `[↺ Peak]` button to recalibrate peak tracking to the current active window maximum.
+       - Added `[⏸ Pause]` / `[▶ Resume]` toggle button allowing the organist to freeze the waveform display to closely inspect transient inrush spikes or stall current profiles without loss of context.
+       - Added `[Clear]` button resetting the rolling history back to a clean zero baseline.
+    3. Rolling FIFO Buffer Subsystem & Deterministic Unit Testing (rust/src/tuner.rs & unit_tests_report.md):
+       - Implemented `MotorCurrentHistory` with $O(1)$ push/pop operations over a `VecDeque<f32>` buffer.
+       - Added UT-54 (`test_motor_current_history_buffer_and_peak_tracking`), validating exact capacity enforcement, FIFO sample displacement, sliding window average computation, peak hold capture, pause gating, and clear operations.
+       - Test harness expanded to 54 unit tests (100% passing).
+  - WHY:
+    1. The creator requested: "make the software display an amperage graph".
+    2. During centrifugal blower commissioning, inrush testing, and diagnosing mechanical impeller friction against 3D-printed PLA housing, a static numerical label or momentary bar cannot reveal whether current is steadily creeping, oscillating, or briefly spiking during motor acceleration.
+    3. Providing a real-time oscilloscope graph grants the organist immediate visual feedback on motor inrush duration, running stability, and electrical safety margin relative to the 8.5A electronic cutoff.
+  - HOW:
+    1. Created `MotorCurrentHistory` struct in `rust/src/tuner.rs` and added `current_history` field to `TunerStatus`.
+    2. Integrated 10 Hz sampling timer in `OrgelApp::logic` (`rust/src/app.rs`) and immediate peak capture in `pump_serial`.
+    3. Rendered DSO graph using egui painter primitives in `rust/src/app.rs`.
+    4. Added and verified UT-54 in `rust/src/tuner.rs` and documented in `unit_tests_report.md`.
+    5. Recompiled standalone release binary and deployed `openorgelsynth.exe` to Desktop target path.
+================================================================================

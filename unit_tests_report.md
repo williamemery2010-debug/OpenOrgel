@@ -75,8 +75,13 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 | **UT-47** | `tuner` | `test_chromatic_and_temperament_target_calculation` | **PASSED** | < 0.001 s |
 | **UT-48** | `serial` | `test_parse_motor_current_and_telemetry` | **PASSED** | < 0.001 s |
 | **UT-49** | `dsp::stops_dsp` | `test_mutations_and_high_end_presence` | **PASSED** | < 0.005 s |
+| **UT-50** | `serial` | `test_parse_manifold_servo_telemetry` | **PASSED** | < 0.001 s |
+| **UT-51** | `serial` | `test_parse_microscope_coarse_fine_telemetry` | **PASSED** | < 0.001 s |
+| **UT-52** | `serial` | `test_parse_overcurrent_trip` | **PASSED** | < 0.001 s |
+| **UT-53** | `serial` | `test_parse_fuse_override` | **PASSED** | < 0.001 s |
+| **UT-54** | `tuner` | `test_motor_current_history_buffer_and_peak_tracking` | **PASSED** | < 0.001 s |
 
-**Overall Result: 49 Passed, 0 Failed, 0 Ignored.**
+**Overall Result: 54 Passed, 0 Failed, 0 Ignored.**
 
 ---
 
@@ -631,7 +636,24 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 - **WHAT:** Validates that `parse_line` correctly parses fuse override state, dispatches `SerialEvent::FuseOverride(true)` for active override telemetry, handles alias identifiers (`"FUSE:OVERRIDE"`, `"FUSE:0"`), and dispatches `SerialEvent::FuseOverride(false)` when re-arming.
 - **METHOD:** Feeds test strings (`"OVERRIDE:1"`, `"OVERRIDE:0"`, `"FUSE:OVERRIDE"`, `"FUSE:0"`, `"FUSE:1"`) into `parse_line` over an unbounded channel and asserts exact boolean state and event types.
 - **EXPECTED RESULT:** Correctly dispatches `FuseOverride(true)` for override triggers and `FuseOverride(false)` for re-arming.
-- **ACTUAL RESULT:** Passed (UT-53 passes in suite of 53 tests).
+- **ACTUAL RESULT:** Passed (UT-53 passes in suite of 54 tests).
+
+---
+
+### UT-54: Motor Current History Buffer & Peak Tracking Dynamics
+- **Module:** [rust/src/tuner.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/tuner.rs) (`test_motor_current_history_buffer_and_peak_tracking`)
+- **WHY:** High-speed brushless/brushed DC centrifugal blower motors exhibit sharp inrush current spikes ($>5\text{--}8\text{ A}$) upon step transitions in PWM duty cycle or when impeller rub occurs against the 3D-printed PLA housing. A real-time visual oscilloscope display requires a deterministic, bounded FIFO history buffer and accurate peak hold tracking so the organist can inspect transient current draw and stall events.
+- **WHAT:** Validates that `MotorCurrentHistory`:
+  1. Accurately enforces fixed buffer capacity without memory leaks or unbounded growth ($O(1)$ push/pop).
+  2. Discards oldest samples in strict first-in, first-out (FIFO) sequence as new telemetry arrives.
+  3. Calculates sliding window average current accurately.
+  4. Tracks absolute peak amperage across the session via `observe_peak`.
+  5. Correctly recalibrates peak current back to the active window maximum upon calling `reset_peak`.
+  6. Respects graph `paused` state (freezing sample ingestion during inrush inspection).
+  7. Clears buffer to a zero baseline and resets peak on calling `clear`.
+- **METHOD:** Constructs a 5-sample `MotorCurrentHistory` instance, streams sequential current readings (`1.5A`, `3.0A`), observes a transient spike (`10.5A`), pushes values exceeding capacity (`2.0A`, `2.5A`, `3.5A`), verifies exact FIFO ordering and floating-point average ($2.5\text{ A}$), resets peak, exercises the pause toggle, and verifies post-clear invariants.
+- **EXPECTED RESULT:** Invariants hold across all buffer operations with exact precision.
+- **ACTUAL RESULT:** Passed (UT-54 passes in suite of 54 tests).
 
 ---
 
