@@ -1,9 +1,9 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-11-03 21:56:05
-Total Commits  : 120
-Total Releases : 55
+Updated At     : 2026-11-03 22:10:35
+Total Commits  : 121
+Total Releases : 56
 ================================================================================
 
 🚀 RELEASES / TAGS
@@ -42,6 +42,11 @@ Version : Prealpha_v2.0.35
 Date    : 2026-11-03
 Commit  : 3c4ff06
 Details : Release Prealpha_v2.0.35: 100% digital serial PWM control with analog pots disabled
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.36
+Date    : 2026-11-03
+Commit  : 1eaec7e
+Details : Release Prealpha_v2.0.36: Electronic stall fuse override for testing
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.26
 Date    : 2026-11-02
@@ -293,7 +298,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-a4cfc9f  | 2026-11-03 | williamemery2010-deb | feat(hardware): implement electronic stall fuse override for testing
+94d201f  | 2026-11-03 | williamemery2010-deb | fix(hardware): recalibrate IBT-2 current sense to match 12A power supply saturation
+1eaec7e  | 2026-11-03 | williamemery2010-deb | feat(hardware): implement electronic stall fuse override for testing
 3c4ff06  | 2026-11-03 | williamemery2010-deb | feat(hardware): deactivate analog pots and implement 100% digital serial PWM control
 c05b61d  | 2026-11-03 | williamemery2010-deb | feat(hardware): implement 8.5A fast electronic stall fuse and overcurrent protection
 00e2fd9  | 2026-11-03 | williamemery2010-deb | Prealpha_v2.0.33: Map surviving potentiometer on Pin A4 to Master Coarse dial (0-100%) with 16x anti-jitter filtering

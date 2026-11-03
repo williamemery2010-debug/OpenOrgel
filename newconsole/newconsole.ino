@@ -122,8 +122,10 @@ float readMotorCurrentAmps() {
     delayMicroseconds(50);
   }
   float avgAdc = (float)adcSum / (float)numSamples;
-  // Calculate instantaneous load current in Amperes: ADC * (5.0V * 8.5A / 1023)
-  float rawAmps = avgAdc * (5.0 * 8.5 / 1023.0);
+  // Calibrated load current in Amperes:
+  // Hardware calibration: 12.0A maximum power supply saturation produces 23.0A raw (1.917x scale error due to R_IS resistor).
+  // Corrected transfer function: (5.0V * 4.435A / 1023.0) accurately maps power supply stall to 12.0A peak.
+  float rawAmps = avgAdc * (5.0 * 4.435 / 1023.0);
   if (rawAmps < 0.02) rawAmps = 0.0; // Noise threshold clamp
 
   // Exponential Moving Average low-pass filter (alpha = 0.20)

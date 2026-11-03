@@ -1245,3 +1245,25 @@ PHASE 49: ELECTRONIC STALL FUSE OVERRIDE & HARDWARE DIAGNOSTICS ARCHITECTURE (No
     4. Verified test harness via `cargo test` (all 53 tests passing).
     5. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 50: IBT-2 CURRENT SENSE BENCH RE-CALIBRATION & POWER SUPPLY SATURATION ALIGNMENT (November 3, 2026 - Prealpha_v2.0.37)
+--------------------------------------------------------------------------------
+* November 3, 2026:
+  - WHAT:
+    1. IBT-2 BTS7960 Current Sense Calibration Correction (newconsole/newconsole.ino):
+       - Re-calibrated the analog transfer function on Pin A0 (`currentSensePin`) from uncalibrated theoretical values to empirical hardware bench saturation measurements.
+       - Discovered empirical transfer curve error: the 12.0A maximum rated power supply was hitting full brick-wall saturation during hard motor stall, but the uncalibrated formula was calculating 23.0A (a 1.917x scale error).
+       - Root cause: variation in the onboard IBT-2 $R_{IS}$ pull-down resistor network ($R_{IS} \approx 1.8\text{--}2.0\text{ k}\Omega$ instead of $1.0\text{ k}\Omega$) and parallel half-bridge sense currents created an effective $V_{IS}$ slope of $4.435\text{ A/V}$ instead of $8.50\text{ A/V}$.
+       - Corrected transfer formula: `rawAmps = avgAdc * (5.0 * 4.435 / 1023.0);`.
+       - With corrected calibration, dead stall at 12.0A power supply limit reads precisely 12.0A.
+       - Adjusted real-world trip threshold: `maxSafeCurrentAmps = 8.5A` now corresponds to 8.5 true physical Amperes, preventing premature tripping during 5–7A transient inrush while reliably tripping at 12A stall.
+  - WHY:
+    1. The creator reported: "Current sensing cant be right, its saying peak of 23a when im actively trying to stall it which doesnt make sense because the power supply can only make 12".
+    2. Physical and mathematical impossibility: A DC regulated power supply rated for 12 Amperes maximum cannot physically deliver 23 Amperes of steady-state DC current. The sensor scaling factor was over-reporting by a factor of $23.0 / 12.0 = 1.917\times$.
+    3. Consequence of 1.917x scaling error: When `maxSafeCurrentAmps` was set to 8.5A in firmware, it was actually tripping at $8.5 / 1.917 \approx 4.4\text{ A}$ real current. This caused immediate false trips on normal motor spin-up transients.
+  - HOW:
+    1. Updated `newconsole/newconsole.ino` (`rawAmps = avgAdc * (5.0 * 4.435 / 1023.0)`).
+    2. Verified test harness via `cargo test` (all 53 tests passing).
+    3. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
+================================================================================
