@@ -608,9 +608,9 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 ### UT-51: Microscope Dual-Dial Coarse & Fine Vernier PWM Telemetry Parsing & Clamping
 - **Module:** [rust/src/serial.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/serial.rs) (`test_parse_microscope_coarse_fine_telemetry`)
 - **WHY:** The organ blower control architecture features a laboratory-grade dual-dial microscope interface using two B10K potentiometers: Pot 1 on Pin A3 acts as a coarse adjustment ($0.0\%$ to $100.0\%$) to find the acoustic pipe speaking threshold, while Pot 2 on Pin A4 acts as an ultra-high resolution fine vernier trim ($\pm 10.0\%$ PWM with center deadband) yielding $\approx 0.067\%$ PWM per degree of knob rotation. Serial telemetry emitted by the console (`"COARSE:<pct>"`, `"FINE:<pct>"`, `"TRIM:<pct>"`) must be accurately parsed and clamped to valid duty cycle bounds.
-- **WHAT:** Validates that `parse_line` correctly extracts and dispatches `SerialEvent::CoarsePwm` and `SerialEvent::FineTrim` with high precision, accepts aliases (`"TRIM"`), clamps over-range coarse values ($> 100.0\%$) to $100.0\%$, and clamps out-of-bounds fine trim values ($> 15.0\%$) to $15.0\%$.
-- **METHOD:** Feeds test strings (`"COARSE:78.5"`, `"FINE:-2.35"`, `"TRIM:4.10"`, `"COARSE:125.0"`, `"FINE:20.0"`) into `parse_line` over an unbounded channel and asserts exact event types and values.
-- **EXPECTED RESULT:** Dispatches `CoarsePwm(78.5)`, `FineTrim(-2.35)`, `FineTrim(4.10)`, `CoarsePwm(100.0)` (clamped), and `FineTrim(15.0)` (clamped).
+- **WHAT:** Validates that `parse_line` correctly extracts and dispatches `SerialEvent::CoarsePwm` and `SerialEvent::FineTrim` with high precision, accepts aliases (`"TRIM"`, `"BASE"`), clamps over-range coarse values ($> 100.0\%$) to $100.0\%$, and clamps out-of-bounds fine trim values ($> 15.0\%$) to $15.0\%$.
+- **METHOD:** Feeds test strings (`"COARSE:78.5"`, `"FINE:-2.35"`, `"TRIM:4.10"`, `"COARSE:125.0"`, `"FINE:20.0"`, `"BASE:75.0"`) into `parse_line` over an unbounded channel and asserts exact event types and values.
+- **EXPECTED RESULT:** Dispatches `CoarsePwm(78.5)`, `FineTrim(-2.35)`, `FineTrim(4.10)`, `CoarsePwm(100.0)` (clamped), `FineTrim(15.0)` (clamped), and `CoarsePwm(75.0)`.
 - **ACTUAL RESULT:** Passed.
 
 ---

@@ -106,7 +106,7 @@ fn parse_line(line: &str, tx: &Sender<SerialEvent>) {
         }
         return;
     }
-    if ident == "COARSE" {
+    if ident == "COARSE" || ident == "BASE" {
         if let Ok(c) = val_str.parse::<f32>() {
             let _ = tx.send(SerialEvent::CoarsePwm(c.clamp(0.0, 100.0)));
         }
@@ -412,6 +412,15 @@ pub mod tests {
                 assert_eq!(f, 15.0);
             }
             other => panic!("Unexpected event for clamped FINE: {other:?}"),
+        }
+
+        // 5. Base nominal power alias: "BASE:75.0"
+        parse_line("BASE:75.0", &tx);
+        match rx.try_recv().expect("Expected CoarsePwm event for BASE") {
+            SerialEvent::CoarsePwm(c) => {
+                assert!((c - 75.0).abs() < 1e-4);
+            }
+            other => panic!("Unexpected event for BASE:75.0: {other:?}"),
         }
     }
 }

@@ -1088,3 +1088,34 @@ PHASE 44: DUAL MICROSCOPE DIALS: COARSE PWM (PIN A3) & FINE VERNIER TRIM (PIN A4
     5. Verified test harness via `cargo test` (all 51 tests passing).
     6. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 45: SINGLE-POTENTIOMETER ANTI-JITTER FINE VERNIER ARCHITECTURE (PIN A4) (November 3, 2026 - Prealpha_v2.0.32)
+--------------------------------------------------------------------------------
+* November 3, 2026:
+  - WHAT:
+    1. Single-Potentiometer Anti-JITTER Vernier Pitch Architecture (newconsole/newconsole.ino):
+       - Isolated and disabled the defective/dead coarse potentiometer on Pin A3, configuring Pin A3 as `INPUT_PULLUP` to eliminate floating analog multiplexer cross-talk into Pin A4.
+       - Configured the surviving potentiometer on Pin A4 as a dedicated, ultra-stable Fine Vernier Pitch Dial controlling a +/-10.0% trim window around a steady baseline operating point (`baseNominalPwm = 75.0%`).
+       - Implemented a 3-stage hardware-grade anti-jitter DSP pipeline on Pin A4:
+         a) 16x multi-sample oversampling (16 readings spaced 50 us apart) to reject high-frequency contact bounce and wiper noise.
+         b) Heavy Exponential Moving Average low-pass filtering (alpha = 0.08) to provide fluid, analog-feel control with zero jumpiness.
+         c) Schmitt trigger / hysteresis deadband (requiring >= 3.0 ADC counts of intentional rotation) combined with an expanded center deadband (480..544 ADC counts) to eliminate ADC least-significant-bit (LSB) flickering at rest.
+       - Full baseline agility: the nominal base power setpoint can be set from the GUI or via Serial ("PWM:<pct>"), while the physical knob trims pitch by +/-10.0%.
+       - Telemetry stream emits "PWM:<pct>", "BASE:<pct>", "FINE:<pct>", and "CURRENT:<amps>".
+    2. Serial Telemetry & GUI Dashboard Integration (rust/src/serial.rs & rust/src/app.rs):
+       - Added "BASE:" alias support in `rust/src/serial.rs` dispatching to base power tracking.
+       - Updated GUI dashboard card to highlight the surviving Fine Vernier Potentiometer on Pin A4 with anti-jitter status and live trim gauge.
+       - Verified test harness via `cargo test` (all 51 tests passing).
+  - WHY:
+    1. The creator reported: "okay the coarse pot is actually completely dead i had a suspicoun and now its confirmed, we need to make the other pot the fine one, but its a bit twitchy, what should i do"
+    2. A dead or open-circuit potentiometer on Pin A3 floats, leaving residual charge on the ATmega2560 ADC multiplexer sample-and-hold capacitor (C_ADC ~ 14 pF) that bleeds directly into Pin A4 readings, causing phantom jitter.
+    3. Low-cost carbon-track potentiometers frequently suffer from wiper contact resistance fluctuations. Implementing 16x oversampling, heavy low-pass filtering (alpha = 0.08), and hysteresis deadband completely stabilizes the analog input.
+  - HOW:
+    1. Updated `newconsole/newconsole.ino` (`deadPotPin = A3`, `finePotPin = A4`, 16x oversampling, alpha=0.08 EMA, 3-count hysteresis, "BASE:" telemetry).
+    2. Updated `rust/src/serial.rs` (`BASE:` parser, unit test UT-51).
+    3. Updated `rust/src/app.rs` (UI card, badge).
+    4. Documented hardware suppression techniques (4.7 uF capacitor across Pin A4 to GND, ground connection inspection).
+    5. Verified test harness via `cargo test` (all 51 tests passing).
+    6. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
+================================================================================

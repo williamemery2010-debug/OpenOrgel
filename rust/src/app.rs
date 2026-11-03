@@ -1622,16 +1622,16 @@ impl OrgelApp {
 
             ui.add_space(4.0);
 
-            // Microscope Dual Dials (Coarse 0-100% on A3 & Fine Vernier +/-10% on A4)
+            // Single-Potentiometer Anti-Jitter Fine Vernier Pitch Tuner (Pin A4)
             inner_card(ui, |ui| {
-                let coarse = self.tuner.status.coarse_pwm_percent;
+                let base = self.tuner.status.coarse_pwm_percent;
                 let fine = self.tuner.status.fine_trim_pwm_percent;
                 let net_pwm = self.tuner.status.current_pwm_percent;
                 ui.horizontal(|ui| {
-                    ui.label(bold(format!("Coarse Dial: {:.1}%", coarse), 11.0).color(ACCENT));
+                    ui.label(bold(format!("Base Power: {:.1}%", base), 11.0).color(ACCENT));
                     ui.label(RichText::new("|").color(TEXT_MUTED));
                     let fine_col = if fine.abs() < 0.1 { GREEN } else if fine > 0.0 { AMBER } else { RED };
-                    ui.label(bold(format!("Fine Vernier: {:+.2}%", fine), 11.0).color(fine_col));
+                    ui.label(bold(format!("Fine Vernier (A4): {:+.2}%", fine), 11.0).color(fine_col));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
                         ui.label(bold(format!("Net: {:.1}%", net_pwm), 12.0).color(GREEN));
                     });
@@ -1644,16 +1644,16 @@ impl OrgelApp {
                 ui.painter().rect_filled(m_fill, CornerRadius::same(3), GREEN);
                 ui.add_space(1.0);
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new("Coarse (A3): 0..100%").size(9.0).color(TEXT_MUTED));
+                    ui.label(RichText::new("Base: 75% Setpoint (GUI/Serial)").size(9.0).color(TEXT_MUTED));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.label(RichText::new("Fine (A4): ±10% Vernier").size(9.0).color(TEXT_MUTED));
+                        ui.label(RichText::new("Pin A4: 16x Anti-Jitter Filter (±10%)").size(9.0).color(TEXT_MUTED));
                     });
                 });
             });
 
             ui.add_space(3.0);
             ui.horizontal(|ui| {
-                badge(ui, "IBT-2: PWM 13 | EN A1 | VCC A2 | IS A0 | Coarse A3 | Fine A4", ACCENT);
+                badge(ui, "IBT-2: PWM 13 | EN A1 | VCC A2 | IS A0 | Fine A4 (±10%) | Base 75%", ACCENT);
             });
             ui.add_space(2.0);
             ui.label(
