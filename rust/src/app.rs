@@ -231,6 +231,7 @@ enum UiMsg {
     ExportDone(Result<PathBuf, String>),
     ExportCancelled,
     ImportPicked(Vec<PathBuf>),
+    OscilloscopeExportDone(Result<(PathBuf, usize), String>),
 }
 
 #[derive(PartialEq, Clone, Copy)]
@@ -565,6 +566,31 @@ impl OrgelApp {
         });
     }
 
+    fn start_oscilloscope_export(&mut self, ctx: &egui::Context) {
+        if self.tuner.status.current_history.session_len() == 0 {
+            self.toast("No oscilloscope telemetry recorded in this session yet.", AMBER);
+            return;
+        }
+        let history = self.tuner.status.current_history.clone();
+        let tx = self.tx.clone();
+        let ctx = ctx.clone();
+        std::thread::spawn(move || {
+            let pick = rfd::FileDialog::new()
+                .set_title("Export Oscilloscope Session Telemetry (CSV)")
+                .add_filter("CSV spreadsheet (*.csv)", &["csv"])
+                .set_file_name("openorgel_oscilloscope_session.csv")
+                .save_file();
+            if let Some(path) = pick {
+                let res = history
+                    .export_csv_to_file(&path)
+                    .map(|count| (path, count))
+                    .map_err(|e| e.to_string());
+                let _ = tx.send(UiMsg::OscilloscopeExportDone(res));
+                ctx.request_repaint();
+            }
+        });
+    }
+
     fn pump_messages(&mut self, ctx: &egui::Context) {
         while let Ok(msg) = self.rx.try_recv() {
             match msg {
@@ -642,6 +668,18 @@ impl OrgelApp {
                         }
                     }
                 }
+                UiMsg::OscilloscopeExportDone(res) => match res {
+                    Ok((path, count)) => {
+                        let name = path.file_name().unwrap_or_default().to_string_lossy();
+                        self.toast(
+                            format!("Saved {} oscilloscope samples to '{}'!", count, name),
+                            GREEN,
+                        );
+                    }
+                    Err(e) => {
+                        self.toast(format!("Failed to export CSV: {e}"), RED);
+                    }
+                },
             }
         }
     }
@@ -1627,21 +1665,13 @@ impl OrgelApp {
                 let peak_amps = self.tuner.status.current_history.peak();
                 let avg_amps = self.tuner.status.current_history.average();
                 let is_paused = self.tuner.status.current_history.paused;
+                let session_dur = self.tuner.status.current_history.session_duration_secs();
+                let session_pts = self.tuner.status.current_history.session_len();
 
+                // Row 1: Graph Title and Peak/Avg Statistics
                 ui.horizontal(|ui| {
                     ui.label(bold("📈 Live Amperage Oscilloscope (15s Window)", 11.0).color(TEXT_FG));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        if pill_button(ui, "Clear", CHIP, RED_HOVER, Vec2::new(42.0, 18.0), true).clicked() {
-                            self.tuner.status.current_history.clear();
-                        }
-                        let pause_label = if is_paused { "▶ Resume" } else { "⏸ Pause" };
-                        let pause_bg = if is_paused { AMBER } else { CHIP };
-                        if pill_button(ui, pause_label, pause_bg, AMBER_HOVER, Vec2::new(60.0, 18.0), true).clicked() {
-                            self.tuner.status.current_history.paused = !self.tuner.status.current_history.paused;
-                        }
-                        if pill_button(ui, "↺ Peak", CHIP, ACCENT_HOVER, Vec2::new(48.0, 18.0), true).clicked() {
-                            self.tuner.status.current_history.reset_peak();
-                        }
                         let peak_col = if peak_amps >= 8.5 {
                             RED
                         } else if peak_amps >= 6.0 {
@@ -1651,6 +1681,34 @@ impl OrgelApp {
                         };
                         ui.label(RichText::new(format!("Peak: {:.2}A", peak_amps)).size(10.5).color(peak_col));
                         ui.label(RichText::new(format!("Avg: {:.2}A", avg_amps)).size(10.5).color(TEXT_MUTED));
+                    });
+                });
+
+                ui.add_space(2.0);
+
+                // Row 2: Session Telemetry Duration and Interactive Control Toolbar
+                let ctx_clone = ui.ctx().clone();
+                ui.horizontal(|ui| {
+                    ui.label(
+                        RichText::new(format!("Session: {:.1}s ({} pts)", session_dur, session_pts))
+                            .size(10.0)
+                            .color(TEXT_MUTED),
+                    );
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        if pill_button(ui, "Clear", CHIP, RED_HOVER, Vec2::new(40.0, 18.0), true).clicked() {
+                            self.tuner.status.current_history.clear();
+                        }
+                        let pause_label = if is_paused { "▶ Resume" } else { "⏸ Pause" };
+                        let pause_bg = if is_paused { AMBER } else { CHIP };
+                        if pill_button(ui, pause_label, pause_bg, AMBER_HOVER, Vec2::new(58.0, 18.0), true).clicked() {
+                            self.tuner.status.current_history.paused = !self.tuner.status.current_history.paused;
+                        }
+                        if pill_button(ui, "↺ Peak", CHIP, ACCENT_HOVER, Vec2::new(46.0, 18.0), true).clicked() {
+                            self.tuner.status.current_history.reset_peak();
+                        }
+                        if pill_button(ui, "📥 Export CSV", CHIP, GREEN_HOVER, Vec2::new(82.0, 18.0), true).clicked() {
+                            self.start_oscilloscope_export(&ctx_clone);
+                        }
                     });
                 });
 
@@ -2049,10 +2107,32 @@ impl eframe::App for OrgelApp {
         self.pump_serial();
         self.handle_keys(ctx);
 
-        // Sample motor current at fixed 10 Hz (100 ms) rate for continuous oscilloscope graphing
+        // Sample motor current at fixed 10 Hz (100 ms) rate for continuous oscilloscope graphing and session logging
         if self.last_current_sample_time.elapsed() >= Duration::from_millis(100) {
             self.last_current_sample_time = Instant::now();
-            self.tuner.status.current_history.push(self.tuner.status.motor_current_amps);
+            let amps = self.tuner.status.motor_current_amps;
+            let pwm = self.tuner.status.current_pwm_percent;
+            let is_tripped = self.tuner.status.overcurrent_tripped;
+            let is_override = self.tuner.status.fuse_override;
+            let status = if is_tripped && !is_override {
+                "TRIPPED"
+            } else if is_override {
+                "OVERRIDE"
+            } else if amps > 10.0 {
+                "HIGH_LOAD"
+            } else if amps > 6.0 {
+                "ELEVATED"
+            } else if amps > 0.05 {
+                "NOMINAL"
+            } else {
+                "STANDBY"
+            };
+            let hw_switch = match self.tuner.status.hardware_switch_on {
+                Some(true) => "ON",
+                Some(false) => "OFF",
+                None => "UNKNOWN",
+            };
+            self.tuner.status.current_history.push_telemetry(amps, pwm, status, hw_switch);
         }
 
         // Poll laptop microphone pitch detector and regulate Arduino Pin 13 blower PWM ('F' / 'S')

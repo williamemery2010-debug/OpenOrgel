@@ -1336,3 +1336,37 @@ PHASE 52: REAL-TIME MOTOR AMPERAGE OSCILLOSCOPE GRAPH & TRANSIENT DYNAMICS (Nove
     4. Added and verified UT-54 in `rust/src/tuner.rs` and documented in `unit_tests_report.md`.
     5. Recompiled standalone release binary and deployed `openorgelsynth.exe` to Desktop target path.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 53: FULL-SESSION OSCILLOSCOPE TELEMETRY LOGGING & RFC 4180 CSV EXPORT (November 4, 2026 - Prealpha_v2.0.40)
+--------------------------------------------------------------------------------
+* November 4, 2026:
+  - WHAT:
+    1. Full-Session Oscilloscope Telemetry Export Architecture (rust/src/tuner.rs & rust/src/app.rs):
+       - Engineered continuous session telemetry recording persisting every $10\text{ Hz}$ sample tick across the organist's entire session into `session_log: Vec<OscilloscopeLogEntry>`.
+       - Each entry captures high-precision relative timestamps (`elapsed_secs`), motor amperage (`current_amps`), PWM duty cycle (`pwm_percent`), operating state (`status`: `NOMINAL`, `ELEVATED`, `TRIPPED`, `OVERRIDE`, `STANDBY`), and hardware switch position (`hardware_switch`: `ON`, `OFF`, `UNKNOWN`).
+       - Formats and writes standard RFC 4180 CSV files (`openorgel_oscilloscope_session.csv`) with full academic folio metadata:
+         * Total sample count and duration in seconds.
+         * Peak and average current observed across the session.
+         * Bench calibration thresholds ($8.5\text{ A}$ Electronic Stall Cutoff, $12.0\text{ A}$ Power Supply Saturation Limit).
+         * Standard column headers (`Timestamp_s,Current_A,PWM_Percent,Motor_Status,Hardware_Switch`).
+       - Asynchronous non-blocking file export dialog executed on a background worker thread via `rfd::FileDialog` and `UiMsg::OscilloscopeExportDone`.
+    2. High-Density Two-Tier Oscilloscope Diagnostic Toolbar (rust/src/app.rs):
+       - Re-engineered the oscilloscope header into an ergonomic two-tier laboratory layout:
+         * Tier 1: Waveform Title, live rolling `Peak: X.XXA` badge (color-coded green/amber/red), and `Avg: X.XXA` readout.
+         * Tier 2: Real-time session telemetry monitor (`Session: X.Xs (X pts)`), `[📥 Export CSV]` button, `[↺ Peak]` button, `[⏸ Pause]` / `[▶ Resume]` toggle, and `[Clear]` button.
+       - Dispatches informative toast notifications upon export completion displaying the target filename and sample count.
+    3. Deterministic Unit Testing Suite Expansion (unit_tests_report.md):
+       - Added UT-55 (`test_oscilloscope_session_telemetry_export_csv`), validating telemetry accumulation, RFC 4180 CSV serialization, comment headers, column headers, floating-point formatting, and `clear_all` reset routines.
+       - Test harness expanded to 55 unit tests (100% passing).
+  - WHY:
+    1. The creator requested: "make it possible to export the oscilloscope over the session".
+    2. While the 15-second real-time strip chart is ideal for momentary console observation, academic engineering folios (VCAA compliant), inrush analysis, and aerodynamic characterization require exporting the entire session dataset for external plotting in Microsoft Excel, Python/Pandas, or MATLAB.
+    3. Exporting structured CSV files enables quantitative proof of motor inrush profiles, blower impeller balance, and verify that current trips occur precisely within safe thermal limits.
+  - HOW:
+    1. Updated `MotorCurrentHistory` in `rust/src/tuner.rs` with `session_log: Vec<OscilloscopeLogEntry>`, `push_telemetry`, `export_csv_to_string`, and `export_csv_to_file`.
+    2. Implemented `start_oscilloscope_export` and `UiMsg::OscilloscopeExportDone` in `rust/src/app.rs`.
+    3. Rendered `[📥 Export CSV]` and session monitor badge in `rust/src/app.rs`.
+    4. Added and verified UT-55 in `rust/src/tuner.rs` and documented in `unit_tests_report.md`.
+    5. Recompiled standalone release binary and deployed `openorgelsynth.exe` to Desktop target path.
+================================================================================

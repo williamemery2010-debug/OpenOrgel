@@ -12,6 +12,7 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Device, SampleFormat, SizedSample, StreamConfig};
 use parking_lot::Mutex;
 use std::collections::VecDeque;
+use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -85,14 +86,34 @@ pub enum BlowerAdjustment {
     SharpDecreasePwm,
 }
 
+/// Timestamped telemetry record captured during an active OpenOrgel session.
+#[derive(Clone, Debug, PartialEq)]
+pub struct OscilloscopeLogEntry {
+    /// Elapsed seconds from the start of the session / recording.
+    pub elapsed_secs: f32,
+    /// Centrifugal blower motor current draw in Amperes.
+    pub current_amps: f32,
+    /// Active blower motor PWM duty cycle percentage (0.0% - 100.0%).
+    pub pwm_percent: f32,
+    /// Operating state label (e.g. "NOMINAL", "ELEVATED", "TRIP", "OVERRIDE", "STANDBY").
+    pub status: &'static str,
+    /// State of physical hardware toggle switch on Pin 8 ("ON", "OFF", or "UNKNOWN").
+    pub hardware_switch: &'static str,
+}
+
 /// Real-time rolling history buffer of centrifugal blower motor current (Amperes)
-/// sampled over a sliding window (e.g., 15 seconds at 10 Hz = 150 samples).
+/// sampled over a sliding window (e.g., 15 seconds at 10 Hz = 150 samples), coupled with
+/// a full-session telemetry log exportable to RFC 4180 CSV spreadsheet format.
 #[derive(Clone, Debug)]
 pub struct MotorCurrentHistory {
     samples: VecDeque<f32>,
     max_capacity: usize,
     peak_amps: f32,
     pub paused: bool,
+    /// Timestamped session log of all telemetry samples since session start.
+    session_log: Vec<OscilloscopeLogEntry>,
+    /// Instant when session recording commenced.
+    session_start: Instant,
 }
 
 impl MotorCurrentHistory {
@@ -109,11 +130,26 @@ impl MotorCurrentHistory {
             max_capacity: cap,
             peak_amps: 0.0,
             paused: false,
+            session_log: Vec::with_capacity(600),
+            session_start: Instant::now(),
         }
     }
 
-    /// Appends a new current reading in Amperes.
+    /// Appends a new current reading in Amperes (legacy helper, defaults telemetry metadata).
     pub fn push(&mut self, amps: f32) {
+        self.push_telemetry(amps, 0.0, "STANDBY", "UNKNOWN");
+    }
+
+    /// Appends a comprehensive telemetry sample including motor current, PWM duty cycle,
+    /// motor operating status, and physical switch state to both the rolling display buffer
+    /// and the full session log.
+    pub fn push_telemetry(
+        &mut self,
+        amps: f32,
+        pwm: f32,
+        status: &'static str,
+        hw_switch: &'static str,
+    ) {
         let val = amps.max(0.0);
         if val > self.peak_amps {
             self.peak_amps = val;
@@ -125,6 +161,17 @@ impl MotorCurrentHistory {
             self.samples.pop_front();
         }
         self.samples.push_back(val);
+
+        let elapsed_secs = self.session_start.elapsed().as_secs_f32();
+        if self.session_log.len() < 100_000 {
+            self.session_log.push(OscilloscopeLogEntry {
+                elapsed_secs,
+                current_amps: val,
+                pwm_percent: pwm,
+                status,
+                hardware_switch: hw_switch,
+            });
+        }
     }
 
     /// Observes a transient peak without advancing the time window.
@@ -159,7 +206,7 @@ impl MotorCurrentHistory {
         self.peak_amps = self.samples.iter().copied().fold(0.0f32, f32::max);
     }
 
-    /// Clears the history buffer back to zero baseline and resets peak.
+    /// Clears the rolling display buffer back to zero baseline and resets peak.
     pub fn clear(&mut self) {
         self.samples.clear();
         for _ in 0..self.max_capacity {
@@ -168,24 +215,73 @@ impl MotorCurrentHistory {
         self.peak_amps = 0.0;
     }
 
+    /// Clears both the visual rolling display and the accumulated session log.
+    pub fn clear_all(&mut self) {
+        self.clear();
+        self.session_log.clear();
+        self.session_start = Instant::now();
+    }
+
     /// Returns an iterator of current samples from oldest to newest.
     pub fn iter(&self) -> impl Iterator<Item = &f32> {
         self.samples.iter()
     }
 
-    /// Returns the number of samples in the buffer.
+    /// Returns the number of samples in the rolling buffer.
     pub fn len(&self) -> usize {
         self.samples.len()
     }
 
-    /// Returns whether the buffer is empty.
+    /// Returns whether the rolling buffer is empty.
     pub fn is_empty(&self) -> bool {
         self.samples.is_empty()
     }
 
-    /// Returns the capacity of the buffer.
+    /// Returns the capacity of the rolling buffer.
     pub fn capacity(&self) -> usize {
         self.max_capacity
+    }
+
+    /// Returns the number of telemetry samples logged across the session.
+    pub fn session_len(&self) -> usize {
+        self.session_log.len()
+    }
+
+    /// Returns the total duration of the session log in seconds.
+    pub fn session_duration_secs(&self) -> f32 {
+        self.session_log.last().map(|e| e.elapsed_secs).unwrap_or(0.0)
+    }
+
+    /// Returns a slice of all session log entries.
+    pub fn session_log(&self) -> &[OscilloscopeLogEntry] {
+        &self.session_log
+    }
+
+    /// Exports the full session oscilloscope log to RFC 4180 compliant CSV format.
+    pub fn export_csv_to_string(&self) -> String {
+        let mut out = String::new();
+        out.push_str("# OpenOrgel Centrifugal Blower Oscilloscope Session Telemetry Log\n");
+        out.push_str(&format!("# Total Samples: {}\n", self.session_log.len()));
+        out.push_str(&format!("# Session Duration: {:.2} seconds\n", self.session_duration_secs()));
+        out.push_str(&format!("# Peak Current Observed: {:.2} A\n", self.peak_amps));
+        out.push_str(&format!("# Average Current: {:.2} A\n", self.average()));
+        out.push_str("# Electronic Stall Trip Threshold: 8.50 A\n");
+        out.push_str("# Power Supply Saturation Limit: 12.00 A\n");
+        out.push_str("Timestamp_s,Current_A,PWM_Percent,Motor_Status,Hardware_Switch\n");
+        for e in &self.session_log {
+            out.push_str(&format!(
+                "{:.2},{:.2},{:.1},{},{}\n",
+                e.elapsed_secs, e.current_amps, e.pwm_percent, e.status, e.hardware_switch
+            ));
+        }
+        out
+    }
+
+    /// Exports the full session oscilloscope log directly to a file on disk.
+    pub fn export_csv_to_file(&self, path: &Path) -> std::io::Result<usize> {
+        let content = self.export_csv_to_string();
+        std::fs::write(path, content)?;
+        Ok(self.session_log.len())
     }
 }
 
@@ -1000,5 +1096,33 @@ mod tests {
         assert_eq!(hist.len(), 5);
         assert_eq!(hist.peak(), 0.0);
         assert_eq!(hist.average(), 0.0);
+    }
+
+    #[test]
+    fn test_oscilloscope_session_telemetry_export_csv() {
+        let mut hist = MotorCurrentHistory::new(10);
+        assert_eq!(hist.session_len(), 0);
+        assert_eq!(hist.session_duration_secs(), 0.0);
+
+        // Push telemetry samples
+        hist.push_telemetry(0.0, 0.0, "STANDBY", "OFF");
+        hist.push_telemetry(2.15, 25.0, "NOMINAL", "ON");
+        hist.push_telemetry(8.92, 75.0, "TRIPPED", "ON");
+
+        assert_eq!(hist.session_len(), 3);
+        assert!(hist.peak() >= 8.92);
+
+        // Export to CSV string
+        let csv = hist.export_csv_to_string();
+        assert!(csv.contains("# OpenOrgel Centrifugal Blower Oscilloscope Session Telemetry Log"));
+        assert!(csv.contains("# Total Samples: 3"));
+        assert!(csv.contains("Timestamp_s,Current_A,PWM_Percent,Motor_Status,Hardware_Switch"));
+        assert!(csv.contains("2.15,25.0,NOMINAL,ON"));
+        assert!(csv.contains("8.92,75.0,TRIPPED,ON"));
+
+        // Clear all resets session log
+        hist.clear_all();
+        assert_eq!(hist.session_len(), 0);
+        assert_eq!(hist.peak(), 0.0);
     }
 }

@@ -80,8 +80,9 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 | **UT-52** | `serial` | `test_parse_overcurrent_trip` | **PASSED** | < 0.001 s |
 | **UT-53** | `serial` | `test_parse_fuse_override` | **PASSED** | < 0.001 s |
 | **UT-54** | `tuner` | `test_motor_current_history_buffer_and_peak_tracking` | **PASSED** | < 0.001 s |
+| **UT-55** | `tuner` | `test_oscilloscope_session_telemetry_export_csv` | **PASSED** | < 0.001 s |
 
-**Overall Result: 54 Passed, 0 Failed, 0 Ignored.**
+**Overall Result: 55 Passed, 0 Failed, 0 Ignored.**
 
 ---
 
@@ -653,7 +654,21 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
   7. Clears buffer to a zero baseline and resets peak on calling `clear`.
 - **METHOD:** Constructs a 5-sample `MotorCurrentHistory` instance, streams sequential current readings (`1.5A`, `3.0A`), observes a transient spike (`10.5A`), pushes values exceeding capacity (`2.0A`, `2.5A`, `3.5A`), verifies exact FIFO ordering and floating-point average ($2.5\text{ A}$), resets peak, exercises the pause toggle, and verifies post-clear invariants.
 - **EXPECTED RESULT:** Invariants hold across all buffer operations with exact precision.
-- **ACTUAL RESULT:** Passed (UT-54 passes in suite of 54 tests).
+- **ACTUAL RESULT:** Passed (UT-54 passes in suite of 55 tests).
+
+---
+
+### UT-55: Oscilloscope Session Telemetry Log & RFC 4180 CSV Export
+- **Module:** [rust/src/tuner.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/tuner.rs) (`test_oscilloscope_session_telemetry_export_csv`)
+- **WHY:** Scientific evaluation of organ blower aerodynamics, transient electrical inrush surges, and closed-loop pressure regulation requires exporting continuous session-long telemetry datasets to universal formats (such as CSV for Microsoft Excel, Python Pandas, and MATLAB). This provides quantitative empirical data for academic systems documentation and VCAA Assessment Folios.
+- **WHAT:** Validates that `MotorCurrentHistory`:
+  1. Concurrently records each $10\text{ Hz}$ telemetry tick into a persistent session log (`session_log: Vec<OscilloscopeLogEntry>`).
+  2. Preserves relative timestamps in seconds elapsed (`elapsed_secs`), measured current (`current_amps`), commanded duty cycle (`pwm_percent`), operating state (`status`), and physical toggle switch state (`hardware_switch`).
+  3. Formats and exports RFC 4180 compliant CSV files with full metadata header comments (`# Total Samples`, `# Session Duration`, `# Peak Current`, `# Average Current`, `# Electronic Stall Trip Threshold`, `# Power Supply Saturation Limit`) and standardized column headers.
+  4. Correctly zeroes out and clears session telemetry upon calling `clear_all()`.
+- **METHOD:** Populates a `MotorCurrentHistory` instance with diverse operational events (`STANDBY`, `NOMINAL`, `TRIPPED`), executes `export_csv_to_string()`, asserts exact string containment of metadata comments and column rows, verifies numerical formatting precision, and confirms that `clear_all()` resets session length and peak hold to zero.
+- **EXPECTED RESULT:** CSV formatting matches standard spreadsheet schemas and all fields serialize with exact floating-point precision.
+- **ACTUAL RESULT:** Passed (UT-55 passes in suite of 55 tests).
 
 ---
 

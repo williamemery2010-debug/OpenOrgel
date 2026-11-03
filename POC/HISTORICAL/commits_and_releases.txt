@@ -1,8 +1,8 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-11-04 09:08:46
-Total Commits  : 123
+Updated At     : 2026-11-04 09:22:16
+Total Commits  : 124
 Total Releases : 59
 ================================================================================
 
@@ -10,7 +10,7 @@ Total Releases : 59
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.39
 Date    : 2026-11-04
-Commit  : b8ced78
+Commit  : 1a67111
 Details : Release Prealpha_v2.0.39: Real-time motor amperage oscilloscope graph and transient dynamics
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.29
@@ -313,7 +313,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-6116181  | 2026-11-04 | williamemery2010-deb | feat(ui): add real-time motor amperage oscilloscope graph and UT-54
+84395f5  | 2026-11-04 | williamemery2010-deb | feat(ui): add session-long oscilloscope telemetry logging and CSV export
+1a67111  | 2026-11-04 | williamemery2010-deb | feat(ui): add real-time motor amperage oscilloscope graph and UT-54
 5c6fce8  | 2026-11-03 | williamemery2010-deb | fix(tuner): disable auto_regulate_pwm by default to prevent runaway motor acceleration
 cbd8b28  | 2026-11-03 | williamemery2010-deb | fix(hardware): recalibrate IBT-2 current sense to match 12A power supply saturation
 1eaec7e  | 2026-11-03 | williamemery2010-deb | feat(hardware): implement electronic stall fuse override for testing
