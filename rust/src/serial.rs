@@ -44,6 +44,8 @@ pub enum SerialEvent {
     FineTrim(f32),
     /// Live centrifugal blower motor current in Amperes reported by IBT-2 BTS7960 IS pin on Pin A0.
     MotorCurrent(f32),
+    /// Fast Electronic Stall Fuse Tripped (motor drew > 8.5A for > 150ms).
+    OvercurrentTrip(bool),
     /// Serial connection established on the named COM port.
     Connected(String),
     /// Serial connection lost.
@@ -96,8 +98,17 @@ fn parse_line(line: &str, tx: &Sender<SerialEvent>) {
         return;
     }
     if ident == "BLOWER" {
+        if val_str.eq_ignore_ascii_case("TRIP") {
+            let _ = tx.send(SerialEvent::OvercurrentTrip(true));
+            return;
+        }
         let on = val_str == "1" || val_str.eq_ignore_ascii_case("ON");
         let _ = tx.send(SerialEvent::BlowerSwitch(on));
+        return;
+    }
+    if ident == "TRIP" || ident == "OVERCURRENT" || ident == "STALL" {
+        let tripped = val_str == "1" || val_str.eq_ignore_ascii_case("TRIP") || val_str.eq_ignore_ascii_case("TRUE");
+        let _ = tx.send(SerialEvent::OvercurrentTrip(tripped));
         return;
     }
     if ident == "PWM" {
@@ -421,6 +432,45 @@ pub mod tests {
                 assert!((c - 75.0).abs() < 1e-4);
             }
             other => panic!("Unexpected event for BASE:75.0: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_overcurrent_trip() {
+        let (tx, rx) = unbounded();
+
+        // 1. "TRIP:1"
+        parse_line("TRIP:1", &tx);
+        match rx.try_recv().expect("Expected OvercurrentTrip event") {
+            SerialEvent::OvercurrentTrip(tripped) => assert!(tripped),
+            other => panic!("Unexpected event for TRIP:1: {other:?}"),
+        }
+
+        // 2. "BLOWER:TRIP"
+        parse_line("BLOWER:TRIP", &tx);
+        match rx.try_recv().expect("Expected OvercurrentTrip event") {
+            SerialEvent::OvercurrentTrip(tripped) => assert!(tripped),
+            other => panic!("Unexpected event for BLOWER:TRIP: {other:?}"),
+        }
+
+        // 3. Aliases: "OVERCURRENT:TRIP", "STALL:1"
+        parse_line("OVERCURRENT:TRIP", &tx);
+        match rx.try_recv().expect("Expected OvercurrentTrip event") {
+            SerialEvent::OvercurrentTrip(tripped) => assert!(tripped),
+            other => panic!("Unexpected event for OVERCURRENT:TRIP: {other:?}"),
+        }
+
+        parse_line("STALL:1", &tx);
+        match rx.try_recv().expect("Expected OvercurrentTrip event") {
+            SerialEvent::OvercurrentTrip(tripped) => assert!(tripped),
+            other => panic!("Unexpected event for STALL:1: {other:?}"),
+        }
+
+        // 4. Reset trip: "TRIP:0"
+        parse_line("TRIP:0", &tx);
+        match rx.try_recv().expect("Expected OvercurrentTrip event") {
+            SerialEvent::OvercurrentTrip(tripped) => assert!(!tripped),
+            other => panic!("Unexpected event for TRIP:0: {other:?}"),
         }
     }
 }

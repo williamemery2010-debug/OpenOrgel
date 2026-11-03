@@ -118,6 +118,8 @@ pub struct TunerStatus {
     pub last_action: BlowerAdjustment,
     /// Hardware blower switch state reported by Arduino Pin 8 (`None` if not yet reported).
     pub hardware_switch_on: Option<bool>,
+    /// Electronic overcurrent / stall fuse tripped state (`true` if current exceeded 8.5A).
+    pub overcurrent_tripped: bool,
 }
 
 impl Default for TunerStatus {
@@ -138,6 +140,7 @@ impl Default for TunerStatus {
             manifold_servo_angle: 0.0,
             last_action: BlowerAdjustment::WaitingForSignal,
             hardware_switch_on: None,
+            overcurrent_tripped: false,
         }
     }
 }

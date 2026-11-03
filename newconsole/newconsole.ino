@@ -96,6 +96,10 @@ unsigned long lastDebounceTime = 0;        // Timestamp (ms) of the last raw pin
 const unsigned long debounceDelayMs = 50;  // 50 ms stability window to reject EMI / contact bounce
 unsigned long lastTelemetryTime = 0;       // Periodic telemetry stream timestamp
 float smoothedCurrentAmps = 0.0;           // Low-pass filtered motor current in Amperes
+const float maxSafeCurrentAmps = 8.5;       // Electronic fuse trip threshold in Amperes (normal running is 1.5 - 3.5A)
+const unsigned long overcurrentTimeoutMs = 150; // Trips if current exceeds threshold continuously for > 150 ms
+unsigned long overcurrentStartTime = 0;    // Overcurrent timer start timestamp
+bool isCurrentTripped = false;              // Latching electronic fuse status
 String lineBuffer = "";                    // Line accumulator for serial commands
 
 // Helper: converts 0.0-100.0% duty cycle to 8-bit timer value (0-255) and writes to Pin 13
@@ -295,6 +299,8 @@ void loop() {
         analogWrite(pwmPin, 0);
         softwarePitchTrim = 0.0; // Reset software nudge ready for next startup
         smoothedCurrentAmps = 0.0;
+        isCurrentTripped = false; // Reset electronic fuse trip condition when user flips switch OFF
+        overcurrentStartTime = 0;
       }
 
       // Immediately report switch transition event to OpenOrgel
@@ -316,6 +322,8 @@ void loop() {
     setDriverEnable(false);
     analogWrite(pwmPin, 0);
     smoothedCurrentAmps = 0.0;
+    isCurrentTripped = false;
+    overcurrentStartTime = 0;
 
     // Drain queued serial input while blower is turned off
     while (Serial.available() > 0) {
@@ -336,6 +344,30 @@ void loop() {
     return;
   }
 
+  // Fast Electronic Fuse / Stall Protection Check:
+  if (isCurrentTripped) {
+    // Motor is latched OFF due to severe overcurrent (>8.5A) or mechanical stall.
+    // Ensure driver and PWM remain completely killed to protect motor windings and PLA housing.
+    setDriverEnable(false);
+    analogWrite(pwmPin, 0);
+
+    // Periodic emergency warning telemetry every 250 ms
+    if (millis() - lastTelemetryTime >= 250) {
+      lastTelemetryTime = millis();
+      Serial.println("TRIP:1");
+      Serial.println("BLOWER:TRIP");
+      Serial.print("CURRENT:");
+      Serial.println(smoothedCurrentAmps, 2);
+    }
+
+    // Drain serial buffer while tripped
+    while (Serial.available() > 0) {
+      Serial.read();
+    }
+    lineBuffer = "";
+    return;
+  }
+
   // System is ON:
   // Ensure Pin A2 VCC is 5V, Pin 7 is 5V, and IBT-2 BTS7960 enable pins (Pin A1, Pin 12, Pin 52 & Pin 53) are active HIGH
   digitalWrite(vccPin, HIGH);
@@ -347,6 +379,24 @@ void loop() {
 
   // Measure motor current via BTS7960 IS on Pin A0
   readMotorCurrentAmps();
+
+  // Fast Electronic Fuse / Stall Protection:
+  // If current exceeds 8.5 Amps (e.g. rotor jam, mechanical rub into ceiling, dead stall)
+  // for longer than overcurrentTimeoutMs (150 ms), immediately trip off the driver.
+  if (smoothedCurrentAmps >= maxSafeCurrentAmps) {
+    if (overcurrentStartTime == 0) {
+      overcurrentStartTime = millis();
+    } else if (millis() - overcurrentStartTime >= overcurrentTimeoutMs) {
+      isCurrentTripped = true;
+      setDriverEnable(false);
+      analogWrite(pwmPin, 0);
+      Serial.println("TRIP:1");
+      Serial.println("BLOWER:TRIP");
+      return;
+    }
+  } else {
+    overcurrentStartTime = 0;
+  }
 
   // Periodic high-rate telemetry stream (every 100 ms) for smooth GUI gauges
   if (millis() - lastTelemetryTime >= 100) {

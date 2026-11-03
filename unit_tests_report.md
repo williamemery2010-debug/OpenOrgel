@@ -615,6 +615,16 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 
 ---
 
+### UT-52: Fast Electronic Stall Protection & Overcurrent Trip Telemetry Parsing
+- **Module:** [rust/src/serial.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/serial.rs) (`test_parse_overcurrent_trip`)
+- **WHY:** When a centrifugal organ blower experiences mechanical failure, casing rub, or rotor stall (such as aerodynamic axial lift pulling the impeller into the blower ceiling, causing the motor to draw $\approx 21\text{ A}$ without back-EMF), the firmware activates an emergency $8.5\text{ A}$ / $150\text{ ms}$ electronic circuit breaker. Inbound emergency serial signals (`"TRIP:1"`, `"BLOWER:TRIP"`, `"OVERCURRENT:TRIP"`, `"STALL:1"`) must be immediately parsed and dispatched to GUI safety banners so the organist is notified to flip the physical power switch OFF.
+- **WHAT:** Validates that `parse_line` correctly recognizes overcurrent trip telemetry, dispatches `SerialEvent::OvercurrentTrip(true)` for active trip signals, handles alias identifiers (`"OVERCURRENT"`, `"STALL"`, `"BLOWER:TRIP"`), and handles trip reset (`"TRIP:0"` $\to$ `SerialEvent::OvercurrentTrip(false)`).
+- **METHOD:** Feeds test strings (`"TRIP:1"`, `"BLOWER:TRIP"`, `"OVERCURRENT:TRIP"`, `"STALL:1"`, `"TRIP:0"`) into `parse_line` over an unbounded channel and asserts exact boolean trip state and event types.
+- **EXPECTED RESULT:** Correctly dispatches `OvercurrentTrip(true)` for all trip trigger strings and `OvercurrentTrip(false)` for trip clearance.
+- **ACTUAL RESULT:** Passed (UT-52 passes in suite of 52 tests).
+
+---
+
 ## 4. How to Reproduce and Run Tests
 
 The test suite can be run directly from the command line using the native Cargo toolchain:

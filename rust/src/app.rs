@@ -682,6 +682,7 @@ impl OrgelApp {
                         self.tuner.controller.reset_to_nominal();
                         self.tuner.status.current_pwm_percent = 75.0;
                         self.tuner.status.motor_current_amps = 0.0;
+                        self.tuner.status.overcurrent_tripped = false;
                     }
                 }
                 SerialEvent::BlowerPwm(pwm) => {
@@ -690,6 +691,13 @@ impl OrgelApp {
                 }
                 SerialEvent::MotorCurrent(amps) => {
                     self.tuner.status.motor_current_amps = amps;
+                }
+                SerialEvent::OvercurrentTrip(tripped) => {
+                    self.tuner.status.overcurrent_tripped = tripped;
+                    if tripped {
+                        self.tuner.status.motor_current_amps = 0.0;
+                        self.toast("EMERGENCY OVERCURRENT TRIP: Motor stalled or exceeded 8.5A! Power cut to protect hardware.", RED);
+                    }
                 }
                 SerialEvent::CoarsePwm(c) => {
                     self.tuner.status.coarse_pwm_percent = c;
@@ -704,6 +712,7 @@ impl OrgelApp {
                 SerialEvent::Disconnected => {
                     self.tuner.status.hardware_switch_on = None;
                     self.tuner.status.motor_current_amps = 0.0;
+                    self.tuner.status.overcurrent_tripped = false;
                     self.toast("Console connection lost, retrying...", AMBER);
                 }
             }
@@ -790,34 +799,38 @@ impl OrgelApp {
                     }
 
                     // Live Centrifugal Blower Motor Telemetry (always displayed)
-                    let (blower_label, blower_color) = match self.tuner.status.hardware_switch_on {
-                        Some(true) => (
-                            format!(
-                                "Blower: {:.2} A ({:.1}%)",
-                                self.tuner.status.motor_current_amps,
-                                self.tuner.status.current_pwm_percent
-                            ),
-                            if self.tuner.status.motor_current_amps > 10.0 {
-                                RED
-                            } else if self.tuner.status.motor_current_amps > 6.0 {
-                                AMBER
-                            } else {
-                                GREEN
-                            },
-                        ),
-                        Some(false) => ("Blower: OFF (0.00 A)".to_string(), RED),
-                        None => (
-                            if self.tuner.status.motor_current_amps > 0.05 {
+                    let (blower_label, blower_color) = if self.tuner.status.overcurrent_tripped {
+                        ("Blower: TRIP (STALL PROTECTED)".to_string(), RED)
+                    } else {
+                        match self.tuner.status.hardware_switch_on {
+                            Some(true) => (
                                 format!(
                                     "Blower: {:.2} A ({:.1}%)",
                                     self.tuner.status.motor_current_amps,
                                     self.tuner.status.current_pwm_percent
-                                )
-                            } else {
-                                "Blower: Standby".to_string()
-                            },
-                            TEXT_MUTED,
-                        ),
+                                ),
+                                if self.tuner.status.motor_current_amps > 10.0 {
+                                    RED
+                                } else if self.tuner.status.motor_current_amps > 6.0 {
+                                    AMBER
+                                } else {
+                                    GREEN
+                                },
+                            ),
+                            Some(false) => ("Blower: OFF (0.00 A)".to_string(), RED),
+                            None => (
+                                if self.tuner.status.motor_current_amps > 0.05 {
+                                    format!(
+                                        "Blower: {:.2} A ({:.1}%)",
+                                        self.tuner.status.motor_current_amps,
+                                        self.tuner.status.current_pwm_percent
+                                    )
+                                } else {
+                                    "Blower: Standby".to_string()
+                                },
+                                TEXT_MUTED,
+                            ),
+                        }
                     };
                     badge(ui, &blower_label, blower_color);
                 });
@@ -1540,7 +1553,10 @@ impl OrgelApp {
             // Live Centrifugal Blower Motor Current Meter (Pin A0 IS from IBT-2 BTS7960)
             inner_card(ui, |ui| {
                 let current_amps = self.tuner.status.motor_current_amps;
-                let (current_col, current_state) = if current_amps > 10.0 {
+                let is_tripped = self.tuner.status.overcurrent_tripped;
+                let (current_col, current_state) = if is_tripped {
+                    (RED, "STALL TRIP (>8.5A CUTOFF)")
+                } else if current_amps > 10.0 {
                     (RED, "HIGH LOAD WARNING")
                 } else if current_amps > 6.0 {
                     (AMBER, "ELEVATED LOAD")
@@ -1568,9 +1584,18 @@ impl OrgelApp {
                 ui.horizontal(|ui| {
                     ui.label(RichText::new("0A (A0)").size(9.0).color(TEXT_MUTED));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.label(RichText::new("12A F.S.").size(9.0).color(TEXT_MUTED));
+                        ui.label(RichText::new("12A F.S. (Trip: 8.5A)").size(9.0).color(TEXT_MUTED));
                     });
                 });
+
+                if is_tripped {
+                    ui.add_space(6.0);
+                    ui.label(
+                        RichText::new("⚠️ OVERCURRENT TRIP: Rotor stalled or rubbed against casing ceiling. Power cut immediately to prevent motor burnout and PLA melting. Flip Pin 8 toggle switch OFF to reset fuse.")
+                            .size(11.0)
+                            .color(RED)
+                    );
+                }
             });
 
             ui.add_space(4.0);

@@ -1148,3 +1148,41 @@ PHASE 46: SINGLE-POTENTIOMETER MASTER COARSE PWM ARCHITECTURE (PIN A4: 0.0% - 10
     3. Verified test harness via `cargo test` (all 51 tests passing).
     4. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 47: 8.5A FAST ELECTRONIC STALL FUSE & ROTOR OVERCURRENT PROTECTION (November 3, 2026 - Prealpha_v2.0.34)
+--------------------------------------------------------------------------------
+* November 3, 2026:
+  - WHAT:
+    1. Fast Latching Electronic Stall Fuse in Firmware (newconsole/newconsole.ino):
+       - Implemented an emergency overcurrent circuit breaker tripping at 8.5 Amperes (`maxSafeCurrentAmps = 8.5A`, `overcurrentTimeoutMs = 150ms`).
+       - If motor current exceeds 8.5A continuously for > 150 ms (e.g. rotor jam, mechanical rub against blower casing ceiling, dead stall), the firmware immediately pulls IBT-2 driver enable pins (A1, 12, 52, 53) LOW, clamps PWM (Pin 13) to 0, and latches `isCurrentTripped = true`.
+       - Latching safety lockout: once tripped, the driver remains shut down to prevent motor winding burnout and 3D-printed PLA casing thermal melting. The electronic fuse can only be reset by physically flipping the Pin 8 toggle switch OFF.
+       - Emits periodic emergency serial alerts `"TRIP:1"` and `"BLOWER:TRIP"` every 250 ms while tripped.
+    2. Serial Telemetry & Emergency Alert UI (rust/src/serial.rs, rust/src/tuner.rs, rust/src/app.rs):
+       - Added `SerialEvent::OvercurrentTrip(bool)` to parse `"TRIP:1"`, `"BLOWER:TRIP"`, `"OVERCURRENT:TRIP"`, and `"STALL:1"`.
+       - Added `overcurrent_tripped: bool` field to `TunerStatus`.
+       - Rendered prominent red `"Blower: TRIP (STALL PROTECTED)"` badge in GUI header when tripped.
+       - Rendered emergency warning banner in Tuner Current Meter card:
+         `"⚠️ OVERCURRENT TRIP: Rotor stalled or rubbed against casing ceiling. Power cut immediately to prevent motor burnout and PLA melting. Flip Pin 8 toggle switch OFF to reset fuse."`
+    3. Comprehensive Unit Testing Documentation (unit_tests_report.md):
+       - Added UT-52 (`test_parse_overcurrent_trip`), verifying exact parsing of trip events, aliases, and reset commands across an unbounded channel. Test suite expanded to 52 passing tests.
+  - WHY:
+    1. The creator reported a catastrophic mechanical failure: "look even i dont know whats going on mechanically right now but the blower has suddenly failed before uploading this new code, it started ramming into the ceiling of the blower and the motor drew 21 ENTIRE AMPS".
+    2. Physics of Centrifugal Aerodynamic Lift & Lockup:
+       - High-speed centrifugal impeller rotation creates a severe low-pressure vacuum zone at the inlet suction eye (intake ceiling). By Bernoulli's principle and Newton's third law, the pressure differential across the impeller disk creates a strong upward axial thrust force ($F_{\text{thrust}} = \Delta P \cdot A$).
+       - If the impeller hub press-fit, grub screw, or motor shaft axial retaining clip has play or softens due to motor shaft conduction, the impeller crawls upward axially until it collides with the stationary casing ceiling.
+       - Mechanical rub causes rapid friction deceleration into a dead-rotor stall ($\omega \to 0$).
+    3. Physics of 21 Amp Overcurrent:
+       - Under normal rotation, back-EMF ($E_b = k_e \cdot \omega$) opposes the supply voltage, keeping running current low ($1.5\text{--}3.5\text{ A}$).
+       - Upon stall, back-EMF collapses to zero ($E_b = 0$). Current spikes instantly to full stall current governed solely by copper armature DC resistance: $I_{\text{stall}} = V / R_{\text{armature}} \approx 12\text{ V} / 0.57\ \Omega \approx 21\text{ A}$.
+       - At 21A, power dissipation spikes to $P = I^2 R = (21)^2 \times 0.57 \approx 251\text{ Watts}$ of concentrated heat, threatening to smoke motor windings and liquefy PLA within seconds.
+    4. An automatic 8.5A electronic fuse cuts power within 150 ms, preventing permanent hardware damage even if mechanical rub recurs.
+  - HOW:
+    1. Updated `newconsole/newconsole.ino` (8.5A threshold, 150ms timeout, latching `isCurrentTripped`, switch OFF reset).
+    2. Updated `rust/src/serial.rs` (`SerialEvent::OvercurrentTrip`, `test_parse_overcurrent_trip`).
+    3. Updated `rust/src/tuner.rs` and `rust/src/app.rs` (UI badge, warning banner, switch reset).
+    4. Documented mechanical triage steps: install thrust collar/washers on motor shaft, ensure 2.5-3.0mm axial clearance, tighten grub screw onto filed shaft flat.
+    5. Verified test harness via `cargo test` (all 52 tests passing).
+    6. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
+================================================================================
