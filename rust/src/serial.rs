@@ -46,6 +46,8 @@ pub enum SerialEvent {
     MotorCurrent(f32),
     /// Fast Electronic Stall Fuse Tripped (motor drew > 8.5A for > 150ms).
     OvercurrentTrip(bool),
+    /// Electronic Stall Fuse Override status (`true` = bypassed for testing, `false` = armed).
+    FuseOverride(bool),
     /// Serial connection established on the named COM port.
     Connected(String),
     /// Serial connection lost.
@@ -109,6 +111,19 @@ fn parse_line(line: &str, tx: &Sender<SerialEvent>) {
     if ident == "TRIP" || ident == "OVERCURRENT" || ident == "STALL" {
         let tripped = val_str == "1" || val_str.eq_ignore_ascii_case("TRIP") || val_str.eq_ignore_ascii_case("TRUE");
         let _ = tx.send(SerialEvent::OvercurrentTrip(tripped));
+        return;
+    }
+    if ident == "OVERRIDE" {
+        let active = val_str == "1" || val_str.eq_ignore_ascii_case("ON") || val_str.eq_ignore_ascii_case("TRUE");
+        let _ = tx.send(SerialEvent::FuseOverride(active));
+        return;
+    }
+    if ident == "FUSE" {
+        let active = val_str == "0"
+            || val_str.eq_ignore_ascii_case("OVERRIDE")
+            || val_str.eq_ignore_ascii_case("BYPASS")
+            || val_str.eq_ignore_ascii_case("OFF");
+        let _ = tx.send(SerialEvent::FuseOverride(active));
         return;
     }
     if ident == "PWM" {
@@ -471,6 +486,45 @@ pub mod tests {
         match rx.try_recv().expect("Expected OvercurrentTrip event") {
             SerialEvent::OvercurrentTrip(tripped) => assert!(!tripped),
             other => panic!("Unexpected event for TRIP:0: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_fuse_override() {
+        let (tx, rx) = unbounded();
+
+        // 1. "OVERRIDE:1"
+        parse_line("OVERRIDE:1", &tx);
+        match rx.try_recv().expect("Expected FuseOverride event") {
+            SerialEvent::FuseOverride(active) => assert!(active),
+            other => panic!("Unexpected event for OVERRIDE:1: {other:?}"),
+        }
+
+        // 2. "OVERRIDE:0"
+        parse_line("OVERRIDE:0", &tx);
+        match rx.try_recv().expect("Expected FuseOverride event") {
+            SerialEvent::FuseOverride(active) => assert!(!active),
+            other => panic!("Unexpected event for OVERRIDE:0: {other:?}"),
+        }
+
+        // 3. Aliases: "FUSE:OVERRIDE", "FUSE:0" (disable fuse = override)
+        parse_line("FUSE:OVERRIDE", &tx);
+        match rx.try_recv().expect("Expected FuseOverride event") {
+            SerialEvent::FuseOverride(active) => assert!(active),
+            other => panic!("Unexpected event for FUSE:OVERRIDE: {other:?}"),
+        }
+
+        parse_line("FUSE:0", &tx);
+        match rx.try_recv().expect("Expected FuseOverride event") {
+            SerialEvent::FuseOverride(active) => assert!(active),
+            other => panic!("Unexpected event for FUSE:0: {other:?}"),
+        }
+
+        // 4. Re-arm fuse: "FUSE:1", "FUSE:ARMED"
+        parse_line("FUSE:1", &tx);
+        match rx.try_recv().expect("Expected FuseOverride event") {
+            SerialEvent::FuseOverride(active) => assert!(!active),
+            other => panic!("Unexpected event for FUSE:1: {other:?}"),
         }
     }
 }

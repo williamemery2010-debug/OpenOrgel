@@ -699,6 +699,15 @@ impl OrgelApp {
                         self.toast("EMERGENCY OVERCURRENT TRIP: Motor stalled or exceeded 8.5A! Power cut to protect hardware.", RED);
                     }
                 }
+                SerialEvent::FuseOverride(active) => {
+                    self.tuner.status.fuse_override = active;
+                    if active {
+                        self.tuner.status.overcurrent_tripped = false;
+                        self.toast("FUSE OVERRIDE ACTIVE: 8.5A electronic cutoff bypassed for diagnostics.", AMBER);
+                    } else {
+                        self.toast("FUSE ARMED: 8.5A electronic stall protection active.", GREEN);
+                    }
+                }
                 SerialEvent::CoarsePwm(c) => {
                     self.tuner.status.coarse_pwm_percent = c;
                 }
@@ -1554,8 +1563,11 @@ impl OrgelApp {
             inner_card(ui, |ui| {
                 let current_amps = self.tuner.status.motor_current_amps;
                 let is_tripped = self.tuner.status.overcurrent_tripped;
-                let (current_col, current_state) = if is_tripped {
+                let is_override = self.tuner.status.fuse_override;
+                let (current_col, current_state) = if is_tripped && !is_override {
                     (RED, "STALL TRIP (>8.5A CUTOFF)")
+                } else if is_override {
+                    (AMBER, "FUSE OVERRIDDEN")
                 } else if current_amps > 10.0 {
                     (RED, "HIGH LOAD WARNING")
                 } else if current_amps > 6.0 {
@@ -1568,6 +1580,22 @@ impl OrgelApp {
                 ui.horizontal(|ui| {
                     ui.label(bold(format!("Motor Current: {:.2} A", current_amps), 12.0).color(current_col));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        let override_btn_text = if is_override {
+                            "⚠️ FUSE OVERRIDDEN"
+                        } else {
+                            "🛡️ Fuse Armed (8.5A)"
+                        };
+                        let override_btn_bg = if is_override { AMBER } else { CHIP };
+                        if pill_button(ui, override_btn_text, override_btn_bg, AMBER_HOVER, Vec2::new(140.0, 20.0), true).clicked() {
+                            let new_override = !self.tuner.status.fuse_override;
+                            self.tuner.status.fuse_override = new_override;
+                            if new_override {
+                                self.tuner.status.overcurrent_tripped = false;
+                                self.link.send_line("OVERRIDE:1\n");
+                            } else {
+                                self.link.send_line("OVERRIDE:0\n");
+                            }
+                        }
                         ui.label(RichText::new(current_state).size(11.0).color(current_col));
                     });
                 });
@@ -1588,12 +1616,19 @@ impl OrgelApp {
                     });
                 });
 
-                if is_tripped {
+                if is_tripped && !is_override {
                     ui.add_space(6.0);
                     ui.label(
-                        RichText::new("⚠️ OVERCURRENT TRIP: Rotor stalled or rubbed against casing ceiling. Power cut immediately to prevent motor burnout and PLA melting. Flip Pin 8 toggle switch OFF to reset fuse.")
+                        RichText::new("⚠️ OVERCURRENT TRIP: Rotor stalled or rubbed against casing ceiling. Power cut immediately to prevent motor burnout and PLA melting. Click 'Fuse Armed' to override, or flip Pin 8 toggle switch OFF to reset.")
                             .size(11.0)
                             .color(RED)
+                    );
+                } else if is_override {
+                    ui.add_space(6.0);
+                    ui.label(
+                        RichText::new("⚠️ FUSE OVERRIDE ACTIVE: 8.5A electronic stall protection is bypassed for diagnostic testing. Motor will NOT trip on stall. Monitor motor temperature!")
+                            .size(11.0)
+                            .color(AMBER)
                     );
                 }
             });

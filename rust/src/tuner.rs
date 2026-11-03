@@ -120,6 +120,8 @@ pub struct TunerStatus {
     pub hardware_switch_on: Option<bool>,
     /// Electronic overcurrent / stall fuse tripped state (`true` if current exceeded 8.5A).
     pub overcurrent_tripped: bool,
+    /// Electronic Stall Fuse Override state (`true` if 8.5A cutoff is bypassed for testing).
+    pub fuse_override: bool,
 }
 
 impl Default for TunerStatus {
@@ -141,6 +143,7 @@ impl Default for TunerStatus {
             last_action: BlowerAdjustment::WaitingForSignal,
             hardware_switch_on: None,
             overcurrent_tripped: false,
+            fuse_override: false,
         }
     }
 }

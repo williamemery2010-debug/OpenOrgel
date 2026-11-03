@@ -621,7 +621,17 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 - **WHAT:** Validates that `parse_line` correctly recognizes overcurrent trip telemetry, dispatches `SerialEvent::OvercurrentTrip(true)` for active trip signals, handles alias identifiers (`"OVERCURRENT"`, `"STALL"`, `"BLOWER:TRIP"`), and handles trip reset (`"TRIP:0"` $\to$ `SerialEvent::OvercurrentTrip(false)`).
 - **METHOD:** Feeds test strings (`"TRIP:1"`, `"BLOWER:TRIP"`, `"OVERCURRENT:TRIP"`, `"STALL:1"`, `"TRIP:0"`) into `parse_line` over an unbounded channel and asserts exact boolean trip state and event types.
 - **EXPECTED RESULT:** Correctly dispatches `OvercurrentTrip(true)` for all trip trigger strings and `OvercurrentTrip(false)` for trip clearance.
-- **ACTUAL RESULT:** Passed (UT-52 passes in suite of 52 tests).
+- **ACTUAL RESULT:** Passed.
+
+---
+
+### UT-53: Electronic Stall Fuse Override & Hardware Diagnostics Telemetry Parsing
+- **Module:** [rust/src/serial.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/serial.rs) (`test_parse_fuse_override`)
+- **WHY:** During hardware bring-up, motor inrush measurement, and stall diagnosis, the organist requires the ability to temporarily bypass the 8.5A electronic circuit breaker without firmware recompilation. Inbound telemetry reporting fuse status (`"OVERRIDE:1"`, `"OVERRIDE:0"`, `"FUSE:OVERRIDE"`, `"FUSE:0"`, `"FUSE:1"`) must be accurately parsed and dispatched to GUI safety widgets.
+- **WHAT:** Validates that `parse_line` correctly parses fuse override state, dispatches `SerialEvent::FuseOverride(true)` for active override telemetry, handles alias identifiers (`"FUSE:OVERRIDE"`, `"FUSE:0"`), and dispatches `SerialEvent::FuseOverride(false)` when re-arming.
+- **METHOD:** Feeds test strings (`"OVERRIDE:1"`, `"OVERRIDE:0"`, `"FUSE:OVERRIDE"`, `"FUSE:0"`, `"FUSE:1"`) into `parse_line` over an unbounded channel and asserts exact boolean state and event types.
+- **EXPECTED RESULT:** Correctly dispatches `FuseOverride(true)` for override triggers and `FuseOverride(false)` for re-arming.
+- **ACTUAL RESULT:** Passed (UT-53 passes in suite of 53 tests).
 
 ---
 

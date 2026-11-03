@@ -97,6 +97,7 @@ const float maxSafeCurrentAmps = 8.5;       // Electronic fuse trip threshold in
 const unsigned long overcurrentTimeoutMs = 150; // Trips if current exceeds threshold continuously for > 150 ms
 unsigned long overcurrentStartTime = 0;    // Overcurrent timer start timestamp
 bool isCurrentTripped = false;              // Latching electronic fuse status
+bool fuseOverride = false;                  // Set true to bypass electronic stall fuse for hardware testing
 String lineBuffer = "";                    // Line accumulator for serial commands
 
 // Helper: converts 0.0-100.0% duty cycle to 8-bit timer value (0-255) and writes to Pin 13
@@ -131,7 +132,7 @@ float readMotorCurrentAmps() {
   return smoothedCurrentAmps;
 }
 
-// Transmits live PWM duty cycle and motor current in Amperes back to OpenOrgel GUI
+// Transmits live PWM duty cycle, motor current, and fuse status back to OpenOrgel GUI
 void reportTelemetry() {
   Serial.print("PWM:");
   Serial.println(effectiveMotorPwm, 1);
@@ -139,6 +140,8 @@ void reportTelemetry() {
   Serial.println(smoothedCurrentAmps, 2);
   Serial.print("COARSE:");
   Serial.println(effectiveMotorPwm, 1);
+  Serial.print("OVERRIDE:");
+  Serial.println(fuseOverride ? 1 : 0);
 }
 
 // Processes a single step command ('F' = Flat -> +0.5%, 'S' = Sharp -> -0.5%, 'R' = Reset 75.0% nominal)
@@ -202,6 +205,31 @@ void processLineCommand(String cmd) {
     if (debouncedSwitchState && !isCurrentTripped) {
       applyBlowerPwm(effectiveMotorPwm);
     }
+    reportTelemetry();
+    return;
+  }
+
+  // Fuse override commands for hardware diagnostics:
+  // "OVERRIDE:1", "FUSE:0", "OVERRIDE:ON" -> bypass fuse
+  // "OVERRIDE:0", "FUSE:1", "OVERRIDE:OFF" -> re-arm fuse
+  if (cmd.startsWith("OVERRIDE:") || cmd.startsWith("FUSE:")) {
+    String arg = cmd.substring(cmd.indexOf(':') + 1);
+    arg.trim();
+    if (cmd.startsWith("FUSE:")) {
+      fuseOverride = (arg == "0" || arg.equalsIgnoreCase("OVERRIDE") || arg.equalsIgnoreCase("OFF") || arg.equalsIgnoreCase("BYPASS"));
+    } else {
+      fuseOverride = (arg == "1" || arg.equalsIgnoreCase("ON") || arg.equalsIgnoreCase("TRUE") || arg.equalsIgnoreCase("ENABLE"));
+    }
+    if (fuseOverride) {
+      isCurrentTripped = false; // Immediately clear trip condition if active
+      overcurrentStartTime = 0;
+      if (debouncedSwitchState) {
+        setDriverEnable(true);
+        applyBlowerPwm(effectiveMotorPwm);
+      }
+    }
+    Serial.print("OVERRIDE:");
+    Serial.println(fuseOverride ? 1 : 0);
     reportTelemetry();
     return;
   }
@@ -315,7 +343,7 @@ void loop() {
   }
 
   // Fast Electronic Fuse / Stall Protection Check:
-  if (isCurrentTripped) {
+  if (isCurrentTripped && !fuseOverride) {
     // Motor is latched OFF due to severe overcurrent (>8.5A) or mechanical stall.
     // Ensure driver and PWM remain completely killed to protect motor windings and PLA housing.
     setDriverEnable(false);
@@ -328,13 +356,22 @@ void loop() {
       Serial.println("BLOWER:TRIP");
       Serial.print("CURRENT:");
       Serial.println(smoothedCurrentAmps, 2);
+      Serial.print("OVERRIDE:");
+      Serial.println(fuseOverride ? 1 : 0);
     }
 
-    // Drain serial buffer while tripped
+    // Process incoming serial commands even while tripped (so user can send "OVERRIDE:1" or "PWM:0")
     while (Serial.available() > 0) {
-      Serial.read();
+      char c = (char)Serial.read();
+      if (c == '\n' || c == '\r') {
+        if (lineBuffer.length() > 0) {
+          processLineCommand(lineBuffer);
+          lineBuffer = "";
+        }
+      } else if (lineBuffer.length() < 64) {
+        lineBuffer += c;
+      }
     }
-    lineBuffer = "";
     return;
   }
 
@@ -351,9 +388,9 @@ void loop() {
   readMotorCurrentAmps();
 
   // Fast Electronic Fuse / Stall Protection:
-  // If current exceeds 8.5 Amps (e.g. rotor jam, mechanical rub into ceiling, dead stall)
+  // If fuse override is NOT active, trip off if current exceeds 8.5 Amps (e.g. rotor jam, mechanical rub)
   // for longer than overcurrentTimeoutMs (150 ms), immediately trip off the driver.
-  if (smoothedCurrentAmps >= maxSafeCurrentAmps) {
+  if (!fuseOverride && smoothedCurrentAmps >= maxSafeCurrentAmps) {
     if (overcurrentStartTime == 0) {
       overcurrentStartTime = millis();
     } else if (millis() - overcurrentStartTime >= overcurrentTimeoutMs) {

@@ -1215,3 +1215,33 @@ PHASE 48: 100% DIGITAL SERIAL PWM ARCHITECTURE & COMPLETE ANALOG POTENTIOMETER D
     3. Verified test harness via `cargo test` (all 52 tests passing).
     4. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 49: ELECTRONIC STALL FUSE OVERRIDE & HARDWARE DIAGNOSTICS ARCHITECTURE (November 3, 2026 - Prealpha_v2.0.36)
+--------------------------------------------------------------------------------
+* November 3, 2026:
+  - WHAT:
+    1. Firmware Electronic Fuse Bypass / Override Control (newconsole/newconsole.ino):
+       - Added `bool fuseOverride` flag to allow temporary software bypass of the 8.5A electronic stall fuse for hardware testing, motor inrush measurement, and stall diagnosis.
+       - Supported serial override commands:
+         * `"OVERRIDE:1"`, `"FUSE:0"`, `"OVERRIDE:ON"`: Activates fuse override (bypasses 8.5A trip, immediately clears any active trip state, and enables running).
+         * `"OVERRIDE:0"`, `"FUSE:1"`, `"OVERRIDE:OFF"`: Re-arms normal 8.5A / 150 ms stall protection.
+       - Firmware processes incoming serial commands even while in a tripped state, enabling remote clearance and override without needing to cycle the physical Pin 8 switch.
+       - Telemetry stream emits `"OVERRIDE:1"` or `"OVERRIDE:0"` with every heartbeat.
+    2. Desktop Serial Protocol & UI Diagnostic Toggle (rust/src/serial.rs & rust/src/app.rs):
+       - Added `SerialEvent::FuseOverride(bool)` parsing inbound `"OVERRIDE:<0|1>"` and `"FUSE:<val>"` signals.
+       - Added `fuse_override: bool` to `TunerStatus`.
+       - Rendered interactive `[🛡️ Fuse Armed (8.5A)]` / `[⚠️ FUSE OVERRIDDEN]` toggle button in the Current Meter card.
+       - Added amber diagnostic alert banner: `"⚠️ FUSE OVERRIDE ACTIVE: 8.5A electronic stall protection is bypassed for diagnostic testing. Motor will NOT trip on stall. Monitor motor temperature!"`
+    3. Unit Testing Expansion (unit_tests_report.md):
+       - Added UT-53 (`test_parse_fuse_override`), validating exact dispatch of `FuseOverride` events, aliases (`FUSE:OVERRIDE`, `FUSE:0`, `FUSE:1`), and state transitions. Suite expanded to 53 tests.
+  - WHY:
+    1. The creator requested: "i need the ability to override the fusefor testing purposes".
+    2. During motor health assessment, inrush testing, or diagnosing damaged windings/brushes following a 21A stall event, an aggressive 150 ms electronic trip may trip prematurely before the motor overcomes initial rotor inertia. Providing an operator override enables direct diagnostic testing while displaying prominent UI warnings.
+  - HOW:
+    1. Updated `newconsole/newconsole.ino` (`fuseOverride` flag, `"OVERRIDE:"` / `"FUSE:"` parser, trip bypass in `loop()`, command processing during trip).
+    2. Updated `rust/src/serial.rs` (`SerialEvent::FuseOverride`, `test_parse_fuse_override`).
+    3. Updated `rust/src/tuner.rs` and `rust/src/app.rs` (UI toggle button, amber warning banner, toast alerts).
+    4. Verified test harness via `cargo test` (all 53 tests passing).
+    5. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
+================================================================================

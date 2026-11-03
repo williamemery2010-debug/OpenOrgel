@@ -1,9 +1,9 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-11-03 21:38:13
-Total Commits  : 119
-Total Releases : 54
+Updated At     : 2026-11-03 21:56:05
+Total Commits  : 120
+Total Releases : 55
 ================================================================================
 
 🚀 RELEASES / TAGS
@@ -37,6 +37,11 @@ Version : Prealpha_v2.0.34
 Date    : 2026-11-03
 Commit  : c05b61d
 Details : Release Prealpha_v2.0.34: 8.5A fast electronic stall fuse and overcurrent protection
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.35
+Date    : 2026-11-03
+Commit  : 3c4ff06
+Details : Release Prealpha_v2.0.35: 100% digital serial PWM control with analog pots disabled
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.26
 Date    : 2026-11-02
@@ -288,7 +293,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-13365db  | 2026-11-03 | williamemery2010-deb | feat(hardware): deactivate analog pots and implement 100% digital serial PWM control
+a4cfc9f  | 2026-11-03 | williamemery2010-deb | feat(hardware): implement electronic stall fuse override for testing
+3c4ff06  | 2026-11-03 | williamemery2010-deb | feat(hardware): deactivate analog pots and implement 100% digital serial PWM control
 c05b61d  | 2026-11-03 | williamemery2010-deb | feat(hardware): implement 8.5A fast electronic stall fuse and overcurrent protection
 00e2fd9  | 2026-11-03 | williamemery2010-deb | Prealpha_v2.0.33: Map surviving potentiometer on Pin A4 to Master Coarse dial (0-100%) with 16x anti-jitter filtering
 dc13dc6  | 2026-11-03 | williamemery2010-deb | Prealpha_v2.0.32: Single-potentiometer anti-jitter fine vernier architecture on Pin A4
