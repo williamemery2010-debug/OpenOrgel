@@ -1,9 +1,9 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-11-02 21:51:00
-Total Commits  : 112
-Total Releases : 47
+Updated At     : 2026-11-03 12:11:00
+Total Commits  : 113
+Total Releases : 48
 ================================================================================
 
 🚀 RELEASES / TAGS
@@ -17,6 +17,11 @@ Version : Prealpha_v2.0.27
 Date    : 2026-11-02
 Commit  : 40d916b
 Details : Prealpha_v2.0.27: Dual B10K potentiometers (Dyn A3, Fine Tune A4) & A440 primary reference pipe
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.28
+Date    : 2026-11-02
+Commit  : 0c815e6
+Details : Prealpha_v2.0.28: Elevate baseline blower motor PWM to 75.0% nominal power
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.23
 Date    : 2026-11-01
@@ -253,7 +258,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-96ad388  | 2026-11-02 | williamemery2010-deb | Prealpha_v2.0.28: Elevate baseline blower motor PWM to 75.0% nominal power
+e64c16d  | 2026-11-03 | williamemery2010-deb | Prealpha_v2.0.29: Configure Pin 7 as adjacent 5V pull-up reference for Pin 8 switch
+0c815e6  | 2026-11-02 | williamemery2010-deb | Prealpha_v2.0.28: Elevate baseline blower motor PWM to 75.0% nominal power
 40d916b  | 2026-11-02 | williamemery2010-deb | Prealpha_v2.0.27: Dual B10K potentiometers (Dyn A3, Fine Tune A4) & A440 primary reference pipe
 192fe15  | 2026-11-02 | williamemery2010-deb | Prealpha_v2.0.26: Implement 50ms digital debounce and EMI suppression for Pin 8 switch
 174a582  | 2026-11-01 | williamemery2010-deb | Prealpha_v2.0.25: Configure Pin A1 R_EN and Pin A2 VCC 5V digital logic on analog header

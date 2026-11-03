@@ -65,6 +65,7 @@ const int enPinAlt3 = 53;       // Redundant Driver Enable output (Pin 53)
 const int currentSensePin = A0; // Analog input for IBT-2 IS current sense (Pin A0)
 const int dynPotPin = A3;       // B10K Pot 1 Wiper: Dynamic slider (affects synth & motor)
 const int tunePotPin = A4;      // B10K Pot 2 Wiper: Fine tune pitch adjust (affects motor only)
+const int pullup5vPin = 7;      // Dedicated 5V reference output on Pin 7 (adjacent to Pin 8 for clean pull-up resistor connection)
 const int switchPin = 8;        // ON-ON toggle switch (Pin 8 to GND, active LOW)
 
 // Helper: drives Pin A1, Pin 12, Pin 52, and Pin 53 HIGH (enabled) or LOW (disabled)
@@ -222,6 +223,10 @@ void setup() {
   pinMode(vccPin, OUTPUT);
   digitalWrite(vccPin, HIGH);
 
+  // Configure Pin 7 as continuous 5V pull-up reference for Pin 8 switch resistor
+  pinMode(pullup5vPin, OUTPUT);
+  digitalWrite(pullup5vPin, HIGH);
+
   pinMode(pwmPin, OUTPUT);
   pinMode(enPin, OUTPUT);
   pinMode(enPinAlt, OUTPUT);
@@ -269,6 +274,7 @@ void loop() {
       if (debouncedSwitchState) {
         // Switch flipped ON: Enable IBT-2 driver (Pin A1, Pin 12, Pin 52 & Pin 53) and apply effective PWM (Pin 13)
         digitalWrite(vccPin, HIGH);
+        digitalWrite(pullup5vPin, HIGH);
         setDriverEnable(true);
         readPotentiometers();
         applyBlowerPwm(effectiveMotorPwm);
@@ -313,8 +319,9 @@ void loop() {
   }
 
   // System is ON:
-  // Ensure Pin A2 VCC is 5V and IBT-2 BTS7960 enable pins (Pin A1, Pin 12, Pin 52 & Pin 53) are active HIGH
+  // Ensure Pin A2 VCC is 5V, Pin 7 is 5V, and IBT-2 BTS7960 enable pins (Pin A1, Pin 12, Pin 52 & Pin 53) are active HIGH
   digitalWrite(vccPin, HIGH);
+  digitalWrite(pullup5vPin, HIGH);
   setDriverEnable(true);
 
   // Apply effective PWM duty cycle to Pin 13 (runs reliably standalone even if tuner/app is closed)

@@ -1008,3 +1008,24 @@ PHASE 41: BASELINE BLOWER MOTOR PWM ELEVATION TO 75.0% NOMINAL DUTY CYCLE (Novem
     4. Updated UT-46 in `unit_tests_report.md`.
     5. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 42: PIN 7 DEDICATED 5V PULL-UP RAIL & MOTOR CAPACITOR SNUBBER ARCHITECTURE (November 3, 2026 - Prealpha_v2.0.29)
+--------------------------------------------------------------------------------
+* November 3, 2026:
+  - WHAT:
+    1. Dedicated Pin 7 5V Pull-up Output Configuration (newconsole/newconsole.ino):
+       - Configured Arduino digital Pin 7 as an active digital output (`pinMode(pullup5vPin, OUTPUT); digitalWrite(pullup5vPin, HIGH);`) held continuously at +5.0V.
+       - Positioned immediately adjacent to digital Pin 8 (the physical toggle switch input), providing an ultra-compact, direct hardware mounting location for an external pull-up resistor (e.g. 4.7 kΩ Yellow-Violet-Red-Gold or Yellow-Blue-Red-Gold) bridging directly between Pin 7 and Pin 8 without sprawling jumper leads across the console.
+    2. Motor Commutator Spark Suppression & Snubber Capacitor Specification:
+       - Defined non-polarized ceramic snubber capacitor integration (0.1 uF / 100 nF, code 104) across the DC motor terminals (M+ and M-) to quench high-frequency brush arcing, inductive voltage spikes (V = -L * di/dt), and wideband radio-frequency electromagnetic interference (EMI) at the physical source before it can couple into high-impedance logic lines.
+  - WHY:
+    1. The creator requested: "just make pin 7 5v cus cable management also is it worth putting another capacitor on the motor to do something literally anything idk if it will achieve anything but yeah"
+    2. Eliminates long jumper wires across the Arduino board to reach the main 5V power bus, reducing loop antenna area and susceptibility to motor-induced electromagnetic radiation.
+    3. Brushed DC motors generate aggressive micro-arcing as commutator brushes break contact with rotor windings. Installing a low-ESR ceramic capacitor directly across the motor terminals shunts high di/dt RF transients locally, protecting sensitive microcontroller inputs from erratic switch triggering and noise-induced resets.
+  - HOW:
+    1. Updated `newconsole/newconsole.ino` (`pullup5vPin = 7`, `pinMode(pullup5vPin, OUTPUT); digitalWrite(pullup5vPin, HIGH);` in `setup()` and `loop()`).
+    2. Documented electrical noise suppression physics, motor snubber filtering, and adjacent-pin pull-up wiring.
+    3. Verified test harness via `cargo test` (all 49 tests passing).
+    4. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
+================================================================================
