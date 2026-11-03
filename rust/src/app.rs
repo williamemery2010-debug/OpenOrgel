@@ -1622,38 +1622,35 @@ impl OrgelApp {
 
             ui.add_space(4.0);
 
-            // Single-Potentiometer Anti-Jitter Fine Vernier Pitch Tuner (Pin A4)
+            // Single-Potentiometer Anti-Jitter Master Coarse Tuner (Pin A4: 0-100%)
             inner_card(ui, |ui| {
-                let base = self.tuner.status.coarse_pwm_percent;
-                let fine = self.tuner.status.fine_trim_pwm_percent;
+                let coarse = self.tuner.status.coarse_pwm_percent;
                 let net_pwm = self.tuner.status.current_pwm_percent;
                 ui.horizontal(|ui| {
-                    ui.label(bold(format!("Base Power: {:.1}%", base), 11.0).color(ACCENT));
-                    ui.label(RichText::new("|").color(TEXT_MUTED));
-                    let fine_col = if fine.abs() < 0.1 { GREEN } else if fine > 0.0 { AMBER } else { RED };
-                    ui.label(bold(format!("Fine Vernier (A4): {:+.2}%", fine), 11.0).color(fine_col));
+                    ui.label(bold(format!("Master Coarse Dial (Pin A4): {:.1}%", coarse), 12.0).color(ACCENT));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.label(bold(format!("Net: {:.1}%", net_pwm), 12.0).color(GREEN));
+                        ui.label(bold(format!("Net Motor PWM: {:.1}%", net_pwm), 12.0).color(GREEN));
                     });
                 });
                 ui.add_space(3.0);
-                let (m_rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 6.0), Sense::hover());
-                ui.painter().rect_filled(m_rect, CornerRadius::same(3), BORDER);
+                let (m_rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 8.0), Sense::hover());
+                ui.painter().rect_filled(m_rect, CornerRadius::same(4), BORDER);
                 let mut m_fill = m_rect;
                 m_fill.set_width(m_rect.width() * (net_pwm / 100.0).clamp(0.0, 1.0));
-                ui.painter().rect_filled(m_fill, CornerRadius::same(3), GREEN);
-                ui.add_space(1.0);
+                ui.painter().rect_filled(m_fill, CornerRadius::same(4), GREEN);
+                ui.add_space(2.0);
                 ui.horizontal(|ui| {
-                    ui.label(RichText::new("Base: 75% Setpoint (GUI/Serial)").size(9.0).color(TEXT_MUTED));
+                    ui.label(RichText::new("0% Off").size(9.0).color(TEXT_MUTED));
+                    ui.label(RichText::new("• 16x Oversampling + Heavy EMA (Anti-Jitter)").size(9.0).color(TEXT_MUTED));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.label(RichText::new("Pin A4: 16x Anti-Jitter Filter (±10%)").size(9.0).color(TEXT_MUTED));
+                        ui.label(RichText::new("100% Full Power").size(9.0).color(TEXT_MUTED));
                     });
                 });
             });
 
             ui.add_space(3.0);
             ui.horizontal(|ui| {
-                badge(ui, "IBT-2: PWM 13 | EN A1 | VCC A2 | IS A0 | Fine A4 (±10%) | Base 75%", ACCENT);
+                badge(ui, "IBT-2: PWM 13 | EN A1 | VCC A2 | IS A0 | Coarse A4 (0-100% Anti-Jitter)", ACCENT);
             });
             ui.add_space(2.0);
             ui.label(

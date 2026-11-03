@@ -1119,3 +1119,32 @@ PHASE 45: SINGLE-POTENTIOMETER ANTI-JITTER FINE VERNIER ARCHITECTURE (PIN A4) (N
     5. Verified test harness via `cargo test` (all 51 tests passing).
     6. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 46: SINGLE-POTENTIOMETER MASTER COARSE PWM ARCHITECTURE (PIN A4: 0.0% - 100.0%) (November 3, 2026 - Prealpha_v2.0.33)
+--------------------------------------------------------------------------------
+* November 3, 2026:
+  - WHAT:
+    1. Single-Potentiometer Master Coarse Architecture on Pin A4 (newconsole/newconsole.ino):
+       - Refactored the single surviving B10K console potentiometer on Pin A4 from fine vernier trim to direct Master Coarse PWM tuning spanning the full 0.0% to 100.0% motor speed range.
+       - Preserved the complete 3-stage anti-jitter DSP pipeline:
+         a) 16x multi-sample oversampling (16 readings spaced 50 us apart).
+         b) Heavy Exponential Moving Average low-pass filter (alpha = 0.08).
+         c) Schmitt trigger / hysteresis deadband (requiring >= 3.0 ADC counts of intentional rotation before updating).
+       - When the organist releases the physical knob, the commanded motor PWM locks rock-solid, completely eliminating analog wiper jitter and ADC thermal noise.
+       - Pin A3 remains pulled up internally (`INPUT_PULLUP`) to eliminate floating ADC multiplexer cross-talk.
+       - Effective Motor PWM: `effectiveMotorPwm = coarsePwm + softwarePitchTrim;`, where 'F' (+0.5%) and 'S' (-0.5%) tuner commands apply fine adjustments on top of the knob's position, and 'R' resets to 0.0% (strictly pot position).
+       - Telemetry stream emits "PWM:<pct>", "COARSE:<pct>", and "CURRENT:<amps>".
+    2. Desktop GUI Dashboard Integration (rust/src/app.rs):
+       - Updated GUI Tuner card to display "Master Coarse Dial (Pin A4): <pct>%" with full 0% to 100% visual bar and anti-jitter badge.
+       - Updated header badge: "IBT-2: PWM 13 | EN A1 | VCC A2 | IS A0 | Coarse A4 (0-100% Anti-Jitter)".
+       - Verified test harness via `cargo test` (all 51 tests passing).
+  - WHY:
+    1. The creator requested: "nono survivor should be coarse now"
+    2. With only one functional potentiometer available on the organ console, configuring it as coarse gives the organist full physical authority across the entire 0.0% to 100.0% wind pressure spectrum. This allows manual exploration of the acoustic speaking threshold of any physical pipe without being constrained to a fixed 75% baseline window.
+  - HOW:
+    1. Updated `newconsole/newconsole.ino` (`coarsePotPin = A4`, 0.0% to 100.0% coarse mapping, 16x oversampling, alpha=0.08 EMA, 3-count hysteresis).
+    2. Updated `rust/src/app.rs` (UI card, badge).
+    3. Verified test harness via `cargo test` (all 51 tests passing).
+    4. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
+================================================================================

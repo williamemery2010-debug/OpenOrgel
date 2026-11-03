@@ -1,6 +1,6 @@
 // ============================================================================
 // OPENORGEL CENTRIFUGAL BLOWER CONTROLLER & TELEMETRY (IBT-2 BTS7960)
-// SINGLE-POTENTIOMETER ANTI-JITTER FINE VERNIER TUNER (PIN A4)
+// SINGLE-POTENTIOMETER ANTI-JITTER MASTER COARSE TUNER (PIN A4: 0.0% - 100.0%)
 // ============================================================================
 // Hardware Configuration:
 //   - Pin 13 (pwmPin):          PWM speed output driving IBT-2 RPWM (Pin 13)
@@ -10,7 +10,7 @@
 //   - Pin A2 (vccPin):          Dedicated 5V logic supply output for IBT-2 VCC (Pin A2 as digital, constant HIGH)
 //   - Pin A0 (currentSensePin): Analog input measuring IBT-2 IS current-sense output
 //                               (R_IS / L_IS connected to Pin A0)
-//   - Pin A4 (finePotPin):      Surviving B10K Pot Wiper: Fine Vernier Pitch Dial (-10.0% to +10.0% PWM trim)
+//   - Pin A4 (coarsePotPin):    Surviving B10K Pot Wiper: Master Coarse Tuning Dial (0.0% to 100.0% PWM)
 //                               (Equipped with 16x multi-sample oversampling, heavy alpha=0.08 EMA smoothing,
 //                               and Schmitt trigger 3-count deadband to eliminate wiper jitter)
 //   - Pin A3 (deadPotPin):      Dead/disconnected pot pin pulled internally to 5V (INPUT_PULLUP)
@@ -23,7 +23,7 @@
 //   - When Pin 8 switch is ON (Pin 8 connected to GND / LOW):
 //       * Pin A2 (vccPin) provides steady 5V logic power to IBT-2 buffer chip.
 //       * Pin A1 (enPin) is driven HIGH (IBT-2 BTS7960 output stage ENABLED).
-//       * Pin 13 (pwmPin) is driven at effectiveMotorPwm (75.0% base +/- fine trim).
+//       * Pin 13 (pwmPin) is driven at effectiveMotorPwm (Coarse PWM + software nudge).
 //       * The centrifugal organ blower runs reliably and continuously EVEN IF:
 //           - No USB cable is connected (standalone physical organ performance)
 //           - The laptop microphone tuner is OFF or disabled
@@ -48,14 +48,13 @@
 //   - Telemetry emitted to OpenOrgel GUI:
 //       * "BLOWER:1" / "BLOWER:0"  -> Hardware switch state
 //       * "PWM:<percent>"          -> Live blower duty cycle (0.0 to 100.0%)
-//       * "BASE:<percent>"         -> Base nominal blower speed (e.g. 75.0%)
-//       * "FINE:<percent>"         -> Fine vernier trim (-10.0 to +10.0%)
+//       * "COARSE:<percent>"       -> Master coarse potentiometer duty cycle (0.0 to 100.0%)
 //       * "CURRENT:<amps>"         -> Live motor current in Amperes (e.g. "CURRENT:1.85")
 //   - Control commands received from OpenOrgel:
 //       * 'F' or 'f'               -> Pipe is Flat:  increase software trim by +0.5%
 //       * 'S' or 's'               -> Pipe is Sharp: decrease software trim by -0.5%
-//       * 'R' or 'r'               -> Reset software trim to 0.0% (returns strictly to pot values)
-//       * "PWM:<0..100>\n"         -> Set base nominal operating point (%)
+//       * 'R' or 'r'               -> Reset software trim to 0.0% (returns strictly to pot value)
+//       * "PWM:<0..100>\n"         -> Set software PWM target (%)
 //       * "A4_1" / "A4_0"          -> Safely ignored (no-op)
 //   - Enforces a 500 ms anti-oscillation settling delay between step adjustments
 //     so the blower impeller and windchest reservoir stabilize before the next step.
@@ -69,7 +68,7 @@ const int enPinAlt2 = 52;       // Redundant Driver Enable output (Pin 52)
 const int enPinAlt3 = 53;       // Redundant Driver Enable output (Pin 53)
 const int currentSensePin = A0; // Analog input for IBT-2 IS current sense (Pin A0)
 const int deadPotPin = A3;      // Disconnected/dead pot pin (pulled HIGH to kill floating cross-talk)
-const int finePotPin = A4;      // Surviving B10K Pot Wiper: Fine Vernier Pitch Trim (-10.0% to +10.0% PWM)
+const int coarsePotPin = A4;    // Surviving B10K Pot Wiper: Master Coarse Tuning Dial (0.0% to 100.0% PWM)
 const int pullup5vPin = 7;      // Dedicated 5V reference output on Pin 7 (adjacent to Pin 8 for clean pull-up resistor connection)
 const int switchPin = 8;        // ON-ON toggle switch (Pin 8 to GND, active LOW)
 
@@ -81,13 +80,12 @@ void setDriverEnable(bool enable) {
   digitalWrite(enPinAlt3, enable ? HIGH : LOW);
 }
 
-float baseNominalPwm = 75.0;               // Base nominal blower operating point (default 75.0%)
-float smoothedFineAdc = 512.0;             // Heavy-filtered ADC reading
-float latchedFineAdc = 512.0;              // Hysteresis-latched ADC value (suppresses LSB noise)
-float fineTrimPwm = 0.0;                   // Fine vernier trim (-10.0% to +10.0%)
+float smoothedCoarseAdc = 767.25;          // Initial reading ~75.0% coarse PWM
+float latchedCoarseAdc = 767.25;           // Hysteresis latch to kill 1-2 count ADC thermal flutter
+float coarsePwm = 75.0;                    // Coarse potentiometer reading (0.0% to 100.0%)
 float softwarePitchTrim = 0.0;             // Nudge from OpenOrgel tuner commands ('F' / 'S', +/-0.5%)
 float effectiveMotorPwm = 75.0;            // Net combined PWM applied to Pin 13
-float lastReportedFine = -999.0;           // Telemetry change detection
+float lastReportedCoarse = -999.0;         // Telemetry change detection
 
 unsigned long lastAdjustmentTime = 0;      // Timestamp (ms) of the last pitch adjustment
 const unsigned long adjustmentDelay = 500; // 500 ms settling delay to prevent oscillation
@@ -108,40 +106,34 @@ void applyBlowerPwm(float percent) {
   analogWrite(pwmPin, pwmCounts);
 }
 
-// Reads surviving potentiometer on Pin A4 with 16x oversampling, heavy EMA, and hysteresis
+// Reads surviving potentiometer on Pin A4 as Master Coarse with 16x oversampling, heavy EMA, and hysteresis
 void readPotentiometers() {
   // 1. 16x Multi-sample oversampling to eliminate analog wiper bounce and high-frequency noise
   long adcSum = 0;
   const int numSamples = 16;
   for (int i = 0; i < numSamples; i++) {
-    adcSum += analogRead(finePotPin);
+    adcSum += analogRead(coarsePotPin);
     delayMicroseconds(50);
   }
-  float avgFine = (float)adcSum / (float)numSamples;
+  float avgCoarse = (float)adcSum / (float)numSamples;
 
   // 2. Heavy Exponential Moving Average low-pass filter (alpha = 0.08)
   const float alpha = 0.08;
-  smoothedFineAdc = alpha * avgFine + (1.0 - alpha) * smoothedFineAdc;
+  smoothedCoarseAdc = alpha * avgCoarse + (1.0 - alpha) * smoothedCoarseAdc;
 
-  // 3. Noise Gate / Hysteresis: require >= 3.0 ADC counts of movement before updating trim
-  if (abs(smoothedFineAdc - latchedFineAdc) >= 3.0) {
-    latchedFineAdc = smoothedFineAdc;
+  // 3. Noise Gate / Hysteresis: require >= 3.0 ADC counts of movement before updating coarse PWM
+  if (abs(smoothedCoarseAdc - latchedCoarseAdc) >= 3.0) {
+    latchedCoarseAdc = smoothedCoarseAdc;
   }
 
-  // 4. Center Deadband (480..544 counts) provides solid zero-trim at center knob position
-  if (latchedFineAdc < 480.0) {
-    // Trims flatter: 0.0% down to -10.0% PWM (high resolution: 0.02% per count)
-    fineTrimPwm = ((latchedFineAdc - 480.0) / 480.0) * 10.0;
-  } else if (latchedFineAdc > 544.0) {
-    // Trims sharper: 0.0% up to +10.0% PWM (high resolution: 0.02% per count)
-    fineTrimPwm = ((latchedFineAdc - 544.0) / (1023.0 - 544.0)) * 10.0;
-  } else {
-    fineTrimPwm = 0.0;
-  }
+  // 4. Map directly across full 0.0% to 100.0% coarse PWM power band
+  coarsePwm = (latchedCoarseAdc / 1023.0) * 100.0;
+  if (coarsePwm < 0.0) coarsePwm = 0.0;
+  if (coarsePwm > 100.0) coarsePwm = 100.0;
 
   // 5. Net Effective Blower Motor PWM:
-  // Base nominal (75.0%) + Fine Vernier Trim (-10.0% to +10.0%) + Software Tuner Nudge
-  effectiveMotorPwm = baseNominalPwm + fineTrimPwm + softwarePitchTrim;
+  // Master Coarse (0.0% to 100.0%) + Software Tuner Nudge
+  effectiveMotorPwm = coarsePwm + softwarePitchTrim;
   if (effectiveMotorPwm < 0.0) effectiveMotorPwm = 0.0;
   if (effectiveMotorPwm > 100.0) effectiveMotorPwm = 100.0;
 }
@@ -165,20 +157,18 @@ float readMotorCurrentAmps() {
   return smoothedCurrentAmps;
 }
 
-// Transmits live PWM duty cycle, motor current in Amperes, and fine trim readouts back to OpenOrgel GUI
+// Transmits live PWM duty cycle, motor current in Amperes, and coarse dial readouts back to OpenOrgel GUI
 void reportTelemetry() {
   Serial.print("PWM:");
   Serial.println(effectiveMotorPwm, 1);
   Serial.print("CURRENT:");
   Serial.println(smoothedCurrentAmps, 2);
 
-  if (abs(fineTrimPwm - lastReportedFine) >= 0.1) {
-    lastReportedFine = fineTrimPwm;
-    Serial.print("FINE:");
-    Serial.println(fineTrimPwm, 2);
+  if (abs(coarsePwm - lastReportedCoarse) >= 0.2) {
+    lastReportedCoarse = coarsePwm;
+    Serial.print("COARSE:");
+    Serial.println(coarsePwm, 1);
   }
-  Serial.print("BASE:");
-  Serial.println(baseNominalPwm, 1);
 }
 
 // Processes a single step command ('F' = Flat -> +0.5%, 'S' = Sharp -> -0.5%, 'R' = Reset 0.0% software trim)
@@ -227,8 +217,7 @@ void processLineCommand(String cmd) {
     float target = cmd.substring(4).toFloat();
     if (target < 0.0) target = 0.0;
     if (target > 100.0) target = 100.0;
-    baseNominalPwm = target;
-    softwarePitchTrim = 0.0;
+    softwarePitchTrim = target - coarsePwm;
     lastAdjustmentTime = millis();
     readPotentiometers();
     reportTelemetry();
@@ -252,10 +241,10 @@ void setup() {
   pinMode(enPinAlt, OUTPUT);
   pinMode(enPinAlt2, OUTPUT);
   pinMode(enPinAlt3, OUTPUT);
-  pinMode(switchPin, INPUT_PULLUP); // ON-ON toggle switch between Pin 8 & GND
+  pinMode(switchPin, INPUT_PULLUP);  // ON-ON toggle switch between Pin 8 & GND
   pinMode(currentSensePin, INPUT);
-  pinMode(deadPotPin, INPUT_PULLUP); // Pull up dead Pin A3 to kill floating ADC cross-talk!
-  pinMode(finePotPin, INPUT);        // Surviving Fine Vernier Pot (Pin A4)
+  pinMode(deadPotPin, INPUT_PULLUP);  // Pull up dead Pin A3 to kill floating ADC cross-talk!
+  pinMode(coarsePotPin, INPUT);       // Surviving Master Coarse Pot (Pin A4)
 
   // Initialize outputs safely disabled
   setDriverEnable(false);
@@ -270,7 +259,7 @@ void setup() {
   debouncedSwitchState = (lowCount >= 7);
   lastRawReading = debouncedSwitchState ? LOW : HIGH;
 
-  // Read initial fine vernier position
+  // Read initial coarse pot position
   readPotentiometers();
 
   if (debouncedSwitchState) {
@@ -341,10 +330,8 @@ void loop() {
       Serial.println("CURRENT:0.00");
       Serial.print("PWM:");
       Serial.println(effectiveMotorPwm, 1);
-      Serial.print("BASE:");
-      Serial.println(baseNominalPwm, 1);
-      Serial.print("FINE:");
-      Serial.println(fineTrimPwm, 2);
+      Serial.print("COARSE:");
+      Serial.println(coarsePwm, 1);
     }
     return;
   }
