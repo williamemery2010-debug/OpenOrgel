@@ -108,6 +108,10 @@ pub struct TunerStatus {
     pub current_pwm_percent: f32,
     /// Live centrifugal blower motor current in Amperes reported by IBT-2 BTS7960 IS pin on Pin A0.
     pub motor_current_amps: f32,
+    /// Microscope Coarse Tuning Dial PWM (`0.0%` to `100.0%`, reported on Pin A3).
+    pub coarse_pwm_percent: f32,
+    /// Microscope Fine Vernier Trim PWM (`-10.0%` to `+10.0%`, reported on Pin A4).
+    pub fine_trim_pwm_percent: f32,
     /// 180-degree manifold throttle valve servo angle (`0.0` to `180.0` degrees, reported on Pin 9 / Pot A3).
     pub manifold_servo_angle: f32,
     /// Most recent control action taken by the regulator.
@@ -129,6 +133,8 @@ impl Default for TunerStatus {
             confidence: 0.0,
             current_pwm_percent: NOMINAL_PWM_PERCENT,
             motor_current_amps: 0.0,
+            coarse_pwm_percent: 75.0,
+            fine_trim_pwm_percent: 0.0,
             manifold_servo_angle: 0.0,
             last_action: BlowerAdjustment::WaitingForSignal,
             hardware_switch_on: None,

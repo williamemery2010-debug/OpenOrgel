@@ -1058,3 +1058,33 @@ PHASE 43: 180° SERVO MANIFOLD THROTTLE INTEGRATION (PIN 9) & POT 1 (A3) VALVE C
     6. Verified test harness via `cargo test` (all 50 tests passing).
     7. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 44: DUAL MICROSCOPE DIALS: COARSE PWM (PIN A3) & FINE VERNIER TRIM (PIN A4) (November 3, 2026 - Prealpha_v2.0.31)
+--------------------------------------------------------------------------------
+* November 3, 2026:
+  - WHAT:
+    1. Dual Microscope Dial Architecture for Blower Motor Control (newconsole/newconsole.ino):
+       - Refactored the dual B10K console potentiometers to operate analogously to laboratory microscope coarse and fine adjustment dials.
+       - Potentiometer 1 (Pin A3, `coarsePotPin`): Functions as the Microscope Coarse Tuning Dial, sweeping the complete 0.0% to 100.0% PWM range with an EMA low-pass filter (alpha = 0.20) to quickly establish the acoustic speaking threshold of physical organ pipework.
+       - Potentiometer 2 (Pin A4, `finePotPin`): Functions as the Microscope Fine Vernier Trim Dial, providing +/-10.0% PWM trim with a central deadband (490..534 ADC counts = 0.0% neutral). Over 300° of mechanical knob rotation, each single degree adjusts the motor by only ~0.067% PWM, enabling micro-cent tuning precision without overshooting.
+       - Combined Effective Motor PWM: Sums coarse PWM, fine vernier trim, and software pitch nudges (`effectiveMotorPwm = coarsePwm + fineTrimPwm + softwarePitchTrim;`), clamped strictly to [0.0%, 100.0%].
+       - Software Pitch Nudges: Incoming 'F' (+0.5%) and 'S' (-0.5%) tuner commands adjust `softwarePitchTrim`, while 'R' resets trim to 0.0% (returning strictly to physical potentiometer positions).
+       - Removed servo dependency, freeing Pin 9 and eliminating mechanical complexity.
+       - Telemetry stream emits "PWM:<pct>", "COARSE:<pct>", "FINE:<pct>", and "CURRENT:<amps>".
+    2. Serial Telemetry & GUI Dashboard Integration (rust/src/serial.rs, rust/src/tuner.rs, & rust/src/app.rs):
+       - Added `SerialEvent::CoarsePwm(f32)` and `SerialEvent::FineTrim(f32)` to `rust/src/serial.rs`, parsing "COARSE:" and "FINE:" / "TRIM:" messages with bounds clamping.
+       - Added `coarse_pwm_percent` and `fine_trim_pwm_percent` fields to `TunerStatus` in `rust/src/tuner.rs`.
+       - Rendered a dedicated Microscope Dual-Dial UI card in `rust/src/app.rs` displaying live Coarse (0..100%), Fine Vernier (+/-10%), Net PWM, and visual gauge bar.
+       - Added unit test `test_parse_microscope_coarse_fine_telemetry` (UT-51). All 51 unit tests pass.
+  - WHY:
+    1. The creator requested: "changed my mind its way too difficult to model this in under a day, lets make the pots like microscope dials, one is the coarse adjust (0-100%) the other is the fine adjust for the PWM, lets make that happen"
+    2. Designing, 3D printing, assembling, and sealing an airtight mechanical servo-actuated manifold is time-prohibitive. By transforming the two existing analog potentiometers into microscope coarse and fine vernier dials, the organist gains immediate, tactile, high-precision control over the blower motor's exact aerodynamic pressure window directly from the physical console.
+  - HOW:
+    1. Updated `newconsole/newconsole.ino` (`coarsePotPin = A3`, `finePotPin = A4`, `readPotentiometers()`, "COARSE:" and "FINE:" telemetry).
+    2. Updated `rust/src/serial.rs` (`SerialEvent::CoarsePwm`, `SerialEvent::FineTrim`, unit test UT-51).
+    3. Updated `rust/src/tuner.rs` (`TunerStatus::coarse_pwm_percent`, `TunerStatus::fine_trim_pwm_percent`).
+    4. Updated `rust/src/app.rs` (`pump_serial`, Microscope Dual-Dial UI card, badge).
+    5. Verified test harness via `cargo test` (all 51 tests passing).
+    6. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
+================================================================================

@@ -1,5 +1,6 @@
 // ============================================================================
-// OPENORGEL CENTRIFUGAL BLOWER CONTROLLER & TELEMETRY (IBT-2 BTS7960 & SERVO)
+// OPENORGEL CENTRIFUGAL BLOWER CONTROLLER & TELEMETRY (IBT-2 BTS7960)
+// DUAL MICROSCOPE DIAL TUNING: COARSE PWM (PIN A3) & FINE VERNIER (PIN A4)
 // ============================================================================
 // Hardware Configuration:
 //   - Pin 13 (pwmPin):          PWM speed output driving IBT-2 RPWM (Pin 13)
@@ -9,18 +10,25 @@
 //   - Pin A2 (vccPin):          Dedicated 5V logic supply output for IBT-2 VCC (Pin A2 as digital, constant HIGH)
 //   - Pin A0 (currentSensePin): Analog input measuring IBT-2 IS current-sense output
 //                               (R_IS / L_IS connected to Pin A0)
-//   - Pin 9  (servoPin):        180-degree RC Servo output controlling acoustic airflow manifold throttle valve
-//   - Pin A3 (servoPotPin):     Analog input for B10K Pot 1 (Manifold Throttle Valve: 0..180 degrees)
-//   - Pin A4 (tunePotPin):      Analog input for B10K Pot 2 (Fine Tune pitch adjust) -> affects motor only
+//   - Pin A3 (coarsePotPin):    B10K Pot 1 Wiper: Microscope Coarse Tuning Dial (0.0% to 100.0% PWM)
+//   - Pin A4 (finePotPin):      B10K Pot 2 Wiper: Microscope Fine Vernier Trim Dial (-10.0% to +10.0% PWM)
 //   - Pin 7  (pullup5vPin):     Dedicated 5V reference output on Pin 7 (adjacent to Pin 8 for clean pull-up resistor connection)
 //   - Pin 8  (switchPin):       Physical ON-ON toggle switch wired between Pin 8 & GND
 //                               (Uses internal pull-up resistor: LOW = ON, HIGH = OFF)
+//
+// Microscope Dual-Dial Tuning Principle:
+//   - Pot 1 (Coarse on Pin A3) sweeps the full 0.0% to 100.0% PWM power band, allowing the
+//     organist to quickly identify the acoustic speaking threshold of any organ pipe.
+//   - Pot 2 (Fine Vernier on Pin A4) provides ultra-high resolution (+/-10.0% PWM trim with
+//     a center deadband). Across 300 degrees of physical rotation, each degree of knob turn
+//     adjusts the motor by only ~0.067% PWM, providing laboratory-grade pitch adjustment down
+//     to single cents.
 //
 // Standalone Operation Guarantee:
 //   - When Pin 8 switch is ON (Pin 8 connected to GND / LOW):
 //       * Pin A2 (vccPin) provides steady 5V logic power to IBT-2 buffer chip.
 //       * Pin A1 (enPin) is driven HIGH (IBT-2 BTS7960 output stage ENABLED).
-//       * Pin 13 (pwmPin) is driven at currentPwmPercent (nominal 75.0% on boot).
+//       * Pin 13 (pwmPin) is driven at effectiveMotorPwm (Coarse + Fine Trim).
 //       * The centrifugal organ blower runs reliably and continuously EVEN IF:
 //           - No USB cable is connected (standalone physical organ performance)
 //           - The laptop microphone tuner is OFF or disabled
@@ -28,7 +36,6 @@
 //   - When Pin 8 switch is OFF (HIGH):
 //       * Pin A1 (enPin) is driven LOW (IBT-2 BTS7960 disabled to prevent power draw).
 //       * Pin 13 (pwmPin) is set to 0.
-//       * currentPwmPercent resets to 75.0% nominal ready for the next startup.
 //       * Measured motor current is clamped to 0.00 A.
 //
 // BTS7960 Current Measurement Physics:
@@ -47,18 +54,18 @@
 //   - Telemetry emitted to OpenOrgel GUI:
 //       * "BLOWER:1" / "BLOWER:0"  -> Hardware switch state
 //       * "PWM:<percent>"          -> Live blower duty cycle (0.0 to 100.0%)
+//       * "COARSE:<percent>"       -> Microscope coarse knob reading (0.0 to 100.0%)
+//       * "FINE:<percent>"         -> Microscope fine vernier trim (-10.0 to +10.0%)
 //       * "CURRENT:<amps>"         -> Live motor current in Amperes (e.g. "CURRENT:1.85")
 //   - Control commands received from OpenOrgel:
-//       * 'F' or 'f'               -> Pipe is Flat:  increase blower PWM by +0.5%
-//       * 'S' or 's'               -> Pipe is Sharp: decrease blower PWM by -0.5%
-//       * 'R' or 'r'               -> Reset blower PWM to nominal 75.0%
+//       * 'F' or 'f'               -> Pipe is Flat:  increase software trim by +0.5%
+//       * 'S' or 's'               -> Pipe is Sharp: decrease software trim by -0.5%
+//       * 'R' or 'r'               -> Reset software trim to 0.0% (returns strictly to pot values)
 //       * "PWM:<0..100>\n"         -> Direct PID / manual PWM duty cycle target (%)
 //       * "A4_1" / "A4_0"          -> Safely ignored (no-op)
 //   - Enforces a 500 ms anti-oscillation settling delay between step adjustments
 //     so the blower impeller and windchest reservoir stabilize before the next step.
 // ============================================================================
-
-#include <Servo.h>
 
 const int pwmPin = 13;          // PWM output to IBT-2 RPWM (Pin 13)
 const int enPin = A1;           // Primary Driver Enable output to IBT-2 R_EN and L_EN (Pin A1 as digital)
@@ -67,16 +74,10 @@ const int enPinAlt = 12;        // Redundant Driver Enable output (Pin 12)
 const int enPinAlt2 = 52;       // Redundant Driver Enable output (Pin 52)
 const int enPinAlt3 = 53;       // Redundant Driver Enable output (Pin 53)
 const int currentSensePin = A0; // Analog input for IBT-2 IS current sense (Pin A0)
-const int servoPin = 9;         // 180-degree RC Servo output controlling airflow manifold throttle valve (Pin 9)
-const int servoPotPin = A3;     // B10K Pot 1 Wiper: Manifold throttle valve servo angle (0..180 deg)
-const int tunePotPin = A4;      // B10K Pot 2 Wiper: Fine tune pitch adjust (affects motor only)
+const int coarsePotPin = A3;    // B10K Pot 1 Wiper: Microscope Coarse Tuning Dial (0.0% to 100.0% PWM)
+const int finePotPin = A4;      // B10K Pot 2 Wiper: Microscope Fine Vernier Trim Dial (-10.0% to +10.0% PWM)
 const int pullup5vPin = 7;      // Dedicated 5V reference output on Pin 7 (adjacent to Pin 8 for clean pull-up resistor connection)
 const int switchPin = 8;        // ON-ON toggle switch (Pin 8 to GND, active LOW)
-
-Servo manifoldServo;            // 180-degree RC Servo controlling windchest intake throttle valve
-float smoothedServoPot = 512.0; // Low-pass filtered ADC reading for servo pot
-int currentServoAngle = 90;     // Commanded servo angle (0 to 180 degrees)
-int lastReportedServoAngle = -1;// Change-detection tracker for serial telemetry broadcast
 
 // Helper: drives Pin A1, Pin 12, Pin 52, and Pin 53 HIGH (enabled) or LOW (disabled)
 void setDriverEnable(bool enable) {
@@ -86,7 +87,15 @@ void setDriverEnable(bool enable) {
   digitalWrite(enPinAlt3, enable ? HIGH : LOW);
 }
 
-float currentPwmPercent = 75.0;            // Nominal starting pressure at 75.0% power
+float smoothedCoarseAdc = 767.25;          // Boot default ~75.0% nominal coarse PWM (767.25/1023.0 * 100%)
+float smoothedFineAdc = 512.0;             // Boot default center ~0.0% trim
+float coarsePwm = 75.0;                    // Coarse PWM reading (0.0% to 100.0%)
+float fineTrimPwm = 0.0;                   // Fine vernier trim (-10.0% to +10.0%)
+float softwarePitchTrim = 0.0;             // Nudge from OpenOrgel tuner commands ('F' / 'S', +/-0.5%)
+float effectiveMotorPwm = 75.0;            // Net combined PWM applied to Pin 13
+float lastReportedCoarse = -1.0;           // Telemetry change detection
+float lastReportedFine = -999.0;           // Telemetry change detection
+
 unsigned long lastAdjustmentTime = 0;      // Timestamp (ms) of the last pitch adjustment
 const unsigned long adjustmentDelay = 500; // 500 ms settling delay to prevent oscillation
 
@@ -96,8 +105,6 @@ unsigned long lastDebounceTime = 0;        // Timestamp (ms) of the last raw pin
 const unsigned long debounceDelayMs = 50;  // 50 ms stability window to reject EMI / contact bounce
 unsigned long lastTelemetryTime = 0;       // Periodic telemetry stream timestamp
 float smoothedCurrentAmps = 0.0;           // Low-pass filtered motor current in Amperes
-float fineTuneTrimPwm = 0.0;               // Fine tune motor trim (-10.0% to +10.0%)
-float effectiveMotorPwm = 75.0;            // Combined PWM written to motor
 String lineBuffer = "";                    // Line accumulator for serial commands
 
 // Helper: converts 0.0-100.0% duty cycle to 8-bit timer value (0-255) and writes to Pin 13
@@ -108,37 +115,34 @@ void applyBlowerPwm(float percent) {
   analogWrite(pwmPin, pwmCounts);
 }
 
-// Reads B10K Pot 1 (Manifold Servo on A3) and Pot 2 (Fine Tune on A4)
+// Reads dual microscope dials: Coarse (0-100% on A3) and Fine Vernier (+/-10% on A4)
 void readPotentiometers() {
-  // 1. Read Pot 1 (Manifold Throttle Valve Servo on Pin A3): 0..1023 -> 0..180 deg
-  int rawServo = analogRead(servoPotPin);
-  // Low-pass EMA filter (alpha = 0.20) to suppress wiper electrical noise and eliminate servo gear chatter
-  smoothedServoPot = 0.20 * (float)rawServo + 0.80 * smoothedServoPot;
-  int targetAngle = (int)map((long)(smoothedServoPot + 0.5), 0, 1023, 0, 180);
-  if (targetAngle < 0) targetAngle = 0;
-  if (targetAngle > 180) targetAngle = 180;
+  // 1. Read Pot 1 (Microscope Coarse Adjust on Pin A3): 0..1023 -> 0.0%..100.0%
+  int rawCoarse = analogRead(coarsePotPin);
+  // Low-pass EMA filter (alpha = 0.20) to eliminate wiper friction noise and ADC jitter
+  smoothedCoarseAdc = 0.20 * (float)rawCoarse + 0.80 * smoothedCoarseAdc;
+  coarsePwm = (smoothedCoarseAdc / 1023.0) * 100.0;
+  if (coarsePwm < 0.0) coarsePwm = 0.0;
+  if (coarsePwm > 100.0) coarsePwm = 100.0;
 
-  if (targetAngle != currentServoAngle) {
-    currentServoAngle = targetAngle;
-    manifoldServo.write(currentServoAngle);
-  }
+  // 2. Read Pot 2 (Microscope Fine Vernier Adjust on Pin A4): 0..1023 (Center ~512)
+  int rawFine = analogRead(finePotPin);
+  smoothedFineAdc = 0.20 * (float)rawFine + 0.80 * smoothedFineAdc;
 
-  // 2. Read Pot 2 (Fine Tune Pitch on Pin A4): 0..1023 (Center ~512)
-  int rawTune = analogRead(tunePotPin);
-  // Center deadband (490..534) gives a solid neutral 0.0% trim at center knob position
-  if (rawTune < 490) {
-    // Trims flatter: 0.0% down to -10.0% PWM
-    fineTuneTrimPwm = ((float)rawTune - 490.0) / 490.0 * 10.0;
-  } else if (rawTune > 534) {
-    // Trims sharper: 0.0% up to +10.0% PWM
-    fineTuneTrimPwm = ((float)rawTune - 534.0) / (1023.0 - 534.0) * 10.0;
+  // Center deadband (490..534 counts) gives exact 0.0% neutral trim at center knob position
+  if (smoothedFineAdc < 490.0) {
+    // Trims flatter: 0.0% down to -10.0% PWM (high resolution: 0.02% per count)
+    fineTrimPwm = ((smoothedFineAdc - 490.0) / 490.0) * 10.0;
+  } else if (smoothedFineAdc > 534.0) {
+    // Trims sharper: 0.0% up to +10.0% PWM (high resolution: 0.02% per count)
+    fineTrimPwm = ((smoothedFineAdc - 534.0) / (1023.0 - 534.0)) * 10.0;
   } else {
-    fineTuneTrimPwm = 0.0;
+    fineTrimPwm = 0.0;
   }
 
-  // 3. Compute combined effective blower motor PWM:
-  // Base nominal pressure setpoint (75.0%) + manual fine tune trim (-10.0% to +10.0%)
-  effectiveMotorPwm = currentPwmPercent + fineTuneTrimPwm;
+  // 3. Microscope Summation:
+  // Net Motor PWM = Coarse (0-100%) + Fine Vernier (-10% to +10%) + Software Tuner Nudge
+  effectiveMotorPwm = coarsePwm + fineTrimPwm + softwarePitchTrim;
   if (effectiveMotorPwm < 0.0) effectiveMotorPwm = 0.0;
   if (effectiveMotorPwm > 100.0) effectiveMotorPwm = 100.0;
 }
@@ -162,28 +166,34 @@ float readMotorCurrentAmps() {
   return smoothedCurrentAmps;
 }
 
-// Transmits live PWM duty cycle, motor current in Amperes, and manifold servo angle back to OpenOrgel GUI
+// Transmits live PWM duty cycle, motor current in Amperes, and microscope dial readouts back to OpenOrgel GUI
 void reportTelemetry() {
   Serial.print("PWM:");
   Serial.println(effectiveMotorPwm, 1);
   Serial.print("CURRENT:");
   Serial.println(smoothedCurrentAmps, 2);
 
-  // Broadcast manifold throttle valve servo angle if changed by >= 1 degree
-  if (currentServoAngle != lastReportedServoAngle) {
-    lastReportedServoAngle = currentServoAngle;
-    Serial.print("SERVO:");
-    Serial.println(currentServoAngle);
+  // Broadcast microscope coarse and fine dial positions on significant change
+  if (abs(coarsePwm - lastReportedCoarse) >= 0.5) {
+    lastReportedCoarse = coarsePwm;
+    Serial.print("COARSE:");
+    Serial.println(coarsePwm, 1);
+  }
+  if (abs(fineTrimPwm - lastReportedFine) >= 0.1) {
+    lastReportedFine = fineTrimPwm;
+    Serial.print("FINE:");
+    Serial.println(fineTrimPwm, 2);
   }
 }
 
-// Processes a single step command ('F' = Flat -> +0.5%, 'S' = Sharp -> -0.5%, 'R' = Reset 75%)
+// Processes a single step command ('F' = Flat -> +0.5%, 'S' = Sharp -> -0.5%, 'R' = Reset 0.0% software trim)
 void processStepCommand(char command) {
   unsigned long now = millis();
 
   if (command == 'R' || command == 'r') {
-    currentPwmPercent = 75.0;
+    softwarePitchTrim = 0.0;
     lastAdjustmentTime = now;
+    readPotentiometers();
     reportTelemetry();
     return;
   }
@@ -192,21 +202,21 @@ void processStepCommand(char command) {
   if (now - lastAdjustmentTime >= adjustmentDelay) {
     if (command == 'F' || command == 'f') {
       // Pitch is flat -> increase blower pressure by +0.5%
-      currentPwmPercent += 0.5;
-      if (currentPwmPercent > 100.0) currentPwmPercent = 100.0;
+      softwarePitchTrim += 0.5;
       lastAdjustmentTime = now;
+      readPotentiometers();
       reportTelemetry();
     } else if (command == 'S' || command == 's') {
       // Pitch is sharp -> decrease blower pressure by -0.5%
-      currentPwmPercent -= 0.5;
-      if (currentPwmPercent < 0.0) currentPwmPercent = 0.0;
+      softwarePitchTrim -= 0.5;
       lastAdjustmentTime = now;
+      readPotentiometers();
       reportTelemetry();
     }
   }
 }
 
-// Processes a newline-terminated command string (e.g. "F", "S", "PWM:52.5", "SERVO:90", "A4_1")
+// Processes a newline-terminated command string (e.g. "F", "S", "PWM:52.5", "A4_1")
 void processLineCommand(String cmd) {
   cmd.trim();
   if (cmd.length() == 0) return;
@@ -222,20 +232,10 @@ void processLineCommand(String cmd) {
     float target = cmd.substring(4).toFloat();
     if (target < 0.0) target = 0.0;
     if (target > 100.0) target = 100.0;
-    currentPwmPercent = target;
+    // Set software nudge so that coarse + fine + software = target
+    softwarePitchTrim = target - (coarsePwm + fineTrimPwm);
     lastAdjustmentTime = millis();
-    reportTelemetry();
-    return;
-  }
-
-  // Direct Servo angle command ("SERVO:90" or "VALVE:45")
-  if (cmd.startsWith("SERVO:") || cmd.startsWith("VALVE:")) {
-    int colonIdx = cmd.indexOf(':');
-    int target = cmd.substring(colonIdx + 1).toInt();
-    if (target < 0) target = 0;
-    if (target > 180) target = 180;
-    currentServoAngle = target;
-    manifoldServo.write(currentServoAngle);
+    readPotentiometers();
     reportTelemetry();
     return;
   }
@@ -259,11 +259,8 @@ void setup() {
   pinMode(enPinAlt3, OUTPUT);
   pinMode(switchPin, INPUT_PULLUP); // ON-ON toggle switch between Pin 8 & GND
   pinMode(currentSensePin, INPUT);
-  pinMode(servoPotPin, INPUT);
-  pinMode(tunePotPin, INPUT);
-
-  // Attach 180-degree RC Servo on Pin 9
-  manifoldServo.attach(servoPin);
+  pinMode(coarsePotPin, INPUT);     // Microscope Coarse Dial (Pin A3)
+  pinMode(finePotPin, INPUT);       // Microscope Fine Vernier Trim (Pin A4)
 
   // Initialize outputs safely disabled
   setDriverEnable(false);
@@ -278,9 +275,8 @@ void setup() {
   debouncedSwitchState = (lowCount >= 7);
   lastRawReading = debouncedSwitchState ? LOW : HIGH;
 
-  // Initialize servo position to Pot 1 reading
+  // Read initial microscope dial positions
   readPotentiometers();
-  manifoldServo.write(currentServoAngle);
 
   if (debouncedSwitchState) {
     // Switch is ON on boot: enable driver immediately for standalone operation
@@ -313,7 +309,7 @@ void loop() {
         // Switch flipped OFF: Disable IBT-2 driver immediately
         setDriverEnable(false);
         analogWrite(pwmPin, 0);
-        currentPwmPercent = 75.0; // Reset to 75.0% nominal ready for next startup
+        softwarePitchTrim = 0.0; // Reset software nudge ready for next startup
         smoothedCurrentAmps = 0.0;
       }
 
@@ -326,7 +322,7 @@ void loop() {
     }
   }
 
-  // Keep Pot 1 (Manifold Servo) responsive at all times so user can position/test the valve even when blower is OFF
+  // Continuously read microscope coarse (A3) and fine (A4) dials
   readPotentiometers();
 
   bool isSystemOn = debouncedSwitchState;
@@ -348,8 +344,12 @@ void loop() {
       lastTelemetryTime = millis();
       Serial.println("BLOWER:0");
       Serial.println("CURRENT:0.00");
-      Serial.print("SERVO:");
-      Serial.println(currentServoAngle);
+      Serial.print("PWM:");
+      Serial.println(effectiveMotorPwm, 1);
+      Serial.print("COARSE:");
+      Serial.println(coarsePwm, 1);
+      Serial.print("FINE:");
+      Serial.println(fineTrimPwm, 2);
     }
     return;
   }

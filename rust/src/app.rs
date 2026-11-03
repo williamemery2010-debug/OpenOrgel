@@ -691,6 +691,12 @@ impl OrgelApp {
                 SerialEvent::MotorCurrent(amps) => {
                     self.tuner.status.motor_current_amps = amps;
                 }
+                SerialEvent::CoarsePwm(c) => {
+                    self.tuner.status.coarse_pwm_percent = c;
+                }
+                SerialEvent::FineTrim(f) => {
+                    self.tuner.status.fine_trim_pwm_percent = f;
+                }
                 SerialEvent::ServoAngle(angle) => {
                     self.tuner.status.manifold_servo_angle = angle;
                 }
@@ -1616,27 +1622,38 @@ impl OrgelApp {
 
             ui.add_space(4.0);
 
-            // 180-degree Manifold Servo Throttle Valve (Pin 9 controlled by Pot 1 on Pin A3)
+            // Microscope Dual Dials (Coarse 0-100% on A3 & Fine Vernier +/-10% on A4)
             inner_card(ui, |ui| {
-                let servo_deg = self.tuner.status.manifold_servo_angle;
-                let pct = (servo_deg / 180.0 * 100.0).clamp(0.0, 100.0);
+                let coarse = self.tuner.status.coarse_pwm_percent;
+                let fine = self.tuner.status.fine_trim_pwm_percent;
+                let net_pwm = self.tuner.status.current_pwm_percent;
                 ui.horizontal(|ui| {
-                    ui.label(bold(format!("Manifold Valve: {:.0}° ({:.0}%)", servo_deg, pct), 12.0).color(GREEN));
+                    ui.label(bold(format!("Coarse Dial: {:.1}%", coarse), 11.0).color(ACCENT));
+                    ui.label(RichText::new("|").color(TEXT_MUTED));
+                    let fine_col = if fine.abs() < 0.1 { GREEN } else if fine > 0.0 { AMBER } else { RED };
+                    ui.label(bold(format!("Fine Vernier: {:+.2}%", fine), 11.0).color(fine_col));
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.label(RichText::new("Servo Pin 9 | Pot A3").size(11.0).color(TEXT_MUTED));
+                        ui.label(bold(format!("Net: {:.1}%", net_pwm), 12.0).color(GREEN));
                     });
                 });
                 ui.add_space(3.0);
-                let (s_rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 8.0), Sense::hover());
-                ui.painter().rect_filled(s_rect, CornerRadius::same(4), BORDER);
-                let mut s_fill = s_rect;
-                s_fill.set_width(s_rect.width() * (servo_deg / 180.0).clamp(0.0, 1.0));
-                ui.painter().rect_filled(s_fill, CornerRadius::same(4), GREEN);
+                let (m_rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 6.0), Sense::hover());
+                ui.painter().rect_filled(m_rect, CornerRadius::same(3), BORDER);
+                let mut m_fill = m_rect;
+                m_fill.set_width(m_rect.width() * (net_pwm / 100.0).clamp(0.0, 1.0));
+                ui.painter().rect_filled(m_fill, CornerRadius::same(3), GREEN);
+                ui.add_space(1.0);
+                ui.horizontal(|ui| {
+                    ui.label(RichText::new("Coarse (A3): 0..100%").size(9.0).color(TEXT_MUTED));
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.label(RichText::new("Fine (A4): ±10% Vernier").size(9.0).color(TEXT_MUTED));
+                    });
+                });
             });
 
             ui.add_space(3.0);
             ui.horizontal(|ui| {
-                badge(ui, "IBT-2 & Servo: PWM 13 | EN A1 | VCC A2 | IS A0 | Servo 9 (Pot A3) | Tune A4", ACCENT);
+                badge(ui, "IBT-2: PWM 13 | EN A1 | VCC A2 | IS A0 | Coarse A3 | Fine A4", ACCENT);
             });
             ui.add_space(2.0);
             ui.label(

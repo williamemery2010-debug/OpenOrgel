@@ -1,9 +1,9 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-11-03 14:11:20
-Total Commits  : 114
-Total Releases : 49
+Updated At     : 2026-11-03 14:36:29
+Total Commits  : 115
+Total Releases : 50
 ================================================================================
 
 🚀 RELEASES / TAGS
@@ -12,6 +12,11 @@ Version : Prealpha_v2.0.29
 Date    : 2026-11-03
 Commit  : 548e06c
 Details : Prealpha_v2.0.29: Configure Pin 7 as adjacent 5V pull-up reference for Pin 8 switch
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.30
+Date    : 2026-11-03
+Commit  : e6e353d
+Details : Prealpha_v2.0.30: 180-degree servo manifold throttle valve on Pin 9 modulated by Pot 1 (A3)
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.26
 Date    : 2026-11-02
@@ -263,7 +268,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-a274dc9  | 2026-11-03 | williamemery2010-deb | Prealpha_v2.0.30: 180-degree servo manifold throttle valve on Pin 9 modulated by Pot 1 (A3)
+f5b3d3a  | 2026-11-03 | williamemery2010-deb | Prealpha_v2.0.31: Microscope dual-dial PWM tuning (Coarse on A3, Fine Vernier on A4)
+e6e353d  | 2026-11-03 | williamemery2010-deb | Prealpha_v2.0.30: 180-degree servo manifold throttle valve on Pin 9 modulated by Pot 1 (A3)
 548e06c  | 2026-11-03 | williamemery2010-deb | Prealpha_v2.0.29: Configure Pin 7 as adjacent 5V pull-up reference for Pin 8 switch
 0c815e6  | 2026-11-02 | williamemery2010-deb | Prealpha_v2.0.28: Elevate baseline blower motor PWM to 75.0% nominal power
 40d916b  | 2026-11-02 | williamemery2010-deb | Prealpha_v2.0.27: Dual B10K potentiometers (Dyn A3, Fine Tune A4) & A440 primary reference pipe

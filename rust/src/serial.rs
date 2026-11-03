@@ -38,6 +38,10 @@ pub enum SerialEvent {
     BlowerSwitch(bool),
     /// Live Pin 13 blower MOSFET PWM duty cycle (`0.0%` to `100.0%`) reported by the Arduino.
     BlowerPwm(f32),
+    /// Microscope Coarse Tuning Dial PWM (`0.0%` to `100.0%`) reported on Pin A3.
+    CoarsePwm(f32),
+    /// Microscope Fine Vernier Trim PWM (`-10.0%` to `+10.0%`) reported on Pin A4.
+    FineTrim(f32),
     /// Live centrifugal blower motor current in Amperes reported by IBT-2 BTS7960 IS pin on Pin A0.
     MotorCurrent(f32),
     /// Serial connection established on the named COM port.
@@ -99,6 +103,18 @@ fn parse_line(line: &str, tx: &Sender<SerialEvent>) {
     if ident == "PWM" {
         if let Ok(pwm) = val_str.parse::<f32>() {
             let _ = tx.send(SerialEvent::BlowerPwm(pwm.clamp(0.0, 100.0)));
+        }
+        return;
+    }
+    if ident == "COARSE" {
+        if let Ok(c) = val_str.parse::<f32>() {
+            let _ = tx.send(SerialEvent::CoarsePwm(c.clamp(0.0, 100.0)));
+        }
+        return;
+    }
+    if ident == "FINE" || ident == "TRIM" {
+        if let Ok(f) = val_str.parse::<f32>() {
+            let _ = tx.send(SerialEvent::FineTrim(f.clamp(-15.0, 15.0)));
         }
         return;
     }
@@ -347,6 +363,55 @@ pub mod tests {
                 assert_eq!(deg, 0.0, "Expected negative angle to clamp to 0.0");
             }
             other => panic!("Unexpected event for clamped SERVO: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_parse_microscope_coarse_fine_telemetry() {
+        let (tx, rx) = unbounded();
+
+        // 1. Coarse dial reading: "COARSE:78.5"
+        parse_line("COARSE:78.5", &tx);
+        match rx.try_recv().expect("Expected CoarsePwm event") {
+            SerialEvent::CoarsePwm(c) => {
+                assert!((c - 78.5).abs() < 1e-4, "Expected 78.5%, got {c}");
+            }
+            other => panic!("Unexpected event for COARSE:78.5: {other:?}"),
+        }
+
+        // 2. Fine vernier trim reading: "FINE:-2.35"
+        parse_line("FINE:-2.35", &tx);
+        match rx.try_recv().expect("Expected FineTrim event") {
+            SerialEvent::FineTrim(f) => {
+                assert!((f - (-2.35)).abs() < 1e-4, "Expected -2.35%, got {f}");
+            }
+            other => panic!("Unexpected event for FINE:-2.35: {other:?}"),
+        }
+
+        // 3. Fine alias: "TRIM:4.10"
+        parse_line("TRIM:4.10", &tx);
+        match rx.try_recv().expect("Expected FineTrim event") {
+            SerialEvent::FineTrim(f) => {
+                assert!((f - 4.10).abs() < 1e-4, "Expected 4.10%, got {f}");
+            }
+            other => panic!("Unexpected event for TRIM:4.10: {other:?}"),
+        }
+
+        // 4. Clamping
+        parse_line("COARSE:125.0", &tx);
+        match rx.try_recv().expect("Expected CoarsePwm event") {
+            SerialEvent::CoarsePwm(c) => {
+                assert_eq!(c, 100.0);
+            }
+            other => panic!("Unexpected event for clamped COARSE: {other:?}"),
+        }
+
+        parse_line("FINE:20.0", &tx);
+        match rx.try_recv().expect("Expected FineTrim event") {
+            SerialEvent::FineTrim(f) => {
+                assert_eq!(f, 15.0);
+            }
+            other => panic!("Unexpected event for clamped FINE: {other:?}"),
         }
     }
 }
