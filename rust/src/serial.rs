@@ -32,6 +32,8 @@ pub enum SerialEvent {
     Volume(f32),
     /// Organ dynamics / swell slider multiplier (`0.10` to `1.50`).
     Dynamics(f32),
+    /// 180-degree manifold throttle valve servo angle (`0.0` to `180.0` degrees).
+    ServoAngle(f32),
     /// Pin 8 ON-ON blower toggle switch state (`true` = ON / LOW, `false` = OFF / HIGH).
     BlowerSwitch(bool),
     /// Live Pin 13 blower MOSFET PWM duty cycle (`0.0%` to `100.0%`) reported by the Arduino.
@@ -115,6 +117,12 @@ fn parse_line(line: &str, tx: &Sender<SerialEvent>) {
                 raw.clamp(0.10, 1.50)
             };
             let _ = tx.send(SerialEvent::Dynamics(dyn_val));
+        }
+        return;
+    }
+    if ident == "SERVO" || ident == "VALVE" || ident == "MANIFOLD" {
+        if let Ok(angle) = val_str.parse::<f32>() {
+            let _ = tx.send(SerialEvent::ServoAngle(angle.clamp(0.0, 180.0)));
         }
         return;
     }
@@ -291,6 +299,55 @@ pub mod tests {
         assert!(rx.try_recv().is_err());
         parse_line("GARBAGE", &tx);
         assert!(rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn test_parse_manifold_servo_telemetry() {
+        let (tx, rx) = unbounded();
+
+        // 1. Direct servo telemetry: "SERVO:90"
+        parse_line("SERVO:90", &tx);
+        match rx.try_recv().expect("Expected ServoAngle event") {
+            SerialEvent::ServoAngle(deg) => {
+                assert!((deg - 90.0).abs() < 1e-4, "Expected 90.0 deg, got {deg}");
+            }
+            other => panic!("Unexpected event for SERVO:90: {other:?}"),
+        }
+
+        // 2. Alias "VALVE:135.5"
+        parse_line("VALVE:135.5", &tx);
+        match rx.try_recv().expect("Expected ServoAngle event") {
+            SerialEvent::ServoAngle(deg) => {
+                assert!((deg - 135.5).abs() < 1e-4, "Expected 135.5 deg, got {deg}");
+            }
+            other => panic!("Unexpected event for VALVE:135.5: {other:?}"),
+        }
+
+        // 3. Alias "MANIFOLD:0"
+        parse_line("MANIFOLD:0", &tx);
+        match rx.try_recv().expect("Expected ServoAngle event") {
+            SerialEvent::ServoAngle(deg) => {
+                assert_eq!(deg, 0.0);
+            }
+            other => panic!("Unexpected event for MANIFOLD:0: {other:?}"),
+        }
+
+        // 4. Clamping to 0.0 .. 180.0
+        parse_line("SERVO:215.0", &tx);
+        match rx.try_recv().expect("Expected ServoAngle event") {
+            SerialEvent::ServoAngle(deg) => {
+                assert_eq!(deg, 180.0, "Expected over-range angle to clamp to 180.0");
+            }
+            other => panic!("Unexpected event for clamped SERVO: {other:?}"),
+        }
+
+        parse_line("SERVO:-25.0", &tx);
+        match rx.try_recv().expect("Expected ServoAngle event") {
+            SerialEvent::ServoAngle(deg) => {
+                assert_eq!(deg, 0.0, "Expected negative angle to clamp to 0.0");
+            }
+            other => panic!("Unexpected event for clamped SERVO: {other:?}"),
+        }
     }
 }
 

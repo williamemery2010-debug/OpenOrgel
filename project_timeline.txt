@@ -1029,3 +1029,32 @@ PHASE 42: PIN 7 DEDICATED 5V PULL-UP RAIL & MOTOR CAPACITOR SNUBBER ARCHITECTURE
     3. Verified test harness via `cargo test` (all 49 tests passing).
     4. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
 ================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 43: 180° SERVO MANIFOLD THROTTLE INTEGRATION (PIN 9) & POT 1 (A3) VALVE CONTROL (November 3, 2026 - Prealpha_v2.0.30)
+--------------------------------------------------------------------------------
+* November 3, 2026:
+  - WHAT:
+    1. 180-Degree RC Servo Manifold Throttle Valve on Pin 9 (newconsole/newconsole.ino):
+       - Integrated `<Servo.h>` and assigned Arduino digital Pin 9 (`servoPin = 9`) to drive an RC servo controlling a physical butterfly/barrel airflow throttle valve in the duct between the centrifugal blower and the pipe foot.
+       - Repurposed B10K Potentiometer 1 on Pin A3 (`servoPotPin = A3`) from software synth dynamics to direct physical manifold throttle angle regulation (0° to 180°).
+       - Implemented an Exponential Moving Average (EMA) low-pass filter (alpha = 0.20) on Pin A3 ADC readings to eliminate wiper noise and prevent servo gear buzzing.
+       - Decoupled motor baseline PWM from dynamic factors, letting the motor run at steady 75.0% baseline with Pot 2 fine-tuning while the servo modulates physical airflow conductance and static pressure.
+       - Emitted live telemetry "SERVO:<degrees>" over Serial (115200 baud) whenever the valve moves >= 1°.
+    2. Serial Telemetry Protocol & GUI Dashboard Integration (rust/src/serial.rs, rust/src/tuner.rs & rust/src/app.rs):
+       - Added `SerialEvent::ServoAngle(f32)` to `rust/src/serial.rs`, parsing "SERVO:", "VALVE:", and "MANIFOLD:" messages with bounds clamping (0.0° to 180.0°).
+       - Added `manifold_servo_angle` field to `TunerStatus` in `rust/src/tuner.rs`.
+       - Rendered a live Manifold Throttle Valve card and green gauge bar in OpenOrgel Tuner UI (`rust/src/app.rs`) displaying live angle and percentage opening.
+       - Added unit test `test_parse_manifold_servo_telemetry` (UT-50). All 50 unit tests pass.
+  - WHY:
+    1. The creator reported: "Done. New strat for the pipe speaking- im going to have a servo controlling some kind of manifold in the interface between the blower out and the pipe. find a pin, and suggest how I can model this. lets make the dynamic pot no longer for dynamics but for that servo. its a 180 degree servo as well"
+    2. Direct PWM motor throttling alone cannot provide prompt acoustic pipe speech. Throttling a centrifugal blower to very low speeds causes impeller aerodynamic stall, vortex turbulence, and unstable static pressure. Running the blower at a steady nominal speed into a servo-controlled throttle/plenum ensures laminar static pressure at the flue mouth and instant speech articulation.
+  - HOW:
+    1. Updated `newconsole/newconsole.ino` (`#include <Servo.h>`, `servoPin = 9`, `servoPotPin = A3`, `manifoldServo.write()`, "SERVO:" telemetry).
+    2. Updated `rust/src/serial.rs` (`SerialEvent::ServoAngle`, `parse_line`, unit test UT-50).
+    3. Updated `rust/src/tuner.rs` (`TunerStatus::manifold_servo_angle`).
+    4. Updated `rust/src/app.rs` (`pump_serial` handler, Manifold Valve UI gauge, badge).
+    5. Documented CAD and aerodynamic modeling options (butterfly, barrel, and plenum dump valves).
+    6. Verified test harness via `cargo test` (all 50 tests passing).
+    7. Recompiled release binary and deployed `openorgelsynth.exe` to Desktop target path.
+================================================================================

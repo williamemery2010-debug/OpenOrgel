@@ -1,5 +1,5 @@
 // ============================================================================
-// OPENORGEL CENTRIFUGAL BLOWER CONTROLLER & TELEMETRY (IBT-2 BTS7960)
+// OPENORGEL CENTRIFUGAL BLOWER CONTROLLER & TELEMETRY (IBT-2 BTS7960 & SERVO)
 // ============================================================================
 // Hardware Configuration:
 //   - Pin 13 (pwmPin):          PWM speed output driving IBT-2 RPWM (Pin 13)
@@ -9,8 +9,10 @@
 //   - Pin A2 (vccPin):          Dedicated 5V logic supply output for IBT-2 VCC (Pin A2 as digital, constant HIGH)
 //   - Pin A0 (currentSensePin): Analog input measuring IBT-2 IS current-sense output
 //                               (R_IS / L_IS connected to Pin A0)
-//   - Pin A3 (dynPotPin):       Analog input for B10K Pot 1 (Dynamic / Swell slider) -> affects motor & synth
+//   - Pin 9  (servoPin):        180-degree RC Servo output controlling acoustic airflow manifold throttle valve
+//   - Pin A3 (servoPotPin):     Analog input for B10K Pot 1 (Manifold Throttle Valve: 0..180 degrees)
 //   - Pin A4 (tunePotPin):      Analog input for B10K Pot 2 (Fine Tune pitch adjust) -> affects motor only
+//   - Pin 7  (pullup5vPin):     Dedicated 5V reference output on Pin 7 (adjacent to Pin 8 for clean pull-up resistor connection)
 //   - Pin 8  (switchPin):       Physical ON-ON toggle switch wired between Pin 8 & GND
 //                               (Uses internal pull-up resistor: LOW = ON, HIGH = OFF)
 //
@@ -56,6 +58,8 @@
 //     so the blower impeller and windchest reservoir stabilize before the next step.
 // ============================================================================
 
+#include <Servo.h>
+
 const int pwmPin = 13;          // PWM output to IBT-2 RPWM (Pin 13)
 const int enPin = A1;           // Primary Driver Enable output to IBT-2 R_EN and L_EN (Pin A1 as digital)
 const int vccPin = A2;          // Dedicated 5V logic supply output for IBT-2 VCC (Pin A2 as digital, constant HIGH)
@@ -63,10 +67,16 @@ const int enPinAlt = 12;        // Redundant Driver Enable output (Pin 12)
 const int enPinAlt2 = 52;       // Redundant Driver Enable output (Pin 52)
 const int enPinAlt3 = 53;       // Redundant Driver Enable output (Pin 53)
 const int currentSensePin = A0; // Analog input for IBT-2 IS current sense (Pin A0)
-const int dynPotPin = A3;       // B10K Pot 1 Wiper: Dynamic slider (affects synth & motor)
+const int servoPin = 9;         // 180-degree RC Servo output controlling airflow manifold throttle valve (Pin 9)
+const int servoPotPin = A3;     // B10K Pot 1 Wiper: Manifold throttle valve servo angle (0..180 deg)
 const int tunePotPin = A4;      // B10K Pot 2 Wiper: Fine tune pitch adjust (affects motor only)
 const int pullup5vPin = 7;      // Dedicated 5V reference output on Pin 7 (adjacent to Pin 8 for clean pull-up resistor connection)
 const int switchPin = 8;        // ON-ON toggle switch (Pin 8 to GND, active LOW)
+
+Servo manifoldServo;            // 180-degree RC Servo controlling windchest intake throttle valve
+float smoothedServoPot = 512.0; // Low-pass filtered ADC reading for servo pot
+int currentServoAngle = 90;     // Commanded servo angle (0 to 180 degrees)
+int lastReportedServoAngle = -1;// Change-detection tracker for serial telemetry broadcast
 
 // Helper: drives Pin A1, Pin 12, Pin 52, and Pin 53 HIGH (enabled) or LOW (disabled)
 void setDriverEnable(bool enable) {
@@ -86,8 +96,6 @@ unsigned long lastDebounceTime = 0;        // Timestamp (ms) of the last raw pin
 const unsigned long debounceDelayMs = 50;  // 50 ms stability window to reject EMI / contact bounce
 unsigned long lastTelemetryTime = 0;       // Periodic telemetry stream timestamp
 float smoothedCurrentAmps = 0.0;           // Low-pass filtered motor current in Amperes
-float smoothedDyn = 1.0;                   // Dynamics multiplier (0.10 to 1.50)
-float lastReportedDyn = -1.0;              // Tracks serial broadcast threshold
 float fineTuneTrimPwm = 0.0;               // Fine tune motor trim (-10.0% to +10.0%)
 float effectiveMotorPwm = 75.0;            // Combined PWM written to motor
 String lineBuffer = "";                    // Line accumulator for serial commands
@@ -100,14 +108,20 @@ void applyBlowerPwm(float percent) {
   analogWrite(pwmPin, pwmCounts);
 }
 
-// Reads B10K Pot 1 (Dynamics on A3) and Pot 2 (Fine Tune on A4)
+// Reads B10K Pot 1 (Manifold Servo on A3) and Pot 2 (Fine Tune on A4)
 void readPotentiometers() {
-  // 1. Read Pot 1 (Dynamic / Swell Slider on Pin A3): 0..1023
-  int rawDyn = analogRead(dynPotPin);
-  // Map 0..1023 to 0.10..1.50 multiplier
-  float targetDyn = 0.10 + ((float)rawDyn / 1023.0) * 1.40;
-  // Low-pass EMA filter (alpha = 0.20) to suppress analog wiper noise
-  smoothedDyn = 0.20 * targetDyn + 0.80 * smoothedDyn;
+  // 1. Read Pot 1 (Manifold Throttle Valve Servo on Pin A3): 0..1023 -> 0..180 deg
+  int rawServo = analogRead(servoPotPin);
+  // Low-pass EMA filter (alpha = 0.20) to suppress wiper electrical noise and eliminate servo gear chatter
+  smoothedServoPot = 0.20 * (float)rawServo + 0.80 * smoothedServoPot;
+  int targetAngle = (int)map((long)(smoothedServoPot + 0.5), 0, 1023, 0, 180);
+  if (targetAngle < 0) targetAngle = 0;
+  if (targetAngle > 180) targetAngle = 180;
+
+  if (targetAngle != currentServoAngle) {
+    currentServoAngle = targetAngle;
+    manifoldServo.write(currentServoAngle);
+  }
 
   // 2. Read Pot 2 (Fine Tune Pitch on Pin A4): 0..1023 (Center ~512)
   int rawTune = analogRead(tunePotPin);
@@ -123,9 +137,8 @@ void readPotentiometers() {
   }
 
   // 3. Compute combined effective blower motor PWM:
-  // Base pressure setpoint + manual fine tune trim, scaled by dynamic swell factor (0.75x to 1.25x)
-  float dynMotorFactor = 0.75 + 0.50 * ((float)rawDyn / 1023.0);
-  effectiveMotorPwm = (currentPwmPercent + fineTuneTrimPwm) * dynMotorFactor;
+  // Base nominal pressure setpoint (75.0%) + manual fine tune trim (-10.0% to +10.0%)
+  effectiveMotorPwm = currentPwmPercent + fineTuneTrimPwm;
   if (effectiveMotorPwm < 0.0) effectiveMotorPwm = 0.0;
   if (effectiveMotorPwm > 100.0) effectiveMotorPwm = 100.0;
 }
@@ -149,18 +162,18 @@ float readMotorCurrentAmps() {
   return smoothedCurrentAmps;
 }
 
-// Transmits live PWM duty cycle, motor current in Amperes, and dynamics pot updates back to OpenOrgel GUI
+// Transmits live PWM duty cycle, motor current in Amperes, and manifold servo angle back to OpenOrgel GUI
 void reportTelemetry() {
   Serial.print("PWM:");
   Serial.println(effectiveMotorPwm, 1);
   Serial.print("CURRENT:");
   Serial.println(smoothedCurrentAmps, 2);
 
-  // Broadcast dynamics pot updates to OpenOrgel synth if changed by > 1.5%
-  if (abs(smoothedDyn - lastReportedDyn) >= 0.015) {
-    lastReportedDyn = smoothedDyn;
-    Serial.print("DYN:");
-    Serial.println(smoothedDyn, 2);
+  // Broadcast manifold throttle valve servo angle if changed by >= 1 degree
+  if (currentServoAngle != lastReportedServoAngle) {
+    lastReportedServoAngle = currentServoAngle;
+    Serial.print("SERVO:");
+    Serial.println(currentServoAngle);
   }
 }
 
@@ -193,7 +206,7 @@ void processStepCommand(char command) {
   }
 }
 
-// Processes a newline-terminated command string (e.g. "F", "S", "PWM:52.5", "A4_1")
+// Processes a newline-terminated command string (e.g. "F", "S", "PWM:52.5", "SERVO:90", "A4_1")
 void processLineCommand(String cmd) {
   cmd.trim();
   if (cmd.length() == 0) return;
@@ -211,6 +224,18 @@ void processLineCommand(String cmd) {
     if (target > 100.0) target = 100.0;
     currentPwmPercent = target;
     lastAdjustmentTime = millis();
+    reportTelemetry();
+    return;
+  }
+
+  // Direct Servo angle command ("SERVO:90" or "VALVE:45")
+  if (cmd.startsWith("SERVO:") || cmd.startsWith("VALVE:")) {
+    int colonIdx = cmd.indexOf(':');
+    int target = cmd.substring(colonIdx + 1).toInt();
+    if (target < 0) target = 0;
+    if (target > 180) target = 180;
+    currentServoAngle = target;
+    manifoldServo.write(currentServoAngle);
     reportTelemetry();
     return;
   }
@@ -234,8 +259,11 @@ void setup() {
   pinMode(enPinAlt3, OUTPUT);
   pinMode(switchPin, INPUT_PULLUP); // ON-ON toggle switch between Pin 8 & GND
   pinMode(currentSensePin, INPUT);
-  pinMode(dynPotPin, INPUT);
+  pinMode(servoPotPin, INPUT);
   pinMode(tunePotPin, INPUT);
+
+  // Attach 180-degree RC Servo on Pin 9
+  manifoldServo.attach(servoPin);
 
   // Initialize outputs safely disabled
   setDriverEnable(false);
@@ -250,10 +278,13 @@ void setup() {
   debouncedSwitchState = (lowCount >= 7);
   lastRawReading = debouncedSwitchState ? LOW : HIGH;
 
+  // Initialize servo position to Pot 1 reading
+  readPotentiometers();
+  manifoldServo.write(currentServoAngle);
+
   if (debouncedSwitchState) {
     // Switch is ON on boot: enable driver immediately for standalone operation
     setDriverEnable(true);
-    readPotentiometers();
     applyBlowerPwm(effectiveMotorPwm);
   }
 }
@@ -295,6 +326,9 @@ void loop() {
     }
   }
 
+  // Keep Pot 1 (Manifold Servo) responsive at all times so user can position/test the valve even when blower is OFF
+  readPotentiometers();
+
   bool isSystemOn = debouncedSwitchState;
 
   // When system is OFF: keep outputs disabled, drain serial buffer, and broadcast OFF heartbeat
@@ -314,6 +348,8 @@ void loop() {
       lastTelemetryTime = millis();
       Serial.println("BLOWER:0");
       Serial.println("CURRENT:0.00");
+      Serial.print("SERVO:");
+      Serial.println(currentServoAngle);
     }
     return;
   }
@@ -325,7 +361,6 @@ void loop() {
   setDriverEnable(true);
 
   // Apply effective PWM duty cycle to Pin 13 (runs reliably standalone even if tuner/app is closed)
-  readPotentiometers();
   applyBlowerPwm(effectiveMotorPwm);
 
   // Measure motor current via BTS7960 IS on Pin A0

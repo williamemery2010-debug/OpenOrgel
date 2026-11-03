@@ -595,6 +595,16 @@ Every unit test is completely deterministic, automated, and runs in sub-second e
 
 ---
 
+### UT-50: Manifold Throttle Valve Servo Telemetry Parsing & Clamping
+- **Module:** [rust/src/serial.rs](file:///c:/Users/EME0012/OpenOrgel/rust/src/serial.rs) (`test_parse_manifold_servo_telemetry`)
+- **WHY:** To achieve stable flue speech and laminar wind pressure at the acoustic organ pipe, the blower-to-pipe interface incorporates a mechanical manifold throttle valve controlled by a 180-degree RC servo on Arduino Pin 9 (modulated by Pot 1 on Pin A3). Telemetry emitted by the console (`"SERVO:<angle>"`, `"VALVE:<angle>"`, `"MANIFOLD:<angle>"`) must be parsed and strictly clamped to $[0.0^\circ, 180.0^\circ]$.
+- **WHAT:** Validates that `parse_line` correctly extracts and dispatches `SerialEvent::ServoAngle` with float precision, accepts aliases (`"VALVE"`, `"MANIFOLD"`), clamps over-range values ($> 180^\circ$) to $180.0^\circ$, and clamps negative values ($< 0^\circ$) to $0.0^\circ$.
+- **METHOD:** Feeds test strings (`"SERVO:90"`, `"VALVE:135.5"`, `"MANIFOLD:0"`, `"SERVO:215.0"`, `"SERVO:-25.0"`) into `parse_line` over an unbounded channel and asserts exact event types and values.
+- **EXPECTED RESULT:** Dispatches `ServoAngle(90.0)`, `ServoAngle(135.5)`, `ServoAngle(0.0)`, `ServoAngle(180.0)` (clamped), and `ServoAngle(0.0)` (clamped).
+- **ACTUAL RESULT:** Passed.
+
+---
+
 ## 4. How to Reproduce and Run Tests
 
 The test suite can be run directly from the command line using the native Cargo toolchain:

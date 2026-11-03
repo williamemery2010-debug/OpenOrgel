@@ -1,12 +1,17 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-11-03 12:11:00
-Total Commits  : 113
-Total Releases : 48
+Updated At     : 2026-11-03 14:11:20
+Total Commits  : 114
+Total Releases : 49
 ================================================================================
 
 🚀 RELEASES / TAGS
+--------------------------------------------------------------------------------
+Version : Prealpha_v2.0.29
+Date    : 2026-11-03
+Commit  : 548e06c
+Details : Prealpha_v2.0.29: Configure Pin 7 as adjacent 5V pull-up reference for Pin 8 switch
 --------------------------------------------------------------------------------
 Version : Prealpha_v2.0.26
 Date    : 2026-11-02
@@ -258,7 +263,8 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
-e64c16d  | 2026-11-03 | williamemery2010-deb | Prealpha_v2.0.29: Configure Pin 7 as adjacent 5V pull-up reference for Pin 8 switch
+a274dc9  | 2026-11-03 | williamemery2010-deb | Prealpha_v2.0.30: 180-degree servo manifold throttle valve on Pin 9 modulated by Pot 1 (A3)
+548e06c  | 2026-11-03 | williamemery2010-deb | Prealpha_v2.0.29: Configure Pin 7 as adjacent 5V pull-up reference for Pin 8 switch
 0c815e6  | 2026-11-02 | williamemery2010-deb | Prealpha_v2.0.28: Elevate baseline blower motor PWM to 75.0% nominal power
 40d916b  | 2026-11-02 | williamemery2010-deb | Prealpha_v2.0.27: Dual B10K potentiometers (Dyn A3, Fine Tune A4) & A440 primary reference pipe
 192fe15  | 2026-11-02 | williamemery2010-deb | Prealpha_v2.0.26: Implement 50ms digital debounce and EMI suppression for Pin 8 switch

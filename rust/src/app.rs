@@ -691,6 +691,9 @@ impl OrgelApp {
                 SerialEvent::MotorCurrent(amps) => {
                     self.tuner.status.motor_current_amps = amps;
                 }
+                SerialEvent::ServoAngle(angle) => {
+                    self.tuner.status.manifold_servo_angle = angle;
+                }
                 SerialEvent::Connected(p) => self.toast(format!("Console connected on {p}"), GREEN),
                 SerialEvent::Disconnected => {
                     self.tuner.status.hardware_switch_on = None;
@@ -1611,9 +1614,29 @@ impl OrgelApp {
                 });
             });
 
+            ui.add_space(4.0);
+
+            // 180-degree Manifold Servo Throttle Valve (Pin 9 controlled by Pot 1 on Pin A3)
+            inner_card(ui, |ui| {
+                let servo_deg = self.tuner.status.manifold_servo_angle;
+                let pct = (servo_deg / 180.0 * 100.0).clamp(0.0, 100.0);
+                ui.horizontal(|ui| {
+                    ui.label(bold(format!("Manifold Valve: {:.0}° ({:.0}%)", servo_deg, pct), 12.0).color(GREEN));
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.label(RichText::new("Servo Pin 9 | Pot A3").size(11.0).color(TEXT_MUTED));
+                    });
+                });
+                ui.add_space(3.0);
+                let (s_rect, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 8.0), Sense::hover());
+                ui.painter().rect_filled(s_rect, CornerRadius::same(4), BORDER);
+                let mut s_fill = s_rect;
+                s_fill.set_width(s_rect.width() * (servo_deg / 180.0).clamp(0.0, 1.0));
+                ui.painter().rect_filled(s_fill, CornerRadius::same(4), GREEN);
+            });
+
             ui.add_space(3.0);
             ui.horizontal(|ui| {
-                badge(ui, "IBT-2: PWM 13 | EN A1 | VCC A2 | IS A0 | Dyn A3 | Tune A4", ACCENT);
+                badge(ui, "IBT-2 & Servo: PWM 13 | EN A1 | VCC A2 | IS A0 | Servo 9 (Pot A3) | Tune A4", ACCENT);
             });
             ui.add_space(2.0);
             ui.label(
