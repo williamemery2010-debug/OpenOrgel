@@ -1,9 +1,140 @@
-In 2026, I will be designing and producing my project, OpenOrgel. The project itself is a portative pipe organ of which the documentation, design, and software will be open source. It will be mainly constructed of wood and 3D Printed PLA (Polylactic Acid) plastic. The organ will be powered by a self designed electric centrifugal blower that runs off a battery or voltage limited mains less than 50v AC or 120V  ripple-free DC , preferably less than 50V to power a DC motor that will run it. It will have a closed-loop wind system allowing for precise control over dynamics and air pressure. The wind system will make use of sensors to monitor air pressure, which will be generated passively via a weighted bellow lid on the reservoir/regulator. There will also be a tachometer or hall sensor to measure the RPM of the impeller, which will be reported to the controller. If air pressure drops, the system will increase the RPM accordingly so as to not overcompensate. If air pressure rises, the system will decrease the RPM, or if incredibly extreme the system will open some relief valves. To keep pressure stable past the regulator, there will be a one way valve to prevent backflow, and before that a valve that only lets air in at a certain pressure. This pressure will have to be adjustable by the controller in response to user input from the dynamics console. 
-The current, most complicated form will have a range of C0-C8 which is 8 octaves of full chromatic range, larger than the piano. To allow for portability and size constraints, the low (pedal) range, which will be from C0-F#3 will be synthesised. Other voices may also be synthesised throughout the entire range of the organ, such as Voix Celeste or reed stops, or 8’ up to 32’ stops that are simply too large to produce or difficult to manufacture. I may add a percussion console which has some percussion instruments (Bells, drums, etc) that will likely be synthesised, as the large pipe organs of today typically have that. I will also make a synthesised Digeridoo stop that sounds exactly like an indigenous Digeridoo, perhaps with more indigenous instruments. The indigenous instruments will be implemented ethically, considering the context surrounding the instruments and the implications of including them, and will be approached with utmost respect. 
+# OpenOrgel: Open-Source Hybrid Pipe Organ & Synthesis Engine
 
+[![Build & Publish Release](https://github.com/williamemery2010-debug/OpenOrgel/actions/workflows/build_and_release.yml/badge.svg)](https://github.com/williamemery2010-debug/OpenOrgel/actions/workflows/build_and_release.yml)
+[![Tests Passing](https://img.shields.io/badge/Unit%20Tests-55%2F55%20Passing-brightgreen)](unit_tests_report.md)
+[![Language: Rust](https://img.shields.io/badge/Language-Rust%202021-orange.svg)](rust/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Status: Concluded](https://img.shields.io/badge/Project%20Status-Concluded%20%2F%20Archived-lightgrey.svg)](RELEASE_NOTES.md)
 
-1.2)
-The instrument is designed to function as an accessible, affordable, consistent, easy to use, easy to repair instrument for educational purposes 
+---
 
-In modern society, there is a persistent imbalance of the standard of living between nations. Developed nations enjoy a much more comfortable standard of living with prevalent access to resources such as musical education, which in the developed world is considered a right. In developing/underdeveloped nations, the standard of living is considerably less luxurious compared to developed nations. In these places, musical education is difficult to come by due to the intrinsic nature of musical education to be expensive. Musical education that is provided is typically not comprehensive and not to an acceptable standard, compared to more economically developed nations. Many across the world believe that musical education is an important issue in childhood, as it is necessary for the preservation of cultural music and indeed necessary for the preservation of culture itself. Unfortunately, according to The Age (The Age), The Music Trust Fund found that 63% of responding schools offered no music instruction, and only 23% of government school music programs were taught by specialist music teachers. For context, Australia is regarded as one of the richest countries in the world, consistently ranking second in median wealth per adult behind Luxembourg.
-The pipe organ is widely regarded as one of the most versatile instruments out there, due to the variety of sounds, timbres, usage of standard keyboard format, and pure range it possesses. For this reason, the pipe organ would function as a suitable musical instrument for musical education, and  thus should be used for education. Unfortunately, this “king of instruments” is dying out due to the cost, importability, mechanical complexity, and maintenance costs associated with the instrument. An average pipe organ for a church would in this day and age cost between $200,000 and several million dollars. According to Yamaha, it can take up to five years from proposal to completion. The instrument itself is so large that the churches it is typically held in are generally built/designed around the pipe organ. The instrument is very mechanically complex, having hundreds of moving parts, springs and mechanical linkages all interconnected to move a single rank of pipes. This adds to the intense cost of the instrument, which is further amplified by the sheer number of pipes used in these instruments. An average non-portatative pipe organ will likely have more than a thousand separate pipes. The traditional large pipe organ is also by design non-portable, a fixed installation, as it is built into buildings and tedious to remove, and not designed to run free-standing. These factors combine to clearly demonstrate that access to musical education through an instrument as versatile as the pipe organ is incredibly challenging to come across for people without the funds or reliable access to buildings housing pipe organs.  This could prove damaging to the preservation of the history of music as the pipe organ has been used throughout western music since the ancient Greek “Hydraulis”. The OpenOrgel aims to create a full range, portable and disassembleable pipe organ which will be fully open source, and combines mechanical action, digital action, acoustic sounding pipes and digitally synthesised sounds. The OpenOrgel is aimed to preserve western and indigenous Australian culture in music and allow for cheaper yet more extensive musical education in countries where musical education is scarce, or poverty is rampant, and furthermore to solve the issue of importability, size, and inaccessibility surrounding the pipe organ. 
+## 🏛️ Project Status: Concluded & Abandoned Indefinitely
+
+> [!NOTE]
+> **Notice of Project Conclusion:**  
+> OpenOrgel was engineered as a capstone project for the **VCE (Victorian Certificate of Education) Systems Engineering** assessment curriculum in Victoria, Australia.
+> 
+> Having successfully completed the curriculum and **passed the subject**, active development on this repository is now concluded, and the project is abandoned until further notice (and likely indefinitely).
+>
+> In addition to satisfying the academic curriculum, physical bench testing demonstrated real-world physical limits: continuous operation of the 3D-printed centrifugal blower under aerodynamic back-pressure revealed motor brush and commutator fatigue ("RUS") and 12V bench power supply current saturation under high rotor loads. Scaling the physical windchest further would require industrial-grade blower machinery outside the scope of an educational project.
+>
+> The software synthesis engine, DSP library, and hardware diagnostic suite stand as a 100% complete, highly optimized, production-ready virtual pipe organ implementation in native Rust.
+>
+> For full details, see the [Final Release Notes](RELEASE_NOTES.md).
+
+---
+
+## 📖 The Vision
+
+In 2026, OpenOrgel was conceived to design and produce an accessible, affordable, consistent, and portable pipe organ whose documentation, mechanical design, electronics, and software are entirely open source.
+
+The pipe organ—widely regarded as the "King of Instruments"—is renowned for its versatility, vast dynamic range, and rich cultural heritage spanning ancient Greek *Hydraulis* through contemporary concert halls. However, traditional pipe organs cost hundreds of thousands of dollars, take years to build, require dedicated architectural housing, and demand extensive ongoing maintenance. Consequently, educational access to the pipe organ has diminished globally.
+
+OpenOrgel bridges this divide by uniting:
+1. **Acoustic Sound Production:** 3D-printed PLA acoustic pipes powered by a closed-loop centrifugal blower.
+2. **Digital Physical Modeling Synthesis:** A native Rust DSP engine rendering 8 chromatic octaves (C0 to C8), modeling open flues, stopped gedackts, reed pipes, compound mixtures, and historical temperaments.
+3. **SoundFont 2 (SF2) Sampling:** Dynamic multi-bank soundfont streaming with automated click-free crossfading.
+4. **Embedded Microcontroller Telemetry:** Real-time Arduino Mega wind regulation, pitch-locking tuner feedback, high-current motor driving, and electronic stall protection.
+5. **Laboratory Diagnostic Suite:** Real-time motor amperage oscilloscope and session CSV telemetry logging.
+
+---
+
+## 🚀 Key Achievements Across the Project Lifecycle
+
+Across 55 distinct engineering phases, the OpenOrgel project achieved:
+
+- **100% Native Rust Synthesis Engine (`rust/`):**
+  - Ultra-low latency audio processing powered by `cpal`, `rayon`, and lock-free crossbeam channels.
+  - Multi-harmonic Chebyshev additive synthesis and band-limited Nyquist wavetable oscillators.
+  - Slew-rate limited audio buses and seamless anti-click voice envelope handling.
+- **Physical Flue & Reed Modeling:**
+  - Open Diapason 8' singing crown with realistic harmonic decay.
+  - Gedeckt stopped pipes emphasizing odd harmonics (3rd/5th partials) for warm, hollow flute timbres.
+  - Cylindrical Clarinet and conical Trumpet/Clarion/Posaune reed models with formant filtering.
+  - Dual-rank Voix Céleste with natural acoustic beating via fractional cent detuning.
+  - 4-Rank Principal chorus and classical compound mixtures with octave breaks.
+  - Chiff transient noise bursts and decorrelated aerodynamic wind flutter.
+- **Historical Musical Temperaments:**
+  - Real-time mathematical temperament calculation: Equal Temperament, Werckmeister III, Meantone, Kirnberger III, Pythagorean, and Silbermann.
+- **Physically Modeled Architectural Reverberation:**
+  - 8-comb 4-allpass Schroeder reverberator modeling Hamer Hall (Melbourne), Cathedral of St. Patrick, Baroque Church, and Dry Studio.
+- **Hardware Closed-Loop Blower Regulation:**
+  - Real-time microphone pitch detector (NSDF / Yin) locking blower RPM to a physical reference pipe (Eb5 / A440).
+  - Arduino Mega 2560 firmware (`newconsole/newconsole.ino`) with bidirectional serial communication.
+  - BTS7960 IBT-2 43A H-bridge driver control with analog current sensing and 8.5A electronic stall fuse.
+  - 180° servo manifold throttle valve regulation and anti-jitter debounced potentiometers.
+- **Diagnostic Instrumentation & GUI:**
+  - Responsive GPU-accelerated virtual organ console (`egui` / `eframe`).
+  - Real-time 15-second Amperage Oscilloscope with color-graded thresholds (Green <6A, Amber 6-8.5A, Red >8.5A).
+  - Full-session RFC 4180 CSV telemetry export for external data analysis in Excel, Python, or MATLAB.
+- **Deterministic Verification Suite:**
+  - 55 rigorous unit tests passing with 100% green status, fully documented in [unit_tests_report.md](unit_tests_report.md).
+- **Automated CI/CD & Windows Installer Suite:**
+  - GitHub Actions CI workflow compiling for MSVC on Windows.
+  - Inno Setup installer package and standalone Windows executable generation.
+
+---
+
+## 🛠️ Repository Structure
+
+```text
+OpenOrgel/
+├── rust/                      # Native Rust synthesis engine & desktop application
+│   ├── src/
+│   │   ├── main.rs            # Application entrypoint
+│   │   ├── app.rs             # Egui GUI console & diagnostic oscilloscope
+│   │   ├── dsp/               # Digital signal processing (pipe, reed, wavetable, reverb)
+│   │   ├── engine.rs          # Audio playback and voice allocation
+│   │   ├── soundfont.rs       # SoundFont 2 (SF2) streaming engine
+│   │   ├── serial.rs          # Serial communication & telemetry protocol
+│   │   ├── temperament.rs     # Mathematical temperament frequency mappings
+│   │   └── tuner.rs           # NSDF pitch detection & oscilloscope data buffers
+│   └── Cargo.toml             # Rust dependencies and release profiles
+├── newconsole/                # Microcontroller embedded firmware
+│   └── newconsole.ino         # Arduino Mega blower PWM, current sensing & servo control
+├── installer/                 # Packaging & distribution suite
+│   ├── openorgel_setup.iss    # Inno Setup 6 installer script
+│   ├── package_release.py     # Windows distribution packager
+│   └── install.ps1            # Standalone PowerShell installer
+├── samples/                   # Curated soundfont and sampled pipe audio assets
+├── project_timeline.txt       # Technical WHAT, WHY, HOW engineering log (Phases 1-55)
+├── unit_tests_report.md       # Comprehensive verification & unit test report (UT-1 to UT-55)
+├── RELEASE_NOTES.md           # Exhaustive retrospective & release documentation
+└── publish_github_release.py  # Direct GitHub Release publishing automation
+```
+
+---
+
+## 💻 Building & Running
+
+### Requirements
+- **Rust Toolchain:** Stable Rust (2021 edition) with `cargo`.
+- **Operating System:** Windows 10/11 (64-bit).
+
+### Quick Build
+```powershell
+cd rust
+cargo run --release
+```
+
+### Running Unit Tests
+```powershell
+cd rust
+cargo test
+```
+*(All 55 tests pass deterministically)*
+
+---
+
+## 📜 Historical Documentation & Timeline
+
+For the complete technical engineering history detailing every single commit, bug fix, mathematical model, and circuit redesign across all 55 phases, refer to:
+- [project_timeline.txt](project_timeline.txt)
+- [unit_tests_report.md](unit_tests_report.md)
+- [commits_and_releases.txt](commits_and_releases.txt)
+
+---
+
+## ⚖️ License
+
+OpenOrgel is released under the [MIT License](LICENSE). You are free to study, fork, modify, and build upon this work.

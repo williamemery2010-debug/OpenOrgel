@@ -1,8 +1,8 @@
 ================================================================================
                    OPENORGEL PROJECT HISTORY & RELEASES
 ================================================================================
-Updated At     : 2026-11-04 10:17:08
-Total Commits  : 126
+Updated At     : 2026-11-04 15:58:33
+Total Commits  : 127
 Total Releases : 61
 ================================================================================
 
@@ -323,6 +323,7 @@ Details : Optimising
 --------------------------------------------------------------------------------
 HASH     | DATE       | AUTHOR               | COMMIT MESSAGE
 --------------------------------------------------------------------------------
+c25ae7c  | 2026-11-04 | williamemery2010-deb | docs: update commits and releases history text logs for Prealpha_v2.0.41
 1d76044  | 2026-11-04 | williamemery2010-deb | fix(ci): configure GitHub Actions to use MSVC toolchain and remove recursive post-commit amend hook
 a16bae1  | 2026-11-04 | williamemery2010-deb | docs: update commits and releases history text logs
 0041c46  | 2026-11-04 | williamemery2010-deb | feat(ui): add session-long oscilloscope telemetry logging and CSV export

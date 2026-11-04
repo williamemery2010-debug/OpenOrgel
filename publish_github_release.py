@@ -49,9 +49,13 @@ def get_current_tag():
         try:
             return subprocess.check_output(["git", "describe", "--tags", "--abbrev=0"], text=True).strip()
         except Exception:
-            return "Prealpha_v2.0.5"
+            return "Prealpha_v2.0.42-Final"
 
 def get_release_notes(tag):
+    release_notes_file = Path("RELEASE_NOTES.md")
+    if release_notes_file.exists():
+        return release_notes_file.read_text(encoding="utf-8")
+        
     timeline_path = Path("project_timeline.txt")
     if not timeline_path.exists():
         return f"OpenOrgel release build for {tag}."
@@ -68,7 +72,7 @@ def get_release_notes(tag):
             notes.append(line)
             continue
         if found:
-            if line.startswith("======") or line.startswith("PHASE ") and len(notes) > 5:
+            if line.startswith("======") or (line.startswith("PHASE ") and len(notes) > 5):
                 break
             notes.append(line)
             
@@ -109,11 +113,13 @@ def api_request(url, method="GET", data=None, token=None, headers=None):
         raise
 
 def get_or_create_release(tag, token):
-    # Check if release already exists
     url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/releases/tags/{tag}"
+    notes = get_release_notes(tag)
     try:
         rel = api_request(url, token=token)
         print(f"Found existing release for {tag} (ID: {rel['id']})")
+        patch_url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/releases/{rel['id']}"
+        rel = api_request(patch_url, method="PATCH", data={"body": notes, "name": f"OpenOrgel {tag} - Final Release", "prerelease": False}, token=token)
         return rel
     except urllib.error.HTTPError as e:
         if e.code != 404:
@@ -122,13 +128,12 @@ def get_or_create_release(tag, token):
     # Create new release
     print(f"Creating new GitHub release for {tag}...")
     create_url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/releases"
-    notes = get_release_notes(tag)
     payload = {
         "tag_name": tag,
-        "name": f"OpenOrgel {tag}",
+        "name": f"OpenOrgel {tag} - Final Release",
         "body": notes,
         "draft": False,
-        "prerelease": True
+        "prerelease": False
     }
     rel = api_request(create_url, method="POST", data=payload, token=token)
     print(f"Successfully created release {tag} (ID: {rel['id']})")
@@ -184,6 +189,7 @@ def main():
     # 2. Locate standalone executable
     candidate_bins = [
         Path("rust/target/x86_64-pc-windows-gnullvm/release/openorgelsynth.exe"),
+        Path("rust/target/x86_64-pc-windows-msvc/release/openorgelsynth.exe"),
         Path("rust/target/release/openorgelsynth.exe"),
         Path(rf"C:\Users\{os.getenv('USERNAME', 'EME0012')}\OneDrive - St Helena Secondary College\Desktop\openorgelsynth.exe")
     ]
